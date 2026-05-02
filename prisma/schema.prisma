@@ -8,16 +8,48 @@ datasource db {
 }
 
 model Producto {
-  id          Int     @id @default(autoincrement())
-  nombre      String
-  categoria   String
-  precio      Float
-  stock       Int     @default(0)
+  id        Int        @id @default(autoincrement())
+  nombre    String
+  categoria String
+  precio    Float
+  stock     Int        @default(0)
+  items     VentaItem[]
 }
 
 model Persona {
-  id       Int    @id @default(autoincrement())
+  id       Int     @id @default(autoincrement())
   nombre   String
   telefono String
   tipo     String
+  ventas   Venta[]
+}
+
+model Venta {
+  id        Int         @id @default(autoincrement())
+  personaId Int?
+  persona   Persona?    @relation(fields: [personaId], references: [id])
+  estado    EstadoVenta @default(BORRADOR)
+  total     Float       @default(0)
+  items     VentaItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model VentaItem {
+  id           Int      @id @default(autoincrement())
+  ventaId      Int
+  productoId   Int
+  cantidad     Int
+  precioUnitario Float
+  subtotal     Float
+  venta        Venta    @relation(fields: [ventaId], references: [id])
+  producto     Producto @relation(fields: [productoId], references: [id])
+
+  @@unique([ventaId, productoId])
+}
+
+enum EstadoVenta {
+  BORRADOR
+  PENDIENTE_CAJA
+  COBRADA
 }
