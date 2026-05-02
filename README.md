@@ -19,3 +19,12 @@ Backend con Express + Prisma + SQLite.
 
 ### Endpoints útiles
 - `GET /mostrador/ventas/:id` para consultar detalle de una venta.
+
+## Cuenta corriente
+
+- Para enviar una venta a cuenta corriente al cobrar en caja:
+  - `POST /caja/cobrar/:id` con body `{ "medioPago": "CUENTA_CORRIENTE" }`.
+- Consultar cuenta corriente de una persona:
+  - `GET /cuenta-corriente/personas/:personaId`
+- Registrar pago de cuenta corriente:
+  - `POST /cuenta-corriente/personas/:personaId/pagos` con body `{ "monto": 1000, "descripcion": "Pago parcial" }`

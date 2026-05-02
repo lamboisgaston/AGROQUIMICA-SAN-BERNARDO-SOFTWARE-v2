@@ -17,11 +17,12 @@ model Producto {
 }
 
 model Persona {
-  id       Int     @id @default(autoincrement())
-  nombre   String
-  telefono String
-  tipo     String
-  ventas   Venta[]
+  id              Int              @id @default(autoincrement())
+  nombre          String
+  telefono        String
+  tipo            String
+  ventas          Venta[]
+  cuentaCorriente CuentaCorriente?
 }
 
 model Venta {
@@ -33,6 +34,7 @@ model Venta {
   items     VentaItem[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+  movimientosCuentaCorriente MovimientoCuentaCorriente[]
 }
 
 model VentaItem {
@@ -52,4 +54,31 @@ enum EstadoVenta {
   BORRADOR
   PENDIENTE_CAJA
   COBRADA
+}
+
+model CuentaCorriente {
+  id         Int      @id @default(autoincrement())
+  personaId  Int      @unique
+  persona    Persona  @relation(fields: [personaId], references: [id])
+  saldo      Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  movimientos MovimientoCuentaCorriente[]
+}
+
+model MovimientoCuentaCorriente {
+  id                Int      @id @default(autoincrement())
+  cuentaCorrienteId Int
+  cuentaCorriente   CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id])
+  ventaId           Int?
+  venta             Venta?   @relation(fields: [ventaId], references: [id])
+  tipo              TipoMovimientoCuentaCorriente
+  monto             Float
+  descripcion       String?
+  createdAt         DateTime @default(now())
+}
+
+enum TipoMovimientoCuentaCorriente {
+  DEBITO
+  CREDITO
 }
