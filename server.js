@@ -373,46 +373,45 @@ app.get('/app', (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel Inicial - Agroquímica</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #1f2937; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
-    .card { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; }
-    h1, h2, h3 { margin: 0 0 10px; }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-    input, select, button { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
-    button { background: #2563eb; color: white; cursor: pointer; }
-    button.success { background: #15803d; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { border-bottom: 1px solid #e5e7eb; padding: 6px; text-align: left; }
-    .muted { color: #6b7280; font-size: 13px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    .stack { display: grid; gap: 10px; }
-    .mostrador-layout { display:grid; gap:12px; }
-    .product-search { width:100%; max-width:420px; font-size:16px; }
-    .product-list { max-height: 280px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; }
-    .product-item { display:flex; justify-content:space-between; gap:8px; width:100%; padding:10px 12px; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer; }
-    .product-item:hover, .product-item:focus { background:#eff6ff; outline:none; }
-    .product-item:last-child { border-bottom:0; }
-    .product-name { font-weight:600; }
-    .product-meta { color:#6b7280; font-size:12px; }
-    .total-grande { font-size:34px; font-weight:800; color:#0f172a; margin:4px 0; }
-    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    body { font-family: Arial, sans-serif; margin: 0; background: #eef2f7; color: #0f172a; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 16px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .card { background: #fff; border: 1px solid #dbe2ea; border-radius: 12px; padding: 16px; }
+    h1, h2, h3 { margin: 0; }
+    h1 { margin-bottom: 12px; }
+    h2 { margin-bottom: 12px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .stack { display: grid; gap: 12px; }
+    input, select, button { padding: 10px 12px; border: 1px solid #c8d2de; border-radius: 8px; font-size: 16px; color: #0f172a; background: #fff; }
+    button { background: #1d4ed8; color: #fff; cursor: pointer; border-color: #1d4ed8; }
+    button.success { background: #166534; border-color: #166534; }
+    .btn-lg { font-size: 18px; font-weight: 700; padding: 12px 16px; }
+    .muted { color: #5b6574; font-size: 13px; }
+    .product-search { width: 100%; font-size: 18px; }
+    .product-list { max-height: 420px; overflow-y: auto; display: grid; gap: 10px; }
+    .product-item { width: 100%; padding: 14px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; }
+    .product-item:hover, .product-item:focus { background: #f8fbff; outline: none; border-color: #9fc2ff; }
+    .product-name { font-size: 22px; font-weight: 700; display: block; margin-bottom: 8px; }
+    .product-price { font-size: 28px; font-weight: 800; color: #111827; display: block; margin-bottom: 6px; }
+    .product-stock { color: #475569; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { border-bottom: 1px solid #e8edf2; padding: 8px 6px; text-align: left; }
+    .total-grande { font-size: 42px; font-weight: 800; color: #0b3a91; margin: 0; }
+    .caja-lista { display: grid; gap: 10px; }
+    .caja-card { border: 1px solid #d7dee8; border-radius: 10px; background: #f8fafc; padding: 12px; display: grid; gap: 10px; }
+    .caja-card h3 { font-size: 20px; margin: 0; }
+    @media (min-width: 980px) { .layout { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Interfaz inicial completa</h1>
-
-    <section class="card">
-      <h2>Productos</h2>
-      <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>USD</th><th>Pesos (calc.)</th><th>Stock</th></tr></thead><tbody></tbody></table>
-    </section>
-
-    <div class="grid-2">
+    <h1>Mostrador y Caja</h1>
+    <div class="layout">
       <section class="card">
         <h2>Mostrador</h2>
-        <div class="row"><button id="btn-nueva-venta" class="success">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
+        <div class="row"><button id="btn-nueva-venta" class="success btn-lg">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
         <div id="bloque-venta" class="stack" style="margin-top:10px; display:none;">
-          <div class="mostrador-layout">
+          <div class="stack">
             <h3>Agregar producto</h3>
             <input id="buscador-productos" class="product-search" placeholder="Buscar producto por nombre..." autocomplete="off" />
             <div id="lista-productos-filtrada" class="product-list"></div>
@@ -424,46 +423,19 @@ app.get('/app', (req, res) => {
             <form id="form-persona" class="row">
               <input id="persona-nombre" placeholder="Nombre" required />
               <input id="persona-telefono" placeholder="Teléfono" required />
-              <button type="submit">Guardar cliente</button>
+              <button type="submit" class="btn-lg">Guardar cliente</button>
             </form>
           </div>
 
           <table id="tabla-items"><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead><tbody></tbody></table>
           <p><strong>Total de la venta</strong></p><p class="total-grande">$<span id="venta-total">0.00</span></p>
-          <button id="btn-cerrar-venta">Cerrar venta</button>
+          <button id="btn-cerrar-venta" class="btn-lg">Cerrar venta</button>
         </div>
       </section>
 
       <section class="card">
         <h2>Caja</h2>
-        <table id="tabla-caja"><thead><tr><th>ID Venta</th><th>Cliente</th><th>Total</th><th>Cobro</th></tr></thead><tbody></tbody></table>
-      </section>
-    </div>
-
-    <div class="grid-2">
-      <section class="card">
-        <h2>Cuenta corriente</h2>
-        <form id="form-buscar-cuenta" class="row">
-          <input id="cc-persona-id" type="number" min="1" placeholder="ID persona" required />
-          <button type="submit">Buscar persona por ID</button>
-        </form>
-        <p><strong>Saldo:</strong> $<span id="cc-saldo">-</span></p>
-        <table id="tabla-cc-movimientos"><thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Descripción</th></tr></thead><tbody></tbody></table>
-        <h3>Registrar pago</h3>
-        <form id="form-cc-pago" class="row">
-          <input id="cc-monto" type="number" step="0.01" min="0.01" placeholder="Monto" required />
-          <input id="cc-descripcion" placeholder="Descripción (opcional)" />
-          <button type="submit">Registrar pago</button>
-        </form>
-      </section>
-
-      <section class="card">
-        <h2>Configuración de tipo de cambio</h2>
-        <p><strong>Tipo de cambio actual:</strong> <span id="tipo-cambio-actual">-</span></p>
-        <form id="form-tipo-cambio" class="row">
-          <input id="nuevo-tipo-cambio" type="number" min="0.01" step="0.01" placeholder="Nuevo tipo de cambio" required />
-          <button type="submit">Modificar tipo de cambio</button>
-        </form>
+        <div id="lista-caja" class="caja-lista"></div>
       </section>
     </div>
 
@@ -487,14 +459,9 @@ app.get('/app', (req, res) => {
       return data;
     }
 
-    async function cargarProductos() { /* unchanged-ish */
+    async function cargarProductos() {
       const productos = await api('/productos');
       productosCache = productos;
-      const tbody = $('#tabla-productos tbody');
-      tbody.innerHTML = '';
-      for (const p of productos) {
-        tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>US$' + money(p.precioUsd) + '</td><td>$' + money(p.precioPesosCalculado) + '</td><td>' + p.stock + '</td></tr>';
-      }
       renderListaProductos();
     }
 
@@ -507,7 +474,7 @@ app.get('/app', (req, res) => {
       const filtrados = productosCache
         .filter(p => p.stock > 0)
         .filter(p => !termino || p.nombre.toLowerCase().includes(termino))
-        .slice(0, 40);
+        .slice(0, 8);
 
       if (filtrados.length === 0) {
         contenedor.innerHTML = '<p class="muted" style="padding:10px; margin:0;">Sin productos para mostrar.</p>';
@@ -516,8 +483,9 @@ app.get('/app', (req, res) => {
 
       contenedor.innerHTML = filtrados.map(p =>
         '<button class="product-item" data-producto-id="' + p.id + '">' +
-          '<span><span class="product-name">' + p.nombre + '</span><br><span class="product-meta">Stock: ' + p.stock + '</span></span>' +
-          '<span class="product-name">$' + money(p.precioPesosCalculado) + '</span>' +
+          '<span class="product-name">' + p.nombre + '</span>' +
+          '<span class="product-price">$ ' + money(p.precioPesosCalculado) + '</span>' +
+          '<span class="product-stock">Stock disponible: ' + p.stock + '</span>' +
         '</button>'
       ).join('');
     }
@@ -536,6 +504,9 @@ app.get('/app', (req, res) => {
       $('#venta-id').textContent = 'Venta #' + venta.id + ' (' + venta.estado + ')';
       const tbody = $('#tabla-items tbody');
       tbody.innerHTML = '';
+      if (!venta.items.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="muted">Todavía no hay productos cargados en esta venta.</td></tr>';
+      }
       for (const i of venta.items) {
         const nombre = (i.producto && i.producto.nombre) || ('Producto ' + i.productoId);
         tbody.innerHTML += '<tr><td>' + nombre + '</td><td>' + i.cantidad + '</td><td>$' + money(i.precioUnitario) + '</td><td>$' + money(i.subtotal) + '</td></tr>';
@@ -545,15 +516,22 @@ app.get('/app', (req, res) => {
 
     async function cargarCaja() {
       const ventas = await api('/caja/ventas');
-      const tbody = $('#tabla-caja tbody');
-      tbody.innerHTML = '';
+      const contenedor = $('#lista-caja');
+      contenedor.innerHTML = '';
+      if (!ventas.length) {
+        contenedor.innerHTML = '<p class="muted">No hay ventas pendientes.</p>';
+        return;
+      }
       for (const v of ventas) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + v.id + '</td><td>' + (v.persona ? v.persona.nombre + ' (' + v.persona.telefono + ')' : 'Sin persona') + '</td><td>$' + money(v.total) + '</td><td></td>';
-        const tdAccion = tr.lastElementChild;
+        const card = document.createElement('article');
+        card.className = 'caja-card';
+        card.innerHTML = '<h3>Venta #' + v.id + '</h3><div><strong>Cliente:</strong> ' + (v.persona ? v.persona.nombre + ' (' + v.persona.telefono + ')' : 'Sin persona') + '</div><div><strong>Total:</strong> $' + money(v.total) + '</div>';
+        const acciones = document.createElement('div');
+        acciones.className = 'row';
         const select = document.createElement('select');
         select.innerHTML = '<option value="EFECTIVO">Efectivo</option><option value="CUENTA_CORRIENTE">Cuenta corriente</option>';
         const btn = document.createElement('button');
+        btn.className = 'btn-lg';
         btn.textContent = 'Cobrar';
         btn.onclick = async () => {
           try {
@@ -562,31 +540,13 @@ app.get('/app', (req, res) => {
             await Promise.all([cargarCaja(), cargarProductos()]);
           } catch (e) { setEstado(e.message); }
         };
-        tdAccion.appendChild(select); tdAccion.appendChild(btn); tbody.appendChild(tr);
-      }
-    }
-
-    async function cargarTipoCambio() {
-      const data = await api('/config/tipo-cambio');
-      $('#tipo-cambio-actual').textContent = money(data.tipoCambioActual);
-    }
-
-    async function cargarCuentaCorriente(personaId) {
-      const cuenta = await api('/cuenta-corriente/personas/' + personaId);
-      cuentaPersonaIdActual = personaId;
-      $('#cc-saldo').textContent = money(cuenta.saldo);
-      const tbody = $('#tabla-cc-movimientos tbody');
-      tbody.innerHTML = '';
-      for (const m of cuenta.movimientos) {
-        tbody.innerHTML += '<tr><td>' + new Date(m.createdAt).toLocaleString() + '</td><td>' + m.tipo + '</td><td>$' + money(m.monto) + '</td><td>' + (m.descripcion || '') + '</td></tr>';
+        acciones.appendChild(select); acciones.appendChild(btn);
+        card.appendChild(acciones);
+        contenedor.appendChild(card);
       }
     }
 
     // eventos
-    $('#form-buscar-cuenta').addEventListener('submit', async e => { e.preventDefault(); try { await cargarCuentaCorriente(Number($('#cc-persona-id').value)); setEstado('Cuenta corriente cargada.'); } catch(err){ setEstado(err.message);} });
-    $('#form-cc-pago').addEventListener('submit', async e => { e.preventDefault(); if (!cuentaPersonaIdActual) return setEstado('Primero busque una persona por ID.'); try { await api('/cuenta-corriente/personas/' + cuentaPersonaIdActual + '/pagos', { method:'POST', body: JSON.stringify({ monto:Number($('#cc-monto').value), descripcion: $('#cc-descripcion').value })}); $('#cc-monto').value=''; $('#cc-descripcion').value=''; await cargarCuentaCorriente(cuentaPersonaIdActual); setEstado('Pago registrado.'); } catch(err){ setEstado(err.message);} });
-    $('#form-tipo-cambio').addEventListener('submit', async e => { e.preventDefault(); try { await api('/config/tipo-cambio', { method:'PUT', body: JSON.stringify({ tipoCambioActual: Number($('#nuevo-tipo-cambio').value) }) }); $('#nuevo-tipo-cambio').value=''; await Promise.all([cargarTipoCambio(), cargarProductos()]); setEstado('Tipo de cambio actualizado.'); } catch(err){ setEstado(err.message);} });
-
     $('#btn-nueva-venta').addEventListener('click', async () => { try { const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' }); ventaActualId = venta.id; $('#bloque-venta').style.display = 'block'; await refrescarVentaActual(); $('#buscador-productos').focus(); setEstado('Venta #' + venta.id + ' creada.'); } catch (err) { setEstado(err.message); } });
     $('#form-persona').addEventListener('submit', async e => { e.preventDefault(); if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/persona', { method: 'PUT', body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value }) }); await refrescarVentaActual(); setEstado('Cliente asociado.'); } catch (err) { setEstado(err.message); } });
     $('#btn-cerrar-venta').addEventListener('click', async () => { if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/cerrar', { method: 'POST', body: '{}' }); setEstado('Venta #' + ventaActualId + ' cerrada y enviada a caja.'); ventaActualId = null; $('#bloque-venta').style.display = 'none'; $('#venta-id').textContent = 'Sin venta activa'; $('#tabla-items tbody').innerHTML = ''; $('#venta-total').textContent = '0.00'; await Promise.all([cargarCaja(), cargarProductos()]); } catch (err) { setEstado(err.message); } });
@@ -594,7 +554,7 @@ app.get('/app', (req, res) => {
     $('#buscador-productos').addEventListener('input', e => { filtroProductos = e.target.value || ''; renderListaProductos(); });
     $('#lista-productos-filtrada').addEventListener('click', e => { const btn = e.target.closest('[data-producto-id]'); if (!btn) return; agregarProductoRapido(btn.dataset.productoId); });
 
-    (async function init() { try { await Promise.all([cargarProductos(), cargarCaja(), cargarTipoCambio()]); } catch (e) { setEstado(e.message); } })();
+    (async function init() { try { await Promise.all([cargarProductos(), cargarCaja()]); } catch (e) { setEstado(e.message); } })();
   </script>
 </body>
 </html>`);
