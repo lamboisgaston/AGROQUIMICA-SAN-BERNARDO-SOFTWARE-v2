@@ -31,14 +31,52 @@ app.post('/login', (req, res) => {
   });
 });
 
+async function obtenerTipoCambioActual() {
+  const config = await prisma.configuracionGlobal.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1, tipoCambioActual: 1 }
+  });
+  return config.tipoCambioActual;
+}
+
+function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
+  return {
+    ...producto,
+    precioPesosCalculado: producto.precioUsd * tipoCambioActual
+  };
+}
+
 app.get('/productos', async (req, res) => {
+  const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany();
-  res.json(productos);
+  res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
 });
 
 app.post('/productos', async (req, res) => {
   const producto = await prisma.producto.create({ data: req.body });
-  res.json(producto);
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
+});
+
+app.get('/config/tipo-cambio', async (req, res) => {
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  res.json({ tipoCambioActual });
+});
+
+app.put('/config/tipo-cambio', async (req, res) => {
+  const { tipoCambioActual } = req.body;
+  if (typeof tipoCambioActual !== 'number' || tipoCambioActual <= 0) {
+    return res.status(400).json({ error: 'tipoCambioActual (>0) es obligatorio' });
+  }
+
+  const config = await prisma.configuracionGlobal.upsert({
+    where: { id: 1 },
+    update: { tipoCambioActual },
+    create: { id: 1, tipoCambioActual }
+  });
+
+  res.json({ tipoCambioActual: config.tipoCambioActual });
 });
 
 app.get('/personas', async (req, res) => {
@@ -85,6 +123,8 @@ app.post('/mostrador/ventas/:id/items', async (req, res) => {
 
   const producto = await prisma.producto.findUnique({ where: { id: Number(productoId) } });
   if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const precioPesosCalculado = producto.precioUsd * tipoCambioActual;
 
   const existente = await prisma.ventaItem.findUnique({
     where: { ventaId_productoId: { ventaId, productoId: Number(productoId) } }
@@ -101,12 +141,13 @@ app.post('/mostrador/ventas/:id/items', async (req, res) => {
       ventaId,
       productoId: Number(productoId),
       cantidad: Number(cantidad),
-      precioUnitario: producto.precio,
-      subtotal: producto.precio * Number(cantidad)
+      precioUnitario: precioPesosCalculado,
+      subtotal: precioPesosCalculado * Number(cantidad)
     },
     update: {
       cantidad: cantidadFinal,
-      subtotal: producto.precio * cantidadFinal
+      precioUnitario: precioPesosCalculado,
+      subtotal: precioPesosCalculado * cantidadFinal
     }
   });
 
@@ -354,7 +395,7 @@ app.get('/app', (req, res) => {
     <div class="grid-2">
       <section class="card">
         <h2>Lista de productos</h2>
-        <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th></tr></thead><tbody></tbody></table>
+        <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>USD</th><th>Pesos (calc.)</th><th>Stock</th></tr></thead><tbody></tbody></table>
       </section>
 
       <section class="card">
@@ -412,8 +453,8 @@ app.get('/app', (req, res) => {
       select.innerHTML = '<option value="">Seleccionar producto</option>';
 
       for (const p of productos) {
-        tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>$' + money(p.precio) + '</td><td>' + p.stock + '</td></tr>';
-        select.innerHTML += '<option value="' + p.id + '">' + p.nombre + ' - $' + money(p.precio) + ' (stock ' + p.stock + ')</option>';
+        tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>US$' + money(p.precioUsd) + '</td><td>$' + money(p.precioPesosCalculado) + '</td><td>' + p.stock + '</td></tr>';
+        select.innerHTML += '<option value="' + p.id + '">' + p.nombre + ' - $' + money(p.precioPesosCalculado) + ' (stock ' + p.stock + ')</option>';
       }
     }
 

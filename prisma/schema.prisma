@@ -11,9 +11,14 @@ model Producto {
   id        Int        @id @default(autoincrement())
   nombre    String
   categoria String
-  precio    Float
+  precioUsd Float
   stock     Int        @default(0)
   items     VentaItem[]
+}
+
+model ConfiguracionGlobal {
+  id              Int   @id @default(1)
+  tipoCambioActual Float @default(1)
 }
 
 model Persona {
