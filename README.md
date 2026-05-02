@@ -28,3 +28,14 @@ Backend con Express + Prisma + SQLite.
   - `GET /cuenta-corriente/personas/:personaId`
 - Registrar pago de cuenta corriente:
   - `POST /cuenta-corriente/personas/:personaId/pagos` con body `{ "monto": 1000, "descripcion": "Pago parcial" }`
+
+
+## Precios en USD y tipo de cambio
+
+- `Producto` guarda `precioUsd`.
+- Configuración global de cotización: `tipoCambioActual`.
+- Endpoints:
+  - `GET /config/tipo-cambio`
+  - `PUT /config/tipo-cambio` con body `{ "tipoCambioActual": 1234.56 }`
+- `GET /productos` devuelve además `precioPesosCalculado` (`precioUsd * tipoCambioActual`).
+- En mostrador, al agregar items a una venta se congela el precio en pesos calculado al momento de la carga del item.

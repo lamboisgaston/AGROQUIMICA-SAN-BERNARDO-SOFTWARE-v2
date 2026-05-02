@@ -4,11 +4,17 @@ const prisma = new PrismaClient();
 async function main() {
   await prisma.producto.createMany({
     data: [
-      { nombre: 'Glifosato 20L', categoria: 'Herbicida', precio: 85000, stock: 10 },
-      { nombre: 'Cipermetrina 1L', categoria: 'Insecticida', precio: 12000, stock: 25 },
-      { nombre: 'Fertilizante NPK 25kg', categoria: 'Fertilizante', precio: 30000, stock: 15 }
+      { nombre: 'Glifosato 20L', categoria: 'Herbicida', precioUsd: 85, stock: 10 },
+      { nombre: 'Cipermetrina 1L', categoria: 'Insecticida', precioUsd: 12, stock: 25 },
+      { nombre: 'Fertilizante NPK 25kg', categoria: 'Fertilizante', precioUsd: 30, stock: 15 }
     ],
     skipDuplicates: true
+  });
+
+  await prisma.configuracionGlobal.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1, tipoCambioActual: 1000 }
   });
 
   await prisma.persona.createMany({
