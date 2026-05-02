@@ -7,3 +7,7 @@ prisma/dev.db
 prisma/dev.db-journal
 prisma/*.db
 prisma/*.db-journal
+
+# PR hygiene (evitar binarios/dependencias en commits)
+node_modules/
+prisma/dev.db
