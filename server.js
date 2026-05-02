@@ -389,7 +389,7 @@ app.get('/app', (req, res) => {
     .muted { color: #5b6574; font-size: 13px; }
     .product-search { width: 100%; font-size: 18px; }
     .product-list { max-height: 420px; overflow-y: auto; display: grid; gap: 10px; }
-    .product-item { width: 100%; padding: 14px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; }
+    .product-item { width: 100%; padding: 14px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; display: grid; gap: 4px; }
     .product-item:hover, .product-item:focus { background: #f8fbff; outline: none; border-color: #9fc2ff; }
     .product-name { font-size: 22px; font-weight: 700; display: block; margin-bottom: 8px; }
     .product-price { font-size: 28px; font-weight: 800; color: #111827; display: block; margin-bottom: 6px; }
@@ -467,13 +467,22 @@ app.get('/app', (req, res) => {
 
 
 
+    function obtenerNombreProducto(producto) {
+      const nombre = (producto && typeof producto.nombre === 'string') ? producto.nombre.trim() : '';
+      if (nombre) return nombre;
+      return 'Producto sin nombre';
+    }
+
     function renderListaProductos() {
       const contenedor = $('#lista-productos-filtrada');
       if (!contenedor) return;
       const termino = filtroProductos.trim().toLowerCase();
       const filtrados = productosCache
         .filter(p => p.stock > 0)
-        .filter(p => !termino || p.nombre.toLowerCase().includes(termino))
+        .filter(p => {
+          const nombre = obtenerNombreProducto(p).toLowerCase();
+          return !termino || nombre.includes(termino);
+        })
         .slice(0, 8);
 
       if (filtrados.length === 0) {
@@ -483,7 +492,7 @@ app.get('/app', (req, res) => {
 
       contenedor.innerHTML = filtrados.map(p =>
         '<button class="product-item" data-producto-id="' + p.id + '">' +
-          '<span class="product-name">' + p.nombre + '</span>' +
+          '<span class="product-name">' + obtenerNombreProducto(p) + '</span>' +
           '<span class="product-price">$ ' + money(p.precioPesosCalculado) + '</span>' +
           '<span class="product-stock">Stock disponible: ' + p.stock + '</span>' +
         '</button>'
