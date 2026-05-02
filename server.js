@@ -214,6 +214,7 @@ app.get('/caja/ventas', async (req, res) => {
 
 app.post('/caja/cobrar/:id', async (req, res) => {
   const ventaId = Number(req.params.id);
+  const { medioPago } = req.body || {};
   const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
 
   if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
@@ -221,13 +222,106 @@ app.post('/caja/cobrar/:id', async (req, res) => {
     return res.status(400).json({ error: 'La venta no está pendiente de caja' });
   }
 
-  const ventaCobrada = await prisma.venta.update({
+  if (medioPago === 'CUENTA_CORRIENTE') {
+    const ventaConPersona = await prisma.venta.findUnique({
+      where: { id: ventaId },
+      include: { persona: true }
+    });
+
+    if (!ventaConPersona?.personaId) {
+      return res.status(400).json({ error: 'La venta debe tener una persona para enviarla a cuenta corriente' });
+    }
+
+    await prisma.$transaction(async tx => {
+      const cuenta = await tx.cuentaCorriente.upsert({
+        where: { personaId: ventaConPersona.personaId },
+        update: { saldo: { increment: ventaConPersona.total } },
+        create: {
+          personaId: ventaConPersona.personaId,
+          saldo: ventaConPersona.total
+        }
+      });
+
+      await tx.movimientoCuentaCorriente.create({
+        data: {
+          cuentaCorrienteId: cuenta.id,
+          ventaId: ventaConPersona.id,
+          tipo: 'DEBITO',
+          monto: ventaConPersona.total,
+          descripcion: `Venta #${ventaConPersona.id} enviada a cuenta corriente`
+        }
+      });
+
+      await tx.venta.update({
+        where: { id: ventaId },
+        data: { estado: EstadoVenta.COBRADA }
+      });
+    });
+  } else {
+    await prisma.venta.update({
+      where: { id: ventaId },
+      data: { estado: EstadoVenta.COBRADA }
+    });
+  }
+
+  const ventaCobrada = await prisma.venta.findUnique({
     where: { id: ventaId },
-    data: { estado: EstadoVenta.COBRADA },
     include: { persona: true, items: { include: { producto: true } } }
   });
 
   res.json(ventaCobrada);
+});
+
+app.get('/cuenta-corriente/personas/:personaId', async (req, res) => {
+  const personaId = Number(req.params.personaId);
+  const cuenta = await prisma.cuentaCorriente.findUnique({
+    where: { personaId },
+    include: {
+      persona: true,
+      movimientos: {
+        orderBy: { createdAt: 'desc' },
+        include: { venta: true }
+      }
+    }
+  });
+
+  if (!cuenta) return res.status(404).json({ error: 'Cuenta corriente no encontrada' });
+  res.json(cuenta);
+});
+
+app.post('/cuenta-corriente/personas/:personaId/pagos', async (req, res) => {
+  const personaId = Number(req.params.personaId);
+  const { monto, descripcion } = req.body;
+
+  if (!monto || Number(monto) <= 0) {
+    return res.status(400).json({ error: 'monto (>0) es obligatorio' });
+  }
+
+  const cuenta = await prisma.cuentaCorriente.findUnique({ where: { personaId } });
+  if (!cuenta) return res.status(404).json({ error: 'Cuenta corriente no encontrada' });
+  if (Number(monto) > cuenta.saldo) {
+    return res.status(400).json({ error: 'El pago no puede ser mayor al saldo actual' });
+  }
+
+  const cuentaActualizada = await prisma.$transaction(async tx => {
+    const updated = await tx.cuentaCorriente.update({
+      where: { id: cuenta.id },
+      data: { saldo: { decrement: Number(monto) } }
+    });
+
+    await tx.movimientoCuentaCorriente.create({
+      data: {
+        cuentaCorrienteId: cuenta.id,
+        tipo: 'CREDITO',
+        monto: Number(monto),
+        descripcion: descripcion || 'Pago de cuenta corriente'
+      }
+    });
+
+    return updated;
+  });
+
+  res.json(cuentaActualizada);
 });
 
 app.get('/app', (req, res) => {
