@@ -241,15 +241,11 @@ app.get('/app', (req, res) => {
     body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #1f2937; }
     .container { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
     .card { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; }
-    h1, h2 { margin: 0 0 10px; }
-    h1 { font-size: 24px; }
-    h2 { font-size: 20px; }
+    h1, h2, h3 { margin: 0 0 10px; }
     .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
     input, select, button { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
     button { background: #2563eb; color: white; cursor: pointer; }
-    button.secondary { background: #4b5563; }
     button.success { background: #15803d; }
-    button:disabled { opacity: .5; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 6px; text-align: left; }
     .muted { color: #6b7280; font-size: 13px; }
@@ -263,20 +259,12 @@ app.get('/app', (req, res) => {
 
     <div class="grid-2">
       <section class="card">
-        <h2>Productos</h2>
-        <div class="muted">Lista de productos y alta rápida.</div>
+        <h2>Lista de productos</h2>
         <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th></tr></thead><tbody></tbody></table>
-        <h3>Crear producto</h3>
-        <form id="form-producto" class="row">
-          <input name="nombre" placeholder="Nombre" required />
-          <input name="precio" type="number" min="0" step="0.01" placeholder="Precio" required />
-          <input name="stock" type="number" min="0" step="1" placeholder="Stock" required />
-          <button type="submit">Crear</button>
-        </form>
       </section>
 
       <section class="card">
-        <h2>Venta actual</h2>
+        <h2>Vista de venta actual</h2>
         <div class="row"><button id="btn-nueva-venta" class="success">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
         <div id="bloque-venta" style="margin-top:10px; display:none;">
           <h3>Agregar producto a venta</h3>
@@ -286,14 +274,13 @@ app.get('/app', (req, res) => {
             <button type="submit">Agregar</button>
           </form>
 
-          <h3>Cliente</h3>
+          <h3>Formulario nombre y teléfono</h3>
           <form id="form-persona" class="row">
             <input id="persona-nombre" placeholder="Nombre" required />
             <input id="persona-telefono" placeholder="Teléfono" required />
-            <button type="submit" class="secondary">Asociar</button>
+            <button type="submit">Guardar cliente</button>
           </form>
 
-          <h3>Items</h3>
           <table id="tabla-items"><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead><tbody></tbody></table>
           <p><strong>Total:</strong> $<span id="venta-total">0.00</span></p>
           <button id="btn-cerrar-venta">Cerrar venta</button>
@@ -302,8 +289,8 @@ app.get('/app', (req, res) => {
     </div>
 
     <section class="card">
-      <h2>CAJA - Ventas pendientes</h2>
-      <table id="tabla-caja"><thead><tr><th>ID Venta</th><th>Cliente</th><th>Total</th><th>Cobro</th></tr></thead><tbody></tbody></table>
+      <h2>Sección caja con ventas pendientes</h2>
+      <table id="tabla-caja"><thead><tr><th>ID Venta</th><th>Cliente</th><th>Total</th><th>Acción</th></tr></thead><tbody></tbody></table>
     </section>
 
     <p id="estado" class="muted"></p>
@@ -312,9 +299,9 @@ app.get('/app', (req, res) => {
   <script>
     let ventaActualId = null;
     const $ = s => document.querySelector(s);
+    const money = v => Number(v || 0).toFixed(2);
 
     function setEstado(msg) { $('#estado').textContent = msg; }
-    function money(v) { return Number(v || 0).toFixed(2); }
 
     async function api(url, options = {}) {
       const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -329,6 +316,7 @@ app.get('/app', (req, res) => {
       const select = $('#item-producto');
       tbody.innerHTML = '';
       select.innerHTML = '<option value="">Seleccionar producto</option>';
+
       for (const p of productos) {
         tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>$' + money(p.precio) + '</td><td>' + p.stock + '</td></tr>';
         select.innerHTML += '<option value="' + p.id + '">' + p.nombre + ' - $' + money(p.precio) + ' (stock ' + p.stock + ')</option>';
@@ -341,10 +329,12 @@ app.get('/app', (req, res) => {
       $('#venta-id').textContent = 'Venta #' + venta.id + ' (' + venta.estado + ')';
       const tbody = $('#tabla-items tbody');
       tbody.innerHTML = '';
+
       for (const i of venta.items) {
         const nombre = (i.producto && i.producto.nombre) || ('Producto ' + i.productoId);
         tbody.innerHTML += '<tr><td>' + nombre + '</td><td>' + i.cantidad + '</td><td>$' + money(i.precioUnitario) + '</td><td>$' + money(i.subtotal) + '</td></tr>';
       }
+
       $('#venta-total').textContent = money(venta.total);
     }
 
@@ -352,36 +342,26 @@ app.get('/app', (req, res) => {
       const ventas = await api('/caja/ventas');
       const tbody = $('#tabla-caja tbody');
       tbody.innerHTML = '';
+
       for (const v of ventas) {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td>' + v.id + '</td><td>' + (v.persona ? v.persona.nombre + ' (' + v.persona.telefono + ')' : 'Sin persona') + '</td><td>$' + money(v.total) + '</td><td></td>';
+
         const tdAccion = tr.lastElementChild;
-        const select = document.createElement('select');
-        select.innerHTML = '<option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option>';
         const btn = document.createElement('button');
         btn.textContent = 'Cobrar';
         btn.onclick = async () => {
           try {
-            await api('/caja/cobrar/' + v.id, { method: 'POST', body: JSON.stringify({ formaPago: select.value }) });
-            setEstado('Venta #' + v.id + ' cobrada (' + select.value + ').');
+            await api('/caja/cobrar/' + v.id, { method: 'POST', body: '{}' });
+            setEstado('Venta #' + v.id + ' cobrada.');
             await Promise.all([cargarCaja(), cargarProductos()]);
           } catch (e) { setEstado(e.message); }
         };
-        tdAccion.append(select, btn);
+
+        tdAccion.appendChild(btn);
         tbody.appendChild(tr);
       }
     }
-
-    $('#form-producto').addEventListener('submit', async e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await api('/productos', { method: 'POST', body: JSON.stringify({ nombre: fd.get('nombre'), precio: Number(fd.get('precio')), stock: Number(fd.get('stock')) }) });
-        e.target.reset();
-        setEstado('Producto creado');
-        await cargarProductos();
-      } catch (err) { setEstado(err.message); }
-    });
 
     $('#btn-nueva-venta').addEventListener('click', async () => {
       try {
@@ -415,7 +395,7 @@ app.get('/app', (req, res) => {
           body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value })
         });
         await refrescarVentaActual();
-        setEstado('Cliente asociado');
+        setEstado('Cliente asociado.');
       } catch (err) { setEstado(err.message); }
     });
 
@@ -434,8 +414,12 @@ app.get('/app', (req, res) => {
     });
 
     (async function init() {
-      try { await Promise.all([cargarProductos(), cargarCaja()]); }
-      catch (e) { setEstado(e.message); }
+      try {
+        await Promise.all([
+          cargarProductos(),
+          cargarCaja(),
+        ]);
+      } catch (e) { setEstado(e.message); }
     })();
   </script>
 </body>
