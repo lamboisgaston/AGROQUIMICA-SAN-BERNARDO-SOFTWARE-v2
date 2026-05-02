@@ -386,6 +386,15 @@ app.get('/app', (req, res) => {
     .muted { color: #6b7280; font-size: 13px; }
     .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
     .stack { display: grid; gap: 10px; }
+    .mostrador-layout { display:grid; gap:12px; }
+    .product-search { width:100%; max-width:420px; font-size:16px; }
+    .product-list { max-height: 280px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:8px; }
+    .product-item { display:flex; justify-content:space-between; gap:8px; width:100%; padding:10px 12px; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer; }
+    .product-item:hover, .product-item:focus { background:#eff6ff; outline:none; }
+    .product-item:last-child { border-bottom:0; }
+    .product-name { font-weight:600; }
+    .product-meta { color:#6b7280; font-size:12px; }
+    .total-grande { font-size:34px; font-weight:800; color:#0f172a; margin:4px 0; }
     @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
@@ -403,13 +412,11 @@ app.get('/app', (req, res) => {
         <h2>Mostrador</h2>
         <div class="row"><button id="btn-nueva-venta" class="success">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
         <div id="bloque-venta" class="stack" style="margin-top:10px; display:none;">
-          <div>
+          <div class="mostrador-layout">
             <h3>Agregar producto</h3>
-            <form id="form-item" class="row">
-              <select id="item-producto" required></select>
-              <input id="item-cantidad" type="number" min="1" step="1" placeholder="Cantidad" required />
-              <button type="submit">Agregar</button>
-            </form>
+            <input id="buscador-productos" class="product-search" placeholder="Buscar producto por nombre..." autocomplete="off" />
+            <div id="lista-productos-filtrada" class="product-list"></div>
+            <p class="muted">Click en un producto para agregar 1 unidad automáticamente.</p>
           </div>
 
           <div>
@@ -422,7 +429,7 @@ app.get('/app', (req, res) => {
           </div>
 
           <table id="tabla-items"><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead><tbody></tbody></table>
-          <p><strong>Total:</strong> $<span id="venta-total">0.00</span></p>
+          <p><strong>Total de la venta</strong></p><p class="total-grande">$<span id="venta-total">0.00</span></p>
           <button id="btn-cerrar-venta">Cerrar venta</button>
         </div>
       </section>
@@ -466,6 +473,8 @@ app.get('/app', (req, res) => {
   <script>
     let ventaActualId = null;
     let cuentaPersonaIdActual = null;
+    let productosCache = [];
+    let filtroProductos = '';
     const $ = s => document.querySelector(s);
     const money = v => Number(v || 0).toFixed(2);
 
@@ -480,16 +489,47 @@ app.get('/app', (req, res) => {
 
     async function cargarProductos() { /* unchanged-ish */
       const productos = await api('/productos');
+      productosCache = productos;
       const tbody = $('#tabla-productos tbody');
-      const select = $('#item-producto');
       tbody.innerHTML = '';
-      select.innerHTML = '<option value="">Seleccionar producto</option>';
       for (const p of productos) {
         tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>US$' + money(p.precioUsd) + '</td><td>$' + money(p.precioPesosCalculado) + '</td><td>' + p.stock + '</td></tr>';
-        select.innerHTML += '<option value="' + p.id + '">' + p.nombre + ' - $' + money(p.precioPesosCalculado) + ' (stock ' + p.stock + ')</option>';
       }
+      renderListaProductos();
     }
 
+
+
+    function renderListaProductos() {
+      const contenedor = $('#lista-productos-filtrada');
+      if (!contenedor) return;
+      const termino = filtroProductos.trim().toLowerCase();
+      const filtrados = productosCache
+        .filter(p => p.stock > 0)
+        .filter(p => !termino || p.nombre.toLowerCase().includes(termino))
+        .slice(0, 40);
+
+      if (filtrados.length === 0) {
+        contenedor.innerHTML = '<p class="muted" style="padding:10px; margin:0;">Sin productos para mostrar.</p>';
+        return;
+      }
+
+      contenedor.innerHTML = filtrados.map(p =>
+        '<button class="product-item" data-producto-id="' + p.id + '">' +
+          '<span><span class="product-name">' + p.nombre + '</span><br><span class="product-meta">Stock: ' + p.stock + '</span></span>' +
+          '<span class="product-name">$' + money(p.precioPesosCalculado) + '</span>' +
+        '</button>'
+      ).join('');
+    }
+
+    async function agregarProductoRapido(productoId) {
+      if (!ventaActualId) return setEstado('Primero cree una venta.');
+      try {
+        await api('/mostrador/ventas/' + ventaActualId + '/items', { method: 'POST', body: JSON.stringify({ productoId: Number(productoId), cantidad: 1 }) });
+        await Promise.all([refrescarVentaActual(), cargarProductos()]);
+        $('#buscador-productos').focus();
+      } catch (err) { setEstado(err.message); }
+    }
     async function refrescarVentaActual() {
       if (!ventaActualId) return;
       const venta = await api('/mostrador/ventas/' + ventaActualId);
@@ -547,10 +587,12 @@ app.get('/app', (req, res) => {
     $('#form-cc-pago').addEventListener('submit', async e => { e.preventDefault(); if (!cuentaPersonaIdActual) return setEstado('Primero busque una persona por ID.'); try { await api('/cuenta-corriente/personas/' + cuentaPersonaIdActual + '/pagos', { method:'POST', body: JSON.stringify({ monto:Number($('#cc-monto').value), descripcion: $('#cc-descripcion').value })}); $('#cc-monto').value=''; $('#cc-descripcion').value=''; await cargarCuentaCorriente(cuentaPersonaIdActual); setEstado('Pago registrado.'); } catch(err){ setEstado(err.message);} });
     $('#form-tipo-cambio').addEventListener('submit', async e => { e.preventDefault(); try { await api('/config/tipo-cambio', { method:'PUT', body: JSON.stringify({ tipoCambioActual: Number($('#nuevo-tipo-cambio').value) }) }); $('#nuevo-tipo-cambio').value=''; await Promise.all([cargarTipoCambio(), cargarProductos()]); setEstado('Tipo de cambio actualizado.'); } catch(err){ setEstado(err.message);} });
 
-    $('#btn-nueva-venta').addEventListener('click', async () => { try { const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' }); ventaActualId = venta.id; $('#bloque-venta').style.display = 'block'; await refrescarVentaActual(); setEstado('Venta #' + venta.id + ' creada.'); } catch (err) { setEstado(err.message); } });
-    $('#form-item').addEventListener('submit', async e => { e.preventDefault(); if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/items', { method: 'POST', body: JSON.stringify({ productoId: Number($('#item-producto').value), cantidad: Number($('#item-cantidad').value) }) }); $('#item-cantidad').value = ''; await Promise.all([refrescarVentaActual(), cargarProductos()]); } catch (err) { setEstado(err.message); } });
+    $('#btn-nueva-venta').addEventListener('click', async () => { try { const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' }); ventaActualId = venta.id; $('#bloque-venta').style.display = 'block'; await refrescarVentaActual(); $('#buscador-productos').focus(); setEstado('Venta #' + venta.id + ' creada.'); } catch (err) { setEstado(err.message); } });
     $('#form-persona').addEventListener('submit', async e => { e.preventDefault(); if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/persona', { method: 'PUT', body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value }) }); await refrescarVentaActual(); setEstado('Cliente asociado.'); } catch (err) { setEstado(err.message); } });
     $('#btn-cerrar-venta').addEventListener('click', async () => { if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/cerrar', { method: 'POST', body: '{}' }); setEstado('Venta #' + ventaActualId + ' cerrada y enviada a caja.'); ventaActualId = null; $('#bloque-venta').style.display = 'none'; $('#venta-id').textContent = 'Sin venta activa'; $('#tabla-items tbody').innerHTML = ''; $('#venta-total').textContent = '0.00'; await Promise.all([cargarCaja(), cargarProductos()]); } catch (err) { setEstado(err.message); } });
+
+    $('#buscador-productos').addEventListener('input', e => { filtroProductos = e.target.value || ''; renderListaProductos(); });
+    $('#lista-productos-filtrada').addEventListener('click', e => { const btn = e.target.closest('[data-producto-id]'); if (!btn) return; agregarProductoRapido(btn.dataset.productoId); });
 
     (async function init() { try { await Promise.all([cargarProductos(), cargarCaja(), cargarTipoCambio()]); } catch (e) { setEstado(e.message); } })();
   </script>
