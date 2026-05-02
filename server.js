@@ -56,6 +56,16 @@ app.post('/mostrador/ventas', async (req, res) => {
   res.status(201).json(venta);
 });
 
+app.get('/mostrador/ventas', async (req, res) => {
+  const estado = req.query.estado;
+  const ventas = await prisma.venta.findMany({
+    where: estado ? { estado } : undefined,
+    include: { persona: true, items: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(ventas);
+});
+
 app.get('/mostrador/ventas/:id', async (req, res) => {
   const venta = await prisma.venta.findUnique({
     where: { id: Number(req.params.id) },
@@ -169,7 +179,9 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
   if (venta.estado !== EstadoVenta.BORRADOR) {
     return res.status(400).json({ error: 'La venta ya no está en BORRADOR' });
   }
-  if (!venta.persona || !venta.persona.nombre || !venta.persona.telefono) {
+  const nombre = venta.persona?.nombre?.trim();
+  const telefono = venta.persona?.telefono?.trim();
+  if (!nombre || !telefono) {
     return res.status(400).json({ error: 'Antes de cerrar la venta debe existir nombre y telefono' });
   }
   if (venta.items.length === 0) {
