@@ -1,2 +1,1 @@
-# AGROQUIMICA-SAN-BERNARDO-SOFTWARE-v2
-sistema operativo 
+# AGROQUIMICA-SAN-BERnpm install
