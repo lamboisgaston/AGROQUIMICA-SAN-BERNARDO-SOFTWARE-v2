@@ -231,14 +231,215 @@ app.post('/caja/cobrar/:id', async (req, res) => {
 });
 
 app.get('/app', (req, res) => {
-  res.json({
-    modulo: 'APP',
-    estado: 'ok',
-    endpoints: {
-      mostrador: ['/mostrador/ventas', '/mostrador/ventas/:id/items', '/mostrador/ventas/:id/cerrar'],
-      caja: ['/caja/ventas', '/caja/cobrar/:id']
+  res.type('html').send(`<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mostrador y Caja</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #1f2937; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; }
+    h1, h2 { margin: 0 0 10px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 20px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+    input, select, button { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+    button { background: #2563eb; color: white; cursor: pointer; }
+    button.secondary { background: #4b5563; }
+    button.success { background: #15803d; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 6px; text-align: left; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mostrador y Caja</h1>
+
+    <div class="grid-2">
+      <section class="card">
+        <h2>Productos</h2>
+        <div class="muted">Lista de productos y alta rápida.</div>
+        <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th></tr></thead><tbody></tbody></table>
+        <h3>Crear producto</h3>
+        <form id="form-producto" class="row">
+          <input name="nombre" placeholder="Nombre" required />
+          <input name="precio" type="number" min="0" step="0.01" placeholder="Precio" required />
+          <input name="stock" type="number" min="0" step="1" placeholder="Stock" required />
+          <button type="submit">Crear</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Venta actual</h2>
+        <div class="row"><button id="btn-nueva-venta" class="success">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
+        <div id="bloque-venta" style="margin-top:10px; display:none;">
+          <h3>Agregar producto a venta</h3>
+          <form id="form-item" class="row">
+            <select id="item-producto" required></select>
+            <input id="item-cantidad" type="number" min="1" step="1" placeholder="Cantidad" required />
+            <button type="submit">Agregar</button>
+          </form>
+
+          <h3>Cliente</h3>
+          <form id="form-persona" class="row">
+            <input id="persona-nombre" placeholder="Nombre" required />
+            <input id="persona-telefono" placeholder="Teléfono" required />
+            <button type="submit" class="secondary">Asociar</button>
+          </form>
+
+          <h3>Items</h3>
+          <table id="tabla-items"><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead><tbody></tbody></table>
+          <p><strong>Total:</strong> $<span id="venta-total">0.00</span></p>
+          <button id="btn-cerrar-venta">Cerrar venta</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>CAJA - Ventas pendientes</h2>
+      <table id="tabla-caja"><thead><tr><th>ID Venta</th><th>Cliente</th><th>Total</th><th>Cobro</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <p id="estado" class="muted"></p>
+  </div>
+
+  <script>
+    let ventaActualId = null;
+    const $ = s => document.querySelector(s);
+
+    function setEstado(msg) { $('#estado').textContent = msg; }
+    function money(v) { return Number(v || 0).toFixed(2); }
+
+    async function api(url, options = {}) {
+      const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error en solicitud');
+      return data;
     }
-  });
+
+    async function cargarProductos() {
+      const productos = await api('/productos');
+      const tbody = $('#tabla-productos tbody');
+      const select = $('#item-producto');
+      tbody.innerHTML = '';
+      select.innerHTML = '<option value="">Seleccionar producto</option>';
+      for (const p of productos) {
+        tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>$' + money(p.precio) + '</td><td>' + p.stock + '</td></tr>';
+        select.innerHTML += '<option value="' + p.id + '">' + p.nombre + ' - $' + money(p.precio) + ' (stock ' + p.stock + ')</option>';
+      }
+    }
+
+    async function refrescarVentaActual() {
+      if (!ventaActualId) return;
+      const venta = await api('/mostrador/ventas/' + ventaActualId);
+      $('#venta-id').textContent = 'Venta #' + venta.id + ' (' + venta.estado + ')';
+      const tbody = $('#tabla-items tbody');
+      tbody.innerHTML = '';
+      for (const i of venta.items) {
+        const nombre = (i.producto && i.producto.nombre) || ('Producto ' + i.productoId);
+        tbody.innerHTML += '<tr><td>' + nombre + '</td><td>' + i.cantidad + '</td><td>$' + money(i.precioUnitario) + '</td><td>$' + money(i.subtotal) + '</td></tr>';
+      }
+      $('#venta-total').textContent = money(venta.total);
+    }
+
+    async function cargarCaja() {
+      const ventas = await api('/caja/ventas');
+      const tbody = $('#tabla-caja tbody');
+      tbody.innerHTML = '';
+      for (const v of ventas) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + v.id + '</td><td>' + (v.persona ? v.persona.nombre + ' (' + v.persona.telefono + ')' : 'Sin persona') + '</td><td>$' + money(v.total) + '</td><td></td>';
+        const tdAccion = tr.lastElementChild;
+        const select = document.createElement('select');
+        select.innerHTML = '<option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option>';
+        const btn = document.createElement('button');
+        btn.textContent = 'Cobrar';
+        btn.onclick = async () => {
+          try {
+            await api('/caja/cobrar/' + v.id, { method: 'POST', body: JSON.stringify({ formaPago: select.value }) });
+            setEstado('Venta #' + v.id + ' cobrada (' + select.value + ').');
+            await Promise.all([cargarCaja(), cargarProductos()]);
+          } catch (e) { setEstado(e.message); }
+        };
+        tdAccion.append(select, btn);
+        tbody.appendChild(tr);
+      }
+    }
+
+    $('#form-producto').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await api('/productos', { method: 'POST', body: JSON.stringify({ nombre: fd.get('nombre'), precio: Number(fd.get('precio')), stock: Number(fd.get('stock')) }) });
+        e.target.reset();
+        setEstado('Producto creado');
+        await cargarProductos();
+      } catch (err) { setEstado(err.message); }
+    });
+
+    $('#btn-nueva-venta').addEventListener('click', async () => {
+      try {
+        const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+        ventaActualId = venta.id;
+        $('#bloque-venta').style.display = 'block';
+        await refrescarVentaActual();
+        setEstado('Venta #' + venta.id + ' creada.');
+      } catch (err) { setEstado(err.message); }
+    });
+
+    $('#form-item').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!ventaActualId) return;
+      try {
+        await api('/mostrador/ventas/' + ventaActualId + '/items', {
+          method: 'POST',
+          body: JSON.stringify({ productoId: Number($('#item-producto').value), cantidad: Number($('#item-cantidad').value) })
+        });
+        $('#item-cantidad').value = '';
+        await Promise.all([refrescarVentaActual(), cargarProductos()]);
+      } catch (err) { setEstado(err.message); }
+    });
+
+    $('#form-persona').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!ventaActualId) return;
+      try {
+        await api('/mostrador/ventas/' + ventaActualId + '/persona', {
+          method: 'PUT',
+          body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value })
+        });
+        await refrescarVentaActual();
+        setEstado('Cliente asociado');
+      } catch (err) { setEstado(err.message); }
+    });
+
+    $('#btn-cerrar-venta').addEventListener('click', async () => {
+      if (!ventaActualId) return;
+      try {
+        await api('/mostrador/ventas/' + ventaActualId + '/cerrar', { method: 'POST', body: '{}' });
+        setEstado('Venta #' + ventaActualId + ' cerrada y enviada a caja.');
+        ventaActualId = null;
+        $('#bloque-venta').style.display = 'none';
+        $('#venta-id').textContent = 'Sin venta activa';
+        $('#tabla-items tbody').innerHTML = '';
+        $('#venta-total').textContent = '0.00';
+        await Promise.all([cargarCaja(), cargarProductos()]);
+      } catch (err) { setEstado(err.message); }
+    });
+
+    (async function init() {
+      try { await Promise.all([cargarProductos(), cargarCaja()]); }
+      catch (e) { setEstado(e.message); }
+    })();
+  </script>
+</body>
+</html>`);
 });
 
 const PORT = process.env.PORT || 3000;
