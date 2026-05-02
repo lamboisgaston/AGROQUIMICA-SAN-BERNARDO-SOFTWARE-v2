@@ -371,10 +371,10 @@ app.get('/app', (req, res) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mostrador y Caja</title>
+  <title>Panel Inicial - Agroquímica</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #1f2937; }
-    .container { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
     .card { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; }
     h1, h2, h3 { margin: 0 0 10px; }
     .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
@@ -385,54 +385,87 @@ app.get('/app', (req, res) => {
     th, td { border-bottom: 1px solid #e5e7eb; padding: 6px; text-align: left; }
     .muted { color: #6b7280; font-size: 13px; }
     .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .stack { display: grid; gap: 10px; }
     @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Mostrador y Caja</h1>
+    <h1>Interfaz inicial completa</h1>
+
+    <section class="card">
+      <h2>Productos</h2>
+      <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>USD</th><th>Pesos (calc.)</th><th>Stock</th></tr></thead><tbody></tbody></table>
+    </section>
 
     <div class="grid-2">
       <section class="card">
-        <h2>Lista de productos</h2>
-        <table id="tabla-productos"><thead><tr><th>ID</th><th>Nombre</th><th>USD</th><th>Pesos (calc.)</th><th>Stock</th></tr></thead><tbody></tbody></table>
-      </section>
-
-      <section class="card">
-        <h2>Vista de venta actual</h2>
+        <h2>Mostrador</h2>
         <div class="row"><button id="btn-nueva-venta" class="success">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
-        <div id="bloque-venta" style="margin-top:10px; display:none;">
-          <h3>Agregar producto a venta</h3>
-          <form id="form-item" class="row">
-            <select id="item-producto" required></select>
-            <input id="item-cantidad" type="number" min="1" step="1" placeholder="Cantidad" required />
-            <button type="submit">Agregar</button>
-          </form>
+        <div id="bloque-venta" class="stack" style="margin-top:10px; display:none;">
+          <div>
+            <h3>Agregar producto</h3>
+            <form id="form-item" class="row">
+              <select id="item-producto" required></select>
+              <input id="item-cantidad" type="number" min="1" step="1" placeholder="Cantidad" required />
+              <button type="submit">Agregar</button>
+            </form>
+          </div>
 
-          <h3>Formulario nombre y teléfono</h3>
-          <form id="form-persona" class="row">
-            <input id="persona-nombre" placeholder="Nombre" required />
-            <input id="persona-telefono" placeholder="Teléfono" required />
-            <button type="submit">Guardar cliente</button>
-          </form>
+          <div>
+            <h3>Cliente</h3>
+            <form id="form-persona" class="row">
+              <input id="persona-nombre" placeholder="Nombre" required />
+              <input id="persona-telefono" placeholder="Teléfono" required />
+              <button type="submit">Guardar cliente</button>
+            </form>
+          </div>
 
           <table id="tabla-items"><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead><tbody></tbody></table>
           <p><strong>Total:</strong> $<span id="venta-total">0.00</span></p>
           <button id="btn-cerrar-venta">Cerrar venta</button>
         </div>
       </section>
+
+      <section class="card">
+        <h2>Caja</h2>
+        <table id="tabla-caja"><thead><tr><th>ID Venta</th><th>Cliente</th><th>Total</th><th>Cobro</th></tr></thead><tbody></tbody></table>
+      </section>
     </div>
 
-    <section class="card">
-      <h2>Sección caja con ventas pendientes</h2>
-      <table id="tabla-caja"><thead><tr><th>ID Venta</th><th>Cliente</th><th>Total</th><th>Acción</th></tr></thead><tbody></tbody></table>
-    </section>
+    <div class="grid-2">
+      <section class="card">
+        <h2>Cuenta corriente</h2>
+        <form id="form-buscar-cuenta" class="row">
+          <input id="cc-persona-id" type="number" min="1" placeholder="ID persona" required />
+          <button type="submit">Buscar persona por ID</button>
+        </form>
+        <p><strong>Saldo:</strong> $<span id="cc-saldo">-</span></p>
+        <table id="tabla-cc-movimientos"><thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Descripción</th></tr></thead><tbody></tbody></table>
+        <h3>Registrar pago</h3>
+        <form id="form-cc-pago" class="row">
+          <input id="cc-monto" type="number" step="0.01" min="0.01" placeholder="Monto" required />
+          <input id="cc-descripcion" placeholder="Descripción (opcional)" />
+          <button type="submit">Registrar pago</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Configuración de tipo de cambio</h2>
+        <p><strong>Tipo de cambio actual:</strong> <span id="tipo-cambio-actual">-</span></p>
+        <form id="form-tipo-cambio" class="row">
+          <input id="nuevo-tipo-cambio" type="number" min="0.01" step="0.01" placeholder="Nuevo tipo de cambio" required />
+          <button type="submit">Modificar tipo de cambio</button>
+        </form>
+      </section>
+    </div>
 
     <p id="estado" class="muted"></p>
   </div>
 
   <script>
     let ventaActualId = null;
+    let cuentaPersonaIdActual = null;
     const $ = s => document.querySelector(s);
     const money = v => Number(v || 0).toFixed(2);
 
@@ -445,13 +478,12 @@ app.get('/app', (req, res) => {
       return data;
     }
 
-    async function cargarProductos() {
+    async function cargarProductos() { /* unchanged-ish */
       const productos = await api('/productos');
       const tbody = $('#tabla-productos tbody');
       const select = $('#item-producto');
       tbody.innerHTML = '';
       select.innerHTML = '<option value="">Seleccionar producto</option>';
-
       for (const p of productos) {
         tbody.innerHTML += '<tr><td>' + p.id + '</td><td>' + p.nombre + '</td><td>US$' + money(p.precioUsd) + '</td><td>$' + money(p.precioPesosCalculado) + '</td><td>' + p.stock + '</td></tr>';
         select.innerHTML += '<option value="' + p.id + '">' + p.nombre + ' - $' + money(p.precioPesosCalculado) + ' (stock ' + p.stock + ')</option>';
@@ -464,12 +496,10 @@ app.get('/app', (req, res) => {
       $('#venta-id').textContent = 'Venta #' + venta.id + ' (' + venta.estado + ')';
       const tbody = $('#tabla-items tbody');
       tbody.innerHTML = '';
-
       for (const i of venta.items) {
         const nombre = (i.producto && i.producto.nombre) || ('Producto ' + i.productoId);
         tbody.innerHTML += '<tr><td>' + nombre + '</td><td>' + i.cantidad + '</td><td>$' + money(i.precioUnitario) + '</td><td>$' + money(i.subtotal) + '</td></tr>';
       }
-
       $('#venta-total').textContent = money(venta.total);
     }
 
@@ -477,85 +507,52 @@ app.get('/app', (req, res) => {
       const ventas = await api('/caja/ventas');
       const tbody = $('#tabla-caja tbody');
       tbody.innerHTML = '';
-
       for (const v of ventas) {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td>' + v.id + '</td><td>' + (v.persona ? v.persona.nombre + ' (' + v.persona.telefono + ')' : 'Sin persona') + '</td><td>$' + money(v.total) + '</td><td></td>';
-
         const tdAccion = tr.lastElementChild;
+        const select = document.createElement('select');
+        select.innerHTML = '<option value="EFECTIVO">Efectivo</option><option value="CUENTA_CORRIENTE">Cuenta corriente</option>';
         const btn = document.createElement('button');
         btn.textContent = 'Cobrar';
         btn.onclick = async () => {
           try {
-            await api('/caja/cobrar/' + v.id, { method: 'POST', body: '{}' });
-            setEstado('Venta #' + v.id + ' cobrada.');
+            await api('/caja/cobrar/' + v.id, { method: 'POST', body: JSON.stringify({ medioPago: select.value }) });
+            setEstado('Venta #' + v.id + ' cobrada por ' + select.value + '.');
             await Promise.all([cargarCaja(), cargarProductos()]);
           } catch (e) { setEstado(e.message); }
         };
-
-        tdAccion.appendChild(btn);
-        tbody.appendChild(tr);
+        tdAccion.appendChild(select); tdAccion.appendChild(btn); tbody.appendChild(tr);
       }
     }
 
-    $('#btn-nueva-venta').addEventListener('click', async () => {
-      try {
-        const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
-        ventaActualId = venta.id;
-        $('#bloque-venta').style.display = 'block';
-        await refrescarVentaActual();
-        setEstado('Venta #' + venta.id + ' creada.');
-      } catch (err) { setEstado(err.message); }
-    });
+    async function cargarTipoCambio() {
+      const data = await api('/config/tipo-cambio');
+      $('#tipo-cambio-actual').textContent = money(data.tipoCambioActual);
+    }
 
-    $('#form-item').addEventListener('submit', async e => {
-      e.preventDefault();
-      if (!ventaActualId) return;
-      try {
-        await api('/mostrador/ventas/' + ventaActualId + '/items', {
-          method: 'POST',
-          body: JSON.stringify({ productoId: Number($('#item-producto').value), cantidad: Number($('#item-cantidad').value) })
-        });
-        $('#item-cantidad').value = '';
-        await Promise.all([refrescarVentaActual(), cargarProductos()]);
-      } catch (err) { setEstado(err.message); }
-    });
+    async function cargarCuentaCorriente(personaId) {
+      const cuenta = await api('/cuenta-corriente/personas/' + personaId);
+      cuentaPersonaIdActual = personaId;
+      $('#cc-saldo').textContent = money(cuenta.saldo);
+      const tbody = $('#tabla-cc-movimientos tbody');
+      tbody.innerHTML = '';
+      for (const m of cuenta.movimientos) {
+        tbody.innerHTML += '<tr><td>' + new Date(m.createdAt).toLocaleString() + '</td><td>' + m.tipo + '</td><td>$' + money(m.monto) + '</td><td>' + (m.descripcion || '') + '</td></tr>';
+      }
+    }
 
-    $('#form-persona').addEventListener('submit', async e => {
-      e.preventDefault();
-      if (!ventaActualId) return;
-      try {
-        await api('/mostrador/ventas/' + ventaActualId + '/persona', {
-          method: 'PUT',
-          body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value })
-        });
-        await refrescarVentaActual();
-        setEstado('Cliente asociado.');
-      } catch (err) { setEstado(err.message); }
-    });
+    // eventos
+    $('#form-buscar-cuenta').addEventListener('submit', async e => { e.preventDefault(); try { await cargarCuentaCorriente(Number($('#cc-persona-id').value)); setEstado('Cuenta corriente cargada.'); } catch(err){ setEstado(err.message);} });
+    $('#form-cc-pago').addEventListener('submit', async e => { e.preventDefault(); if (!cuentaPersonaIdActual) return setEstado('Primero busque una persona por ID.'); try { await api('/cuenta-corriente/personas/' + cuentaPersonaIdActual + '/pagos', { method:'POST', body: JSON.stringify({ monto:Number($('#cc-monto').value), descripcion: $('#cc-descripcion').value })}); $('#cc-monto').value=''; $('#cc-descripcion').value=''; await cargarCuentaCorriente(cuentaPersonaIdActual); setEstado('Pago registrado.'); } catch(err){ setEstado(err.message);} });
+    $('#form-tipo-cambio').addEventListener('submit', async e => { e.preventDefault(); try { await api('/config/tipo-cambio', { method:'PUT', body: JSON.stringify({ tipoCambioActual: Number($('#nuevo-tipo-cambio').value) }) }); $('#nuevo-tipo-cambio').value=''; await Promise.all([cargarTipoCambio(), cargarProductos()]); setEstado('Tipo de cambio actualizado.'); } catch(err){ setEstado(err.message);} });
 
-    $('#btn-cerrar-venta').addEventListener('click', async () => {
-      if (!ventaActualId) return;
-      try {
-        await api('/mostrador/ventas/' + ventaActualId + '/cerrar', { method: 'POST', body: '{}' });
-        setEstado('Venta #' + ventaActualId + ' cerrada y enviada a caja.');
-        ventaActualId = null;
-        $('#bloque-venta').style.display = 'none';
-        $('#venta-id').textContent = 'Sin venta activa';
-        $('#tabla-items tbody').innerHTML = '';
-        $('#venta-total').textContent = '0.00';
-        await Promise.all([cargarCaja(), cargarProductos()]);
-      } catch (err) { setEstado(err.message); }
-    });
+    $('#btn-nueva-venta').addEventListener('click', async () => { try { const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' }); ventaActualId = venta.id; $('#bloque-venta').style.display = 'block'; await refrescarVentaActual(); setEstado('Venta #' + venta.id + ' creada.'); } catch (err) { setEstado(err.message); } });
+    $('#form-item').addEventListener('submit', async e => { e.preventDefault(); if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/items', { method: 'POST', body: JSON.stringify({ productoId: Number($('#item-producto').value), cantidad: Number($('#item-cantidad').value) }) }); $('#item-cantidad').value = ''; await Promise.all([refrescarVentaActual(), cargarProductos()]); } catch (err) { setEstado(err.message); } });
+    $('#form-persona').addEventListener('submit', async e => { e.preventDefault(); if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/persona', { method: 'PUT', body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value }) }); await refrescarVentaActual(); setEstado('Cliente asociado.'); } catch (err) { setEstado(err.message); } });
+    $('#btn-cerrar-venta').addEventListener('click', async () => { if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/cerrar', { method: 'POST', body: '{}' }); setEstado('Venta #' + ventaActualId + ' cerrada y enviada a caja.'); ventaActualId = null; $('#bloque-venta').style.display = 'none'; $('#venta-id').textContent = 'Sin venta activa'; $('#tabla-items tbody').innerHTML = ''; $('#venta-total').textContent = '0.00'; await Promise.all([cargarCaja(), cargarProductos()]); } catch (err) { setEstado(err.message); } });
 
-    (async function init() {
-      try {
-        await Promise.all([
-          cargarProductos(),
-          cargarCaja(),
-        ]);
-      } catch (e) { setEstado(e.message); }
-    })();
+    (async function init() { try { await Promise.all([cargarProductos(), cargarCaja(), cargarTipoCambio()]); } catch (e) { setEstado(e.message); } })();
   </script>
 </body>
 </html>`);
