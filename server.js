@@ -202,6 +202,45 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
   res.json(ventaCerrada);
 });
 
+app.get('/caja/ventas', async (req, res) => {
+  const ventas = await prisma.venta.findMany({
+    where: { estado: EstadoVenta.PENDIENTE_CAJA },
+    include: { persona: true, items: { include: { producto: true } } },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  res.json(ventas);
+});
+
+app.post('/caja/cobrar/:id', async (req, res) => {
+  const ventaId = Number(req.params.id);
+  const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
+
+  if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
+  if (venta.estado !== EstadoVenta.PENDIENTE_CAJA) {
+    return res.status(400).json({ error: 'La venta no está pendiente de caja' });
+  }
+
+  const ventaCobrada = await prisma.venta.update({
+    where: { id: ventaId },
+    data: { estado: EstadoVenta.COBRADA },
+    include: { persona: true, items: { include: { producto: true } } }
+  });
+
+  res.json(ventaCobrada);
+});
+
+app.get('/app', (req, res) => {
+  res.json({
+    modulo: 'APP',
+    estado: 'ok',
+    endpoints: {
+      mostrador: ['/mostrador/ventas', '/mostrador/ventas/:id/items', '/mostrador/ventas/:id/cerrar'],
+      caja: ['/caja/ventas', '/caja/cobrar/:id']
+    }
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
