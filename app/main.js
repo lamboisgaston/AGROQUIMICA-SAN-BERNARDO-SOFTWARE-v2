@@ -170,40 +170,29 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
 });
 
 $('#btn-cerrar').addEventListener('click', async () => {
+  console.log('[cerrar-venta] inicio', { ventaId, venta });
+
+  if (!ventaId || !venta?.id) {
+    console.log('[cerrar-venta] sin venta actual');
+    return setMsg('Debe crear una venta');
+  }
+
   const itemsCarrito = venta?.items || [];
-  if (itemsCarrito.length === 0) return setMsg('No se puede cerrar una venta sin productos');
+  console.log('[cerrar-venta] items carrito', itemsCarrito);
+  if (itemsCarrito.length === 0) {
+    console.log('[cerrar-venta] validación fallida: sin productos');
+    return setMsg('Debe agregar productos');
+  }
 
-  const personaPayload = venta?.personaId
-    ? { personaId: venta.personaId }
-    : {
-        nombre: $('#nuevo-nombre').value.trim(),
-        telefono: $('#nuevo-telefono').value.trim(),
-        cuitDni: $('#nuevo-cuit').value.trim()
-      };
-
-  if (!personaPayload.personaId && (!personaPayload.nombre || !personaPayload.telefono || !personaPayload.cuitDni)) {
-    return setMsg('Debe seleccionar cliente o completar nombre, teléfono y CUIT/DNI');
+  console.log('[cerrar-venta] cliente actual', venta?.persona);
+  if (!venta?.personaId) {
+    console.log('[cerrar-venta] validación fallida: sin cliente');
+    return setMsg('Debe seleccionar o crear cliente');
   }
 
   try {
-    const ventaCreada = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
-    logFlujo('venta creada', ventaCreada);
-
-    for (const item of itemsCarrito) {
-      const itemAgregado = await api(`/mostrador/ventas/${ventaCreada.id}/items`, {
-        method: 'POST',
-        body: JSON.stringify({ productoId: item.productoId, cantidad: item.cantidad })
-      });
-      logFlujo('item agregado', { ventaId: ventaCreada.id, productoId: item.productoId, cantidad: item.cantidad, total: itemAgregado.total });
-    }
-
-    const ventaConCliente = await api(`/mostrador/ventas/${ventaCreada.id}/persona`, {
-      method: 'PUT',
-      body: JSON.stringify(personaPayload)
-    });
-    logFlujo('cliente asociado', ventaConCliente.persona);
-
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaCreada.id}/cerrar`, { method: 'POST', body: '{}' });
+    console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: '{}' });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
@@ -214,7 +203,10 @@ $('#btn-cerrar').addEventListener('click', async () => {
     await loadCaja();
     logFlujo('caja actualizada');
     setMsg('Venta cerrada y enviada a caja');
-  } catch (err) { setMsg(err.message); }
+  } catch (err) {
+    console.log('[cerrar-venta] error backend', err);
+    setMsg(err.message);
+  }
 });
 
 $('#pendientes').addEventListener('click', async (e) => {
