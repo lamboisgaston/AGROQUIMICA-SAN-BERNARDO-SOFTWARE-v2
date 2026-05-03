@@ -388,75 +388,84 @@ app.get('/caja/ventas', asyncHandler(async (req, res) => {
   res.json(ventas);
 }));
 
-app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
-  const ventaId = parsePositiveInt(req.params.id);
-  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
-  const { formaPago, medioPago } = req.body || {};
-  const pago = formaPago || medioPago;
-  const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
+app.post('/caja/cobrar/:id', async (req, res) => {
+  try {
+    const ventaId = parsePositiveInt(req.params.id);
+    if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
-  if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
-  if (venta.estado !== EstadoVenta.PENDIENTE_CAJA) {
-    return res.status(400).json({ error: 'La venta no está pendiente de caja' });
-  }
+    const { formaPago, medioPago } = req.body || {};
+    console.log('Venta a cobrar:', ventaId);
+    console.log('Forma de pago:', formaPago);
 
-  if (pago === 'CUENTA_CORRIENTE') {
-    if (!venta.personaId) {
-      return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
-    }
-    const ventaConPersona = await prisma.venta.findUnique({
-      where: { id: ventaId },
-      include: { persona: true }
-    });
-
-    if (!ventaConPersona?.personaId) {
-      return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
-    }
-
-    await prisma.$transaction(async tx => {
-      const cuenta = await tx.cuentaCorriente.upsert({
-        where: { personaId: ventaConPersona.personaId },
-        update: { saldo: { increment: ventaConPersona.total } },
-        create: {
-          personaId: ventaConPersona.personaId,
-          saldo: ventaConPersona.total
-        }
-      });
-
-      await tx.movimientoCuentaCorriente.create({
-        data: {
-          cuentaCorrienteId: cuenta.id,
-          ventaId: ventaConPersona.id,
-          tipo: 'DEBITO',
-          monto: ventaConPersona.total,
-          descripcion: `Venta #${ventaConPersona.id} enviada a cuenta corriente`
-        }
-      });
-
-      await tx.venta.update({
-        where: { id: ventaId },
-        data: { estado: EstadoVenta.COBRADA, medioPago: MedioPago.CUENTA_CORRIENTE }
-      });
-    });
-  } else {
-    const mediosPermitidos = [MedioPago.EFECTIVO, MedioPago.TRANSFERENCIA, MedioPago.TARJETA];
-    if (!mediosPermitidos.includes(pago)) {
+    const pago = formaPago || medioPago;
+    if (!pago) {
       return res.status(400).json({ error: 'formaPago inválida' });
     }
 
-    await prisma.venta.update({
+    const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
+
+    if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
+    if (venta.estado !== EstadoVenta.PENDIENTE_CAJA) {
+      return res.status(400).json({ error: 'La venta no está pendiente de caja' });
+    }
+
+    if (pago === MedioPago.CUENTA_CORRIENTE || pago === 'CUENTA_CORRIENTE') {
+      if (!venta.personaId) {
+        return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
+      }
+
+      await prisma.$transaction(async tx => {
+        const cuenta = await tx.cuentaCorriente.upsert({
+          where: { personaId: venta.personaId },
+          update: { saldo: { increment: venta.total } },
+          create: {
+            personaId: venta.personaId,
+            saldo: venta.total
+          }
+        });
+
+        await tx.movimientoCuentaCorriente.create({
+          data: {
+            cuentaCorrienteId: cuenta.id,
+            ventaId,
+            tipo: 'DEBITO',
+            monto: venta.total,
+            descripcion: `Venta #${ventaId} enviada a cuenta corriente`
+          }
+        });
+
+        await tx.venta.update({
+          where: { id: ventaId },
+          data: { estado: EstadoVenta.COBRADA, medioPago: MedioPago.CUENTA_CORRIENTE }
+        });
+      });
+    } else {
+      const mediosPermitidos = [MedioPago.EFECTIVO, MedioPago.TRANSFERENCIA, MedioPago.TARJETA];
+      if (!mediosPermitidos.includes(pago)) {
+        return res.status(400).json({ error: 'formaPago inválida' });
+      }
+
+      await prisma.venta.update({
+        where: { id: ventaId },
+        data: { estado: EstadoVenta.COBRADA, medioPago: pago }
+      });
+    }
+
+    const ventaCobrada = await prisma.venta.findUnique({
       where: { id: ventaId },
-      data: { estado: EstadoVenta.COBRADA, medioPago: pago }
+      include: { persona: true, items: { include: { producto: true } } }
     });
+
+    if (!ventaCobrada) {
+      throw new Error('Error al actualizar estado de la venta');
+    }
+
+    return res.json(ventaCobrada);
+  } catch (error) {
+    console.error('Error al cobrar:', error);
+    return res.status(500).json({ error: error.message });
   }
-
-  const ventaCobrada = await prisma.venta.findUnique({
-    where: { id: ventaId },
-    include: { persona: true, items: { include: { producto: true } } }
-  });
-
-  res.json(ventaCobrada);
-}));
+});
 
 app.get('/caja/resumen', asyncHandler(async (req, res) => {
   const resumen = await calcularResumenCajaDia(new Date());
