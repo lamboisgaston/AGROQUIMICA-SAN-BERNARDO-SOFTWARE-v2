@@ -6,3 +6,5 @@ button { cursor: pointer; }
 .item { padding: 8px; border-bottom: 1px solid #eee; }
 table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
 th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
+
+.total-grande { font-size: 24px; font-weight: bold; }

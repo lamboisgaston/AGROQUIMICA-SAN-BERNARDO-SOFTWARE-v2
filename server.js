@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago } = require('@prisma/client');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -13,6 +13,45 @@ function asyncHandler(handler) {
 function parsePositiveInt(value) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function obtenerRangoDia(fecha = new Date()) {
+  const inicio = new Date(fecha);
+  inicio.setHours(0, 0, 0, 0);
+
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 1);
+
+  return { inicio, fin };
+}
+
+async function calcularResumenCajaDia(fecha = new Date()) {
+  const { inicio, fin } = obtenerRangoDia(fecha);
+  const ventas = await prisma.venta.findMany({
+    where: {
+      estado: EstadoVenta.COBRADA,
+      createdAt: { gte: inicio, lt: fin }
+    },
+    select: { total: true, medioPago: true }
+  });
+
+  const resumen = {
+    fecha: inicio.toISOString(),
+    EFECTIVO: 0,
+    TRANSFERENCIA: 0,
+    TARJETA: 0,
+    CUENTA_CORRIENTE: 0
+  };
+
+  for (const venta of ventas) {
+    if (!venta.medioPago) continue;
+    resumen[venta.medioPago] += Number(venta.total || 0);
+  }
+
+  return {
+    ...resumen,
+    totalGeneral: resumen.EFECTIVO + resumen.TRANSFERENCIA + resumen.TARJETA + resumen.CUENTA_CORRIENTE
+  };
 }
 
 const usuarios = [
@@ -392,13 +431,18 @@ app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
 
       await tx.venta.update({
         where: { id: ventaId },
-        data: { estado: EstadoVenta.COBRADA }
+        data: { estado: EstadoVenta.COBRADA, medioPago: MedioPago.CUENTA_CORRIENTE }
       });
     });
   } else {
+    const mediosPermitidos = [MedioPago.EFECTIVO, MedioPago.TRANSFERENCIA, MedioPago.TARJETA];
+    if (!mediosPermitidos.includes(medioPago)) {
+      return res.status(400).json({ error: 'medioPago inválido' });
+    }
+
     await prisma.venta.update({
       where: { id: ventaId },
-      data: { estado: EstadoVenta.COBRADA }
+      data: { estado: EstadoVenta.COBRADA, medioPago }
     });
   }
 
@@ -408,6 +452,39 @@ app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
   });
 
   res.json(ventaCobrada);
+}));
+
+app.get('/caja/resumen', asyncHandler(async (req, res) => {
+  const resumen = await calcularResumenCajaDia(new Date());
+  res.json(resumen);
+}));
+
+app.post('/caja/cerrar', asyncHandler(async (req, res) => {
+  const ahora = new Date();
+  const { inicio } = obtenerRangoDia(ahora);
+
+  const existente = await prisma.cierreCajaDiario.findUnique({
+    where: { fecha: inicio }
+  });
+
+  if (existente) {
+    return res.status(400).json({ error: 'La caja del día ya fue cerrada' });
+  }
+
+  const resumen = await calcularResumenCajaDia(ahora);
+
+  const cierre = await prisma.cierreCajaDiario.create({
+    data: {
+      fecha: inicio,
+      totalEfectivo: resumen.EFECTIVO,
+      totalTransferencia: resumen.TRANSFERENCIA,
+      totalTarjeta: resumen.TARJETA,
+      totalCuentaCorriente: resumen.CUENTA_CORRIENTE,
+      totalGeneral: resumen.totalGeneral
+    }
+  });
+
+  res.status(201).json(cierre);
 }));
 
 app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) => {

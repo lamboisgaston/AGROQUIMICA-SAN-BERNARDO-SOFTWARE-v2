@@ -40,7 +40,19 @@ model Venta {
   items     VentaItem[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+  medioPago MedioPago?
   movimientosCuentaCorriente MovimientoCuentaCorriente[]
+}
+
+model CierreCajaDiario {
+  id                      Int      @id @default(autoincrement())
+  fecha                   DateTime @unique
+  totalEfectivo           Float
+  totalTransferencia      Float
+  totalTarjeta            Float
+  totalCuentaCorriente    Float
+  totalGeneral            Float
+  createdAt               DateTime @default(now())
 }
 
 model VentaItem {
@@ -82,6 +94,13 @@ model MovimientoCuentaCorriente {
   monto             Float
   descripcion       String?
   createdAt         DateTime @default(now())
+}
+
+enum MedioPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  CUENTA_CORRIENTE
 }
 
 enum TipoMovimientoCuentaCorriente {

@@ -90,6 +90,16 @@ async function refreshVenta() {
   await renderCuentaCorrienteClienteActivo();
 }
 
+
+async function loadResumenCaja() {
+  const resumen = await api('/caja/resumen');
+  $('#cierre-efectivo').textContent = money(resumen.EFECTIVO);
+  $('#cierre-transferencia').textContent = money(resumen.TRANSFERENCIA);
+  $('#cierre-tarjeta').textContent = money(resumen.TARJETA);
+  $('#cierre-cc').textContent = money(resumen.CUENTA_CORRIENTE);
+  $('#cierre-total').textContent = money(resumen.totalGeneral);
+}
+
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
   $('#pendientes').innerHTML = ventas.length
@@ -115,6 +125,7 @@ $('#resultados-productos').addEventListener('click', async (e) => {
     await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId: Number(b.dataset.producto), cantidad: 1 }) });
     await refreshVenta();
     await loadCaja();
+    await loadResumenCaja();
   } catch (err) { setMsg(err.message); }
 });
 
@@ -129,6 +140,7 @@ $('#carrito').addEventListener('click', async (e) => {
     await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, { method: 'PUT', body: JSON.stringify({ cantidad: Math.max(0, cantidad) }) });
     await refreshVenta();
     await loadCaja();
+    await loadResumenCaja();
   } catch (err) { setMsg(err.message); }
 });
 
@@ -196,6 +208,7 @@ $('#btn-cerrar').addEventListener('click', async () => {
     renderCarrito();
     renderClienteActivo();
     await loadCaja();
+    await loadResumenCaja();
     logFlujo('caja actualizada');
     setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
   } catch (err) {
@@ -212,6 +225,7 @@ $('#pendientes').addEventListener('click', async (e) => {
   try {
     await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ medioPago }) });
     await loadCaja();
+    await loadResumenCaja();
     setMsg(medioPago === 'CUENTA_CORRIENTE' ? 'Venta enviada a cuenta corriente (DEBE registrado)' : 'Venta cobrada');
   } catch (err) { setMsg(err.message); }
 });
@@ -250,11 +264,23 @@ $('#btn-cc-registrar-pago').addEventListener('click', async () => {
   } catch (e) { setMsg(e.message); }
 });
 
+
+$('#btn-cerrar-caja').addEventListener('click', async () => {
+  try {
+    await api('/caja/cerrar', { method: 'POST', body: '{}' });
+    await loadResumenCaja();
+    setMsg('✅ Caja cerrada correctamente');
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
+
 (async function init() {
   productos = await api('/productos');
   renderProductos();
   renderCarrito();
   renderClienteActivo();
   await loadCaja();
+  await loadResumenCaja();
   renderPanelCuentaCorriente(null);
 })();
