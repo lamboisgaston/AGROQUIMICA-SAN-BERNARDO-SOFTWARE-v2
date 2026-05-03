@@ -15,6 +15,14 @@ async function api(url, options = {}) {
 
 function setMsg(text) { $('#msg').textContent = text; }
 
+function logFlujo(paso, payload) {
+  if (payload !== undefined) {
+    console.log(`[flujo-venta] ${paso}`, payload);
+    return;
+  }
+  console.log(`[flujo-venta] ${paso}`);
+}
+
 function renderProductos() {
   const q = $('#buscar-producto').value.trim().toLowerCase();
   const lista = productos.filter(p => p.stock > 0 && (!q || p.nombre.toLowerCase().includes(q))).slice(0, 20);
@@ -162,16 +170,49 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
 });
 
 $('#btn-cerrar').addEventListener('click', async () => {
-  if (!ventaId) return setMsg('Primero cree una venta');
-  if (!venta?.personaId) return setMsg('No se puede cerrar sin cliente');
+  const itemsCarrito = venta?.items || [];
+  if (itemsCarrito.length === 0) return setMsg('No se puede cerrar una venta sin productos');
+
+  const personaPayload = venta?.personaId
+    ? { personaId: venta.personaId }
+    : {
+        nombre: $('#nuevo-nombre').value.trim(),
+        telefono: $('#nuevo-telefono').value.trim(),
+        cuitDni: $('#nuevo-cuit').value.trim()
+      };
+
+  if (!personaPayload.personaId && (!personaPayload.nombre || !personaPayload.telefono || !personaPayload.cuitDni)) {
+    return setMsg('Debe seleccionar cliente o completar nombre, teléfono y CUIT/DNI');
+  }
+
   try {
-    await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: '{}' });
+    const ventaCreada = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    logFlujo('venta creada', ventaCreada);
+
+    for (const item of itemsCarrito) {
+      const itemAgregado = await api(`/mostrador/ventas/${ventaCreada.id}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ productoId: item.productoId, cantidad: item.cantidad })
+      });
+      logFlujo('item agregado', { ventaId: ventaCreada.id, productoId: item.productoId, cantidad: item.cantidad, total: itemAgregado.total });
+    }
+
+    const ventaConCliente = await api(`/mostrador/ventas/${ventaCreada.id}/persona`, {
+      method: 'PUT',
+      body: JSON.stringify(personaPayload)
+    });
+    logFlujo('cliente asociado', ventaConCliente.persona);
+
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaCreada.id}/cerrar`, { method: 'POST', body: '{}' });
+    logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
+
     ventaId = null;
     venta = null;
     $('#venta-activa').textContent = 'Sin venta activa';
     renderCarrito();
     renderClienteActivo();
     await loadCaja();
+    logFlujo('caja actualizada');
     setMsg('Venta cerrada y enviada a caja');
   } catch (err) { setMsg(err.message); }
 });
