@@ -44,6 +44,8 @@
       <button id="btn-crear-cliente">Crear cliente</button>
 
       <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
+      <p>Saldo cuenta corriente: <strong id="cliente-saldo">$0.00</strong></p>
+      <p>Total deuda: <strong id="cliente-deuda">$0.00</strong></p>
     </section>
 
     <section class="bloque">
@@ -54,6 +56,20 @@
     <section class="bloque">
       <h2>5) Caja</h2>
       <div id="pendientes">Cargando...</div>
+    </section>
+
+    <section class="bloque">
+      <h2>6) Cuenta corriente</h2>
+      <input id="cc-buscar-cliente" placeholder="Buscar cliente por nombre / teléfono / cuit" />
+      <button id="btn-cc-buscar">Buscar</button>
+      <div id="cc-resultados-clientes" class="lista"></div>
+      <p>Cliente cuenta corriente: <strong id="cc-cliente-activo">Ninguno</strong></p>
+      <p>Saldo total: <strong id="cc-saldo">$0.00</strong></p>
+      <div id="cc-movimientos" class="lista"></div>
+      <div>
+        <input id="cc-pago-monto" type="number" min="0.01" step="0.01" placeholder="Monto a pagar" />
+        <button id="btn-cc-registrar-pago">Registrar pago</button>
+      </div>
     </section>
 
     <p id="msg"></p>

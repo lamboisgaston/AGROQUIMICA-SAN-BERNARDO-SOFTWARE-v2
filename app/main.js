@@ -4,6 +4,7 @@ const money = (v) => '$' + Number(v || 0).toFixed(2);
 let ventaId = null;
 let venta = null;
 let productos = [];
+let cuentaCorrienteMostrada = null;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -40,12 +41,45 @@ function renderClienteActivo() {
   $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'}` : 'Ninguno';
 }
 
+async function cargarCuentaCorrientePersona(personaId) {
+  if (!personaId) return null;
+  return api(`/cuenta-corriente/personas/${personaId}`);
+}
+
+async function renderCuentaCorrienteClienteActivo() {
+  const personaId = venta?.personaId;
+  if (!personaId) {
+    $('#cliente-saldo').textContent = money(0);
+    $('#cliente-deuda').textContent = money(0);
+    return;
+  }
+  try {
+    const cuenta = await cargarCuentaCorrientePersona(personaId);
+    $('#cliente-saldo').textContent = money(cuenta.saldo);
+    $('#cliente-deuda').textContent = money(cuenta.saldo);
+  } catch (e) {
+    setMsg(e.message);
+  }
+}
+
+function renderPanelCuentaCorriente(cuenta) {
+  cuentaCorrienteMostrada = cuenta;
+  $('#cc-cliente-activo').textContent = cuenta?.persona
+    ? `${cuenta.persona.nombre} | ${cuenta.persona.telefono} | ${cuenta.persona.cuitDni || '-'}`
+    : 'Ninguno';
+  $('#cc-saldo').textContent = money(cuenta?.saldo || 0);
+  $('#cc-movimientos').innerHTML = (cuenta?.movimientos || []).length
+    ? cuenta.movimientos.map(m => `<div class="item">${new Date(m.createdAt).toLocaleString()} | ${m.tipo === 'DEBITO' ? 'DEBE' : 'HABER'} | ${money(m.monto)} | ${m.descripcion || '-'}</div>`).join('')
+    : '<div class="item">Sin movimientos</div>';
+}
+
 async function refreshVenta() {
   if (!ventaId) return;
   venta = await api(`/mostrador/ventas/${ventaId}`);
   $('#venta-activa').textContent = `Venta #${venta.id}`;
   renderCarrito();
   renderClienteActivo();
+  await renderCuentaCorrienteClienteActivo();
 }
 
 async function loadCaja() {
@@ -150,8 +184,42 @@ $('#pendientes').addEventListener('click', async (e) => {
   try {
     await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ medioPago }) });
     await loadCaja();
-    setMsg('Venta cobrada');
+    setMsg(medioPago === 'CUENTA_CORRIENTE' ? 'Venta enviada a cuenta corriente (DEBE registrado)' : 'Venta cobrada');
   } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-cc-buscar').addEventListener('click', async () => {
+  const q = $('#cc-buscar-cliente').value.trim();
+  if (!q) return;
+  try {
+    const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
+    $('#cc-resultados-clientes').innerHTML = personas.length
+      ? personas.map(p => `<div class="item">${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'} <button data-cc-persona="${p.id}">Ver cuenta</button></div>`).join('')
+      : '<div class="item">Sin resultados</div>';
+  } catch (e) { setMsg(e.message); }
+});
+
+$('#cc-resultados-clientes').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-cc-persona]');
+  if (!b) return;
+  try {
+    const cuenta = await cargarCuentaCorrientePersona(Number(b.dataset.ccPersona));
+    renderPanelCuentaCorriente(cuenta);
+  } catch (e2) { setMsg(e2.message); }
+});
+
+$('#btn-cc-registrar-pago').addEventListener('click', async () => {
+  const personaId = cuentaCorrienteMostrada?.personaId;
+  if (!personaId) return setMsg('Seleccione un cliente para registrar pago');
+  const monto = Number($('#cc-pago-monto').value);
+  if (!monto || monto <= 0) return setMsg('Ingrese un monto válido');
+  try {
+    await api(`/cuenta-corriente/personas/${personaId}/pagos`, { method: 'POST', body: JSON.stringify({ monto }) });
+    const cuenta = await cargarCuentaCorrientePersona(personaId);
+    renderPanelCuentaCorriente(cuenta);
+    await renderCuentaCorrienteClienteActivo();
+    setMsg('Pago registrado (HABER) y saldo actualizado');
+  } catch (e) { setMsg(e.message); }
 });
 
 (async function init() {
@@ -160,4 +228,5 @@ $('#pendientes').addEventListener('click', async (e) => {
   renderCarrito();
   renderClienteActivo();
   await loadCaja();
+  renderPanelCuentaCorriente(null);
 })();
