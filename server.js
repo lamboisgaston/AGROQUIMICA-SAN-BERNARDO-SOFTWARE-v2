@@ -162,9 +162,56 @@ app.post('/mostrador/ventas/:id/items', async (req, res) => {
   res.json(ventaActualizada);
 });
 
+
+app.put('/mostrador/ventas/:id/items/:productoId', async (req, res) => {
+  const ventaId = Number(req.params.id);
+  const productoId = Number(req.params.productoId);
+  const { cantidad } = req.body || {};
+
+  if (!Number.isInteger(cantidad) || cantidad < 0) {
+    return res.status(400).json({ error: 'cantidad debe ser entero >= 0' });
+  }
+
+  const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
+  if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
+  if (venta.estado !== EstadoVenta.BORRADOR) {
+    return res.status(400).json({ error: 'Solo se pueden editar ventas en BORRADOR' });
+  }
+
+  const existente = await prisma.ventaItem.findUnique({
+    where: { ventaId_productoId: { ventaId, productoId } }
+  });
+  if (!existente) return res.status(404).json({ error: 'Item no encontrado en la venta' });
+
+  if (cantidad === 0) {
+    await prisma.ventaItem.delete({ where: { id: existente.id } });
+  } else {
+    const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (cantidad > producto.stock) {
+      return res.status(400).json({ error: 'Stock insuficiente para ese producto' });
+    }
+
+    await prisma.ventaItem.update({
+      where: { id: existente.id },
+      data: { cantidad, subtotal: existente.precioUnitario * cantidad }
+    });
+  }
+
+  const items = await prisma.ventaItem.findMany({ where: { ventaId } });
+  const total = items.reduce((acc, item) => acc + item.subtotal, 0);
+  const ventaActualizada = await prisma.venta.update({
+    where: { id: ventaId },
+    data: { total },
+    include: { persona: true, items: { include: { producto: true } } }
+  });
+
+  res.json(ventaActualizada);
+});
+
 app.put('/mostrador/ventas/:id/persona', async (req, res) => {
   const ventaId = Number(req.params.id);
-  const { personaId, nombre, telefono, tipo } = req.body;
+  const { personaId, nombre, telefono, tipo, cuitDni } = req.body;
 
   const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
   if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
@@ -177,13 +224,14 @@ app.put('/mostrador/ventas/:id/persona', async (req, res) => {
     persona = await prisma.persona.findUnique({ where: { id: Number(personaId) } });
     if (!persona) return res.status(404).json({ error: 'Persona no encontrada' });
   } else {
-    if (!nombre || !telefono) {
-      return res.status(400).json({ error: 'Debe enviar personaId o bien nombre y telefono' });
+    if (!nombre || !telefono || !cuitDni) {
+      return res.status(400).json({ error: 'Debe enviar personaId o bien nombre, telefono y cuitDni' });
     }
     persona = await prisma.persona.create({
       data: {
         nombre,
         telefono,
+        cuitDni,
         tipo: tipo || 'CONSUMIDOR_FINAL'
       }
     });
@@ -210,8 +258,8 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
   if (venta.estado !== EstadoVenta.BORRADOR) {
     return res.status(400).json({ error: 'La venta ya no está en BORRADOR' });
   }
-  if (!venta.persona || !venta.persona.nombre || !venta.persona.telefono) {
-    return res.status(400).json({ error: 'Antes de cerrar la venta debe existir nombre y telefono' });
+  if (!venta.persona || !venta.persona.nombre || !venta.persona.telefono || !venta.persona.cuitDni) {
+    return res.status(400).json({ error: 'Antes de cerrar la venta debe existir nombre, telefono y CUIT/DNI' });
   }
   if (venta.items.length === 0) {
     return res.status(400).json({ error: 'No se puede cerrar una venta sin productos' });
@@ -368,205 +416,32 @@ app.post('/cuenta-corriente/personas/:personaId/pagos', async (req, res) => {
 app.get('/app', (req, res) => {
   res.type('html').send(`<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panel Inicial - Agroquímica</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #eef2f7; color: #0f172a; }
-    .container { max-width: 1280px; margin: 0 auto; padding: 16px; }
-    .layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    .card { background: #fff; border: 1px solid #dbe2ea; border-radius: 12px; padding: 16px; }
-    h1, h2, h3 { margin: 0; }
-    h1 { margin-bottom: 12px; }
-    h2 { margin-bottom: 12px; }
-    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    .stack { display: grid; gap: 12px; }
-    input, select, button { padding: 10px 12px; border: 1px solid #c8d2de; border-radius: 8px; font-size: 16px; color: #0f172a; background: #fff; }
-    button { background: #1d4ed8; color: #fff; cursor: pointer; border-color: #1d4ed8; }
-    button.success { background: #166534; border-color: #166534; }
-    .btn-lg { font-size: 18px; font-weight: 700; padding: 12px 16px; }
-    .muted { color: #5b6574; font-size: 13px; }
-    .product-search { width: 100%; font-size: 18px; }
-    .product-list { max-height: 420px; overflow-y: auto; display: grid; gap: 10px; }
-    .product-item { width: 100%; padding: 14px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; display: grid; gap: 4px; }
-    .product-item:hover, .product-item:focus { background: #f8fbff; outline: none; border-color: #9fc2ff; }
-    .product-name { font-size: 22px; font-weight: 700; display: block; margin-bottom: 8px; }
-    .product-price { font-size: 28px; font-weight: 800; color: #111827; display: block; margin-bottom: 6px; }
-    .product-stock { color: #475569; font-size: 14px; }
-    table { width: 100%; border-collapse: collapse; font-size: 15px; }
-    th, td { border-bottom: 1px solid #e8edf2; padding: 8px 6px; text-align: left; }
-    .total-grande { font-size: 42px; font-weight: 800; color: #0b3a91; margin: 0; }
-    .caja-lista { display: grid; gap: 10px; }
-    .caja-card { border: 1px solid #d7dee8; border-radius: 10px; background: #f8fafc; padding: 12px; display: grid; gap: 10px; }
-    .caja-card h3 { font-size: 20px; margin: 0; }
-    @media (min-width: 980px) { .layout { grid-template-columns: 1fr 1fr; } }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Mostrador y Caja</h1>
-    <div class="layout">
-      <section class="card">
-        <h2>Mostrador</h2>
-        <div class="row"><button id="btn-nueva-venta" class="success btn-lg">Nueva venta</button><span id="venta-id" class="muted">Sin venta activa</span></div>
-        <div id="bloque-venta" class="stack" style="margin-top:10px; display:none;">
-          <div class="stack">
-            <h3>Agregar producto</h3>
-            <input id="buscador-productos" class="product-search" placeholder="Buscar producto por nombre..." autocomplete="off" />
-            <div id="lista-productos-filtrada" class="product-list"></div>
-            <p class="muted">Click en un producto para agregar 1 unidad automáticamente.</p>
-          </div>
-
-          <div>
-            <h3>Cliente</h3>
-            <form id="form-persona" class="row">
-              <input id="persona-nombre" placeholder="Nombre" required />
-              <input id="persona-telefono" placeholder="Teléfono" required />
-              <button type="submit" class="btn-lg">Guardar cliente</button>
-            </form>
-          </div>
-
-          <table id="tabla-items"><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead><tbody></tbody></table>
-          <p><strong>Total de la venta</strong></p><p class="total-grande">$<span id="venta-total">0.00</span></p>
-          <button id="btn-cerrar-venta" class="btn-lg">Cerrar venta</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Caja</h2>
-        <div id="lista-caja" class="caja-lista"></div>
-      </section>
-    </div>
-
-    <p id="estado" class="muted"></p>
-  </div>
-
-  <script>
-    let ventaActualId = null;
-    let cuentaPersonaIdActual = null;
-    let productosCache = [];
-    let filtroProductos = '';
-    const $ = s => document.querySelector(s);
-    const money = v => Number(v || 0).toFixed(2);
-
-    function setEstado(msg) { $('#estado').textContent = msg; }
-
-    async function api(url, options = {}) {
-      const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error en solicitud');
-      return data;
-    }
-
-    async function cargarProductos() {
-      const productos = await api('/productos');
-      productosCache = productos;
-      renderListaProductos();
-    }
-
-
-
-    function obtenerNombreProducto(producto) {
-      const nombre = (producto && typeof producto.nombre === 'string') ? producto.nombre.trim() : '';
-      if (nombre) return nombre;
-      return 'Producto sin nombre';
-    }
-
-    function renderListaProductos() {
-      const contenedor = $('#lista-productos-filtrada');
-      if (!contenedor) return;
-      const termino = filtroProductos.trim().toLowerCase();
-      const filtrados = productosCache
-        .filter(p => p.stock > 0)
-        .filter(p => {
-          const nombre = obtenerNombreProducto(p).toLowerCase();
-          return !termino || nombre.includes(termino);
-        })
-        .slice(0, 8);
-
-      if (filtrados.length === 0) {
-        contenedor.innerHTML = '<p class="muted" style="padding:10px; margin:0;">Sin productos para mostrar.</p>';
-        return;
-      }
-
-      contenedor.innerHTML = filtrados.map(p =>
-        '<button class="product-item" data-producto-id="' + p.id + '">' +
-          '<span class="product-name">' + obtenerNombreProducto(p) + '</span>' +
-          '<span class="product-price">$ ' + money(p.precioPesosCalculado) + '</span>' +
-          '<span class="product-stock">Stock disponible: ' + p.stock + '</span>' +
-        '</button>'
-      ).join('');
-    }
-
-    async function agregarProductoRapido(productoId) {
-      if (!ventaActualId) return setEstado('Primero cree una venta.');
-      try {
-        await api('/mostrador/ventas/' + ventaActualId + '/items', { method: 'POST', body: JSON.stringify({ productoId: Number(productoId), cantidad: 1 }) });
-        await Promise.all([refrescarVentaActual(), cargarProductos()]);
-        $('#buscador-productos').focus();
-      } catch (err) { setEstado(err.message); }
-    }
-    async function refrescarVentaActual() {
-      if (!ventaActualId) return;
-      const venta = await api('/mostrador/ventas/' + ventaActualId);
-      $('#venta-id').textContent = 'Venta #' + venta.id + ' (' + venta.estado + ')';
-      const tbody = $('#tabla-items tbody');
-      tbody.innerHTML = '';
-      if (!venta.items.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="muted">Todavía no hay productos cargados en esta venta.</td></tr>';
-      }
-      for (const i of venta.items) {
-        const nombre = (i.producto && i.producto.nombre) || ('Producto ' + i.productoId);
-        tbody.innerHTML += '<tr><td>' + nombre + '</td><td>' + i.cantidad + '</td><td>$' + money(i.precioUnitario) + '</td><td>$' + money(i.subtotal) + '</td></tr>';
-      }
-      $('#venta-total').textContent = money(venta.total);
-    }
-
-    async function cargarCaja() {
-      const ventas = await api('/caja/ventas');
-      const contenedor = $('#lista-caja');
-      contenedor.innerHTML = '';
-      if (!ventas.length) {
-        contenedor.innerHTML = '<p class="muted">No hay ventas pendientes.</p>';
-        return;
-      }
-      for (const v of ventas) {
-        const card = document.createElement('article');
-        card.className = 'caja-card';
-        card.innerHTML = '<h3>Venta #' + v.id + '</h3><div><strong>Cliente:</strong> ' + (v.persona ? v.persona.nombre + ' (' + v.persona.telefono + ')' : 'Sin persona') + '</div><div><strong>Total:</strong> $' + money(v.total) + '</div>';
-        const acciones = document.createElement('div');
-        acciones.className = 'row';
-        const select = document.createElement('select');
-        select.innerHTML = '<option value="EFECTIVO">Efectivo</option><option value="CUENTA_CORRIENTE">Cuenta corriente</option>';
-        const btn = document.createElement('button');
-        btn.className = 'btn-lg';
-        btn.textContent = 'Cobrar';
-        btn.onclick = async () => {
-          try {
-            await api('/caja/cobrar/' + v.id, { method: 'POST', body: JSON.stringify({ medioPago: select.value }) });
-            setEstado('Venta #' + v.id + ' cobrada por ' + select.value + '.');
-            await Promise.all([cargarCaja(), cargarProductos()]);
-          } catch (e) { setEstado(e.message); }
-        };
-        acciones.appendChild(select); acciones.appendChild(btn);
-        card.appendChild(acciones);
-        contenedor.appendChild(card);
-      }
-    }
-
-    // eventos
-    $('#btn-nueva-venta').addEventListener('click', async () => { try { const venta = await api('/mostrador/ventas', { method: 'POST', body: '{}' }); ventaActualId = venta.id; $('#bloque-venta').style.display = 'block'; await refrescarVentaActual(); $('#buscador-productos').focus(); setEstado('Venta #' + venta.id + ' creada.'); } catch (err) { setEstado(err.message); } });
-    $('#form-persona').addEventListener('submit', async e => { e.preventDefault(); if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/persona', { method: 'PUT', body: JSON.stringify({ nombre: $('#persona-nombre').value, telefono: $('#persona-telefono').value }) }); await refrescarVentaActual(); setEstado('Cliente asociado.'); } catch (err) { setEstado(err.message); } });
-    $('#btn-cerrar-venta').addEventListener('click', async () => { if (!ventaActualId) return; try { await api('/mostrador/ventas/' + ventaActualId + '/cerrar', { method: 'POST', body: '{}' }); setEstado('Venta #' + ventaActualId + ' cerrada y enviada a caja.'); ventaActualId = null; $('#bloque-venta').style.display = 'none'; $('#venta-id').textContent = 'Sin venta activa'; $('#tabla-items tbody').innerHTML = ''; $('#venta-total').textContent = '0.00'; await Promise.all([cargarCaja(), cargarProductos()]); } catch (err) { setEstado(err.message); } });
-
-    $('#buscador-productos').addEventListener('input', e => { filtroProductos = e.target.value || ''; renderListaProductos(); });
-    $('#lista-productos-filtrada').addEventListener('click', e => { const btn = e.target.closest('[data-producto-id]'); if (!btn) return; agregarProductoRapido(btn.dataset.productoId); });
-
-    (async function init() { try { await Promise.all([cargarProductos(), cargarCaja()]); } catch (e) { setEstado(e.message); } })();
-  </script>
-</body>
-</html>`);
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Caja Mostrador</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#e5e7eb;color:#111827} .app{display:grid;grid-template-columns:1.2fr .8fr;gap:10px;padding:10px;max-width:1400px;margin:0 auto} .panel{background:#fff;border:1px solid #cbd5e1;padding:10px} .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap} input,select,button{font-size:18px;padding:10px;border:1px solid #94a3b8;border-radius:6px;color:#111827;background:#fff} button{background:#0f766e;color:#fff;border-color:#0f766e;cursor:pointer;font-weight:700} .danger{background:#b91c1c;border-color:#b91c1c}.search{width:100%;font-size:26px;padding:12px} .results{border:1px solid #cbd5e1;max-height:310px;overflow:auto;margin-top:6px} .result{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:8px;border-bottom:1px solid #e2e8f0;cursor:pointer}.result:hover{background:#f1f5f9} .mono{font-weight:700} table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #e2e8f0;padding:6px;text-align:left} .qty{display:flex;gap:6px} .qty button{padding:6px 12px;font-size:20px} .total{font-size:46px;font-weight:900;margin:8px 0;color:#0f172a} .pending{border:1px solid #cbd5e1;padding:8px;margin-top:8px;background:#f8fafc}
+</style></head><body>
+<div class="app">
+<section class="panel"><h2>Mostrador</h2><div class="row"><button id="nueva">Nueva venta</button><strong id="vid">Sin venta activa</strong></div>
+<input id="q" class="search" placeholder="Buscar producto..." />
+<div id="results" class="results"></div>
+<h3>Carrito (siempre visible)</h3><table><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit</th><th>Subtotal</th></tr></thead><tbody id="cart"></tbody></table>
+<div class="row"><label>% Desc.<input id="dp" type="number" value="0" min="0" max="100" style="width:110px"/></label><label>Monto Desc.<input id="df" type="number" value="0" min="0" style="width:140px"/></label></div>
+<div>
+<div>Total: <span id="tt" class="mono">$0.00</span></div><div class="total">Final: $<span id="tf">0.00</span></div>
+</div>
+<h3>Datos comprador</h3><div class="row"><input id="nom" placeholder="Nombre"/><input id="tel" placeholder="Teléfono"/><input id="cuit" placeholder="CUIT/DNI"/></div>
+<div class="row"><button id="guardar">Guardar comprador</button><button id="cerrar" class="danger">Cerrar venta</button></div>
+</section>
+<section class="panel"><h2>Caja simple</h2><div id="pend"></div></section></div><p id="st"></p>
+<script>let ventaId=null,productos=[],venta=null,f='';const $=s=>document.querySelector(s),money=v=>Number(v||0).toFixed(2);const set=m=>$('#st').textContent=m;async function api(u,o={}){const r=await fetch(u,{headers:{'Content-Type':'application/json'},...o});const d=await r.json();if(!r.ok) throw new Error(d.error||'Error');return d;}
+function renderProd(){const l=$('#results');const q=f.toLowerCase().trim();const xs=productos.filter(p=>p.stock>0&&(!q||p.nombre.toLowerCase().includes(q))).slice(0,6);l.innerHTML=xs.map(p=>'<div class=\"result\" data-id=\"'+p.id+'\"><span>'+p.nombre+'</span><span class=\"mono\">$'+money(p.precioPesosCalculado)+'</span><span>Stock:'+p.stock+'</span></div>').join('')||'<div style=\"padding:8px\">Sin resultados</div>';}
+function totalFinal(){const t=Number(venta?.total||0),dp=Math.max(0,Math.min(100,Number($('#dp').value||0))),df=Math.max(0,Number($('#df').value||0));const fin=Math.max(0,t-(t*dp/100)-df);$('#tt').textContent='$'+money(t);$('#tf').textContent=money(fin);}
+function renderVenta(){const b=$('#cart');b.innerHTML='';if(!venta||!venta.items?.length){b.innerHTML='<tr><td colspan=4>Sin productos</td></tr>';totalFinal();return;}for(const i of venta.items){b.innerHTML+='<tr><td>'+i.producto.nombre+'</td><td><div class=\"qty\"><button data-a=\"-\" data-p=\"'+i.productoId+'\">-</button><b>'+i.cantidad+'</b><button data-a=\"+\" data-p=\"'+i.productoId+'\">+</button></div></td><td>$'+money(i.precioUnitario)+'</td><td>$'+money(i.subtotal)+'</td></tr>'; }totalFinal();}
+async function refresh(){if(!ventaId) return;venta=await api('/mostrador/ventas/'+ventaId);$('#vid').textContent='Venta #'+venta.id;renderVenta();}
+async function load(){productos=await api('/productos');renderProd();const vs=await api('/caja/ventas');$('#pend').innerHTML=vs.map(v=>'<div class=\"pending\"><div><b>Venta #'+v.id+'</b> - '+(v.persona?.nombre||'Sin cliente')+'</div><div>Total $'+money(v.total)+'</div><select id=\"m'+v.id+'\"><option>EFECTIVO</option><option>TRANSFERENCIA</option><option>TARJETA</option><option>CUENTA_CORRIENTE</option></select><button onclick=\"cob('+v.id+')\">Cobrar</button></div>').join('')||'No hay ventas pendientes';}
+window.cob=async id=>{try{await api('/caja/cobrar/'+id,{method:'POST',body:JSON.stringify({medioPago:document.getElementById('m'+id).value})});set('Venta cobrada');await Promise.all([load(),refresh()]);}catch(e){set(e.message)}};
+$('#nueva').onclick=async()=>{const v=await api('/mostrador/ventas',{method:'POST',body:'{}'});ventaId=v.id;await refresh();set('Venta creada');};$('#q').oninput=e=>{f=e.target.value;renderProd();};$('#results').onclick=async e=>{const r=e.target.closest('[data-id]');if(!r||!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/items',{method:'POST',body:JSON.stringify({productoId:Number(r.dataset.id),cantidad:1})});await Promise.all([refresh(),load()]);};$('#cart').onclick=async e=>{const b=e.target.closest('button[data-p]');if(!b||!ventaId)return;const pid=Number(b.dataset.p);const it=venta.items.find(x=>x.productoId===pid);const c=b.dataset.a==='+'?it.cantidad+1:it.cantidad-1;await api('/mostrador/ventas/'+ventaId+'/items/'+pid,{method:'PUT',body:JSON.stringify({cantidad:Math.max(0,c)})});await Promise.all([refresh(),load()]);};$('#guardar').onclick=async()=>{if(!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/persona',{method:'PUT',body:JSON.stringify({nombre:$('#nom').value,telefono:$('#tel').value,cuitDni:$('#cuit').value})});set('Comprador guardado');};$('#cerrar').onclick=async()=>{if(!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/cerrar',{method:'POST',body:'{}'});ventaId=null;venta=null;$('#vid').textContent='Sin venta activa';renderVenta();await load();set('Venta enviada a caja');};$('#dp').oninput=totalFinal;$('#df').oninput=totalFinal;(async()=>{await load();renderVenta();})();
+</script></body></html>`);
 });
 
 const PORT = process.env.PORT || 3000;
