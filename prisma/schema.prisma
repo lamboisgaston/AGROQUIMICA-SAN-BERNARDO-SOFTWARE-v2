@@ -25,6 +25,7 @@ model Persona {
   id              Int              @id @default(autoincrement())
   nombre          String
   telefono        String
+  cuitDni         String?
   tipo            String
   ventas          Venta[]
   cuentaCorriente CuentaCorriente?
