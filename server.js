@@ -500,6 +500,27 @@ app.post('/caja/cerrar', asyncHandler(async (req, res) => {
   res.status(201).json(cierre);
 }));
 
+
+app.get('/caja/cierres', asyncHandler(async (req, res) => {
+  const cierres = await prisma.cierreCajaDiario.findMany({
+    orderBy: { fecha: 'desc' }
+  });
+
+  res.json(cierres);
+}));
+
+app.delete('/caja/cierres/:id', asyncHandler(async (req, res) => {
+  const cierreId = parsePositiveInt(req.params.id);
+  if (!cierreId) return res.status(400).json({ error: 'id de cierre inválido' });
+
+  const cierre = await prisma.cierreCajaDiario.findUnique({ where: { id: cierreId } });
+  if (!cierre) return res.status(404).json({ error: 'Cierre no encontrado' });
+
+  await prisma.cierreCajaDiario.delete({ where: { id: cierreId } });
+
+  res.json({ ok: true, mensaje: 'Cierre eliminado (solo registro de prueba)' });
+}));
+
 app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) => {
   const personaId = parsePositiveInt(req.params.personaId);
   if (!personaId) return res.status(400).json({ error: 'personaId inválido' });

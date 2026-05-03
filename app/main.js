@@ -111,6 +111,41 @@ async function loadResumenCaja() {
   $('#cierre-total').textContent = money(resumen.totalGeneral);
 }
 
+
+async function loadCierresCaja() {
+  const cierres = await api('/caja/cierres');
+  const container = $('#cierres-caja');
+
+  if (!cierres.length) {
+    container.innerHTML = '<div class="item">Sin cierres</div>';
+    return;
+  }
+
+  container.innerHTML = cierres.map(c => `
+    <div class="item">
+      <strong>${new Date(c.fecha).toLocaleDateString()}</strong>
+      | Total ${money(c.totalGeneral)}
+      | Efectivo ${money(c.totalEfectivo)}
+      | Transferencia ${money(c.totalTransferencia)}
+      | Tarjeta ${money(c.totalTarjeta)}
+      | Cta Cte ${money(c.totalCuentaCorriente)}
+      <button class="btn-eliminar-cierre" data-id="${c.id}">Eliminar cierre de prueba</button>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.btn-eliminar-cierre').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api(`/caja/cierres/${btn.dataset.id}`, { method: 'DELETE' });
+        await loadCierresCaja();
+        setMsg('Cierre de prueba eliminado');
+      } catch (err) {
+        setMsg(err.message);
+      }
+    });
+  });
+}
+
 function getMediosPagoOptions(ventaCaja) {
   const mediosBase = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
   if (ventaCaja?.personaId) mediosBase.push('CUENTA_CORRIENTE');
@@ -318,6 +353,7 @@ $('#btn-cerrar-caja').addEventListener('click', async () => {
   try {
     await api('/caja/cerrar', { method: 'POST', body: '{}' });
     await loadResumenCaja();
+    await loadCierresCaja();
     setMsg('✅ Caja cerrada correctamente');
   } catch (err) {
     setMsg(err.message);
@@ -331,5 +367,6 @@ $('#btn-cerrar-caja').addEventListener('click', async () => {
   renderClienteActivo();
   await loadCaja();
   await loadResumenCaja();
+  await loadCierresCaja();
   renderPanelCuentaCorriente(null);
 })();
