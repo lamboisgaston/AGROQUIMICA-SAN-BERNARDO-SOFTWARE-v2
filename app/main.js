@@ -237,20 +237,37 @@ $('#btn-cerrar').addEventListener('click', async () => {
 $('#pendientes').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-cobrar]');
   if (!b) return;
-  const id = Number(b.dataset.cobrar);
-  const formaPago = document.getElementById(`medio-${id}`).value;
+  const ventaId = Number(b.dataset.cobrar);
+  const formaPago = document.getElementById(`medio-${ventaId}`).value;
   const personaId = b.dataset.personaId ? Number(b.dataset.personaId) : null;
+  const formasPagoValidas = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CUENTA_CORRIENTE'];
 
   if (formaPago === 'CUENTA_CORRIENTE' && !personaId) {
     return setMsg('Cuenta corriente solo para clientes registrados');
   }
+  if (!formasPagoValidas.includes(formaPago)) {
+    return setMsg('Forma de pago inválida');
+  }
 
   try {
-    await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ formaPago }) });
+    console.log('Cobrando venta:', ventaId, formaPago);
+    const response = await fetch(`/caja/cobrar/${ventaId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formaPago })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.error || data?.message || `Error ${response.status}`);
+    }
+    alert('Venta cobrada correctamente');
     await loadCaja();
     await loadResumenCaja();
-    setMsg('Venta cobrada');
-  } catch (err) { console.error('[cobrar-venta] error', err); setMsg(err.message); }
+    setMsg('');
+  } catch (err) {
+    console.error(err);
+    setMsg(err.message);
+  }
 });
 
 $('#btn-cc-buscar').addEventListener('click', async () => {
