@@ -6,6 +6,15 @@ const prisma = new PrismaClient();
 
 app.use(express.json());
 
+function asyncHandler(handler) {
+  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+function parsePositiveInt(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 const usuarios = [
   { usuario: 'admin', password: 'admin123', rol: 'ADMINISTRADOR_GENERAL' },
   { usuario: 'gerente', password: 'gerente123', rol: 'GERENTE' },
@@ -47,24 +56,24 @@ function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
   };
 }
 
-app.get('/productos', async (req, res) => {
+app.get('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany();
   res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
-});
+}));
 
-app.post('/productos', async (req, res) => {
+app.post('/productos', asyncHandler(async (req, res) => {
   const producto = await prisma.producto.create({ data: req.body });
   const tipoCambioActual = await obtenerTipoCambioActual();
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
-});
+}));
 
-app.get('/config/tipo-cambio', async (req, res) => {
+app.get('/config/tipo-cambio', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   res.json({ tipoCambioActual });
-});
+}));
 
-app.put('/config/tipo-cambio', async (req, res) => {
+app.put('/config/tipo-cambio', asyncHandler(async (req, res) => {
   const { tipoCambioActual } = req.body;
   if (typeof tipoCambioActual !== 'number' || tipoCambioActual <= 0) {
     return res.status(400).json({ error: 'tipoCambioActual (>0) es obligatorio' });
@@ -77,14 +86,14 @@ app.put('/config/tipo-cambio', async (req, res) => {
   });
 
   res.json({ tipoCambioActual: config.tipoCambioActual });
-});
+}));
 
-app.get('/personas', async (req, res) => {
+app.get('/personas', asyncHandler(async (req, res) => {
   const personas = await prisma.persona.findMany();
   res.json(personas);
-});
+}));
 
-app.post('/personas', async (req, res) => {
+app.post('/personas', asyncHandler(async (req, res) => {
   const { nombre, telefono, cuitDni, tipo } = req.body || {};
   if (!nombre || !telefono) {
     return res.status(400).json({ error: 'nombre y telefono son obligatorios' });
@@ -99,9 +108,9 @@ app.post('/personas', async (req, res) => {
     }
   });
   res.json(persona);
-});
+}));
 
-app.get('/personas/buscar', async (req, res) => {
+app.get('/personas/buscar', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json([]);
 
@@ -118,16 +127,19 @@ app.get('/personas/buscar', async (req, res) => {
   });
 
   res.json(personas);
-});
+}));
 
-app.post('/mostrador/ventas', async (req, res) => {
+app.post('/mostrador/ventas', asyncHandler(async (req, res) => {
   const venta = await prisma.venta.create({ data: {} });
   res.status(201).json(venta);
-});
+}));
 
-app.get('/mostrador/ventas/:id', async (req, res) => {
+app.get('/mostrador/ventas/:id', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
+
   const venta = await prisma.venta.findUnique({
-    where: { id: Number(req.params.id) },
+    where: { id: ventaId },
     include: { persona: true, items: { include: { producto: true } } }
   });
 
@@ -136,13 +148,16 @@ app.get('/mostrador/ventas/:id', async (req, res) => {
   }
 
   res.json(venta);
-});
+}));
 
-app.post('/mostrador/ventas/:id/items', async (req, res) => {
-  const ventaId = Number(req.params.id);
+app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
   const { productoId, cantidad } = req.body;
+  const productoIdParsed = parsePositiveInt(productoId);
+  const cantidadParsed = parsePositiveInt(cantidad);
 
-  if (!productoId || !cantidad || cantidad <= 0) {
+  if (!productoIdParsed || !cantidadParsed) {
     return res.status(400).json({ error: 'productoId y cantidad (>0) son obligatorios' });
   }
 
@@ -152,28 +167,28 @@ app.post('/mostrador/ventas/:id/items', async (req, res) => {
     return res.status(400).json({ error: 'Solo se pueden editar ventas en BORRADOR' });
   }
 
-  const producto = await prisma.producto.findUnique({ where: { id: Number(productoId) } });
+  const producto = await prisma.producto.findUnique({ where: { id: productoIdParsed } });
   if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
   const tipoCambioActual = await obtenerTipoCambioActual();
   const precioPesosCalculado = producto.precioUsd * tipoCambioActual;
 
   const existente = await prisma.ventaItem.findUnique({
-    where: { ventaId_productoId: { ventaId, productoId: Number(productoId) } }
+    where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } }
   });
 
-  const cantidadFinal = (existente?.cantidad || 0) + Number(cantidad);
+  const cantidadFinal = (existente?.cantidad || 0) + cantidadParsed;
   if (cantidadFinal > producto.stock) {
     return res.status(400).json({ error: 'Stock insuficiente para ese producto' });
   }
 
   await prisma.ventaItem.upsert({
-    where: { ventaId_productoId: { ventaId, productoId: Number(productoId) } },
+    where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } },
     create: {
       ventaId,
-      productoId: Number(productoId),
-      cantidad: Number(cantidad),
+      productoId: productoIdParsed,
+      cantidad: cantidadParsed,
       precioUnitario: precioPesosCalculado,
-      subtotal: precioPesosCalculado * Number(cantidad)
+      subtotal: precioPesosCalculado * cantidadParsed
     },
     update: {
       cantidad: cantidadFinal,
@@ -191,13 +206,14 @@ app.post('/mostrador/ventas/:id/items', async (req, res) => {
   });
 
   res.json(ventaActualizada);
-});
+}));
 
 
-app.put('/mostrador/ventas/:id/items/:productoId', async (req, res) => {
-  const ventaId = Number(req.params.id);
-  const productoId = Number(req.params.productoId);
+app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  const productoId = parsePositiveInt(req.params.productoId);
   const { cantidad } = req.body || {};
+  if (!ventaId || !productoId) return res.status(400).json({ error: 'id inválido' });
 
   if (!Number.isInteger(cantidad) || cantidad < 0) {
     return res.status(400).json({ error: 'cantidad debe ser entero >= 0' });
@@ -238,10 +254,11 @@ app.put('/mostrador/ventas/:id/items/:productoId', async (req, res) => {
   });
 
   res.json(ventaActualizada);
-});
+}));
 
-app.put('/mostrador/ventas/:id/persona', async (req, res) => {
-  const ventaId = Number(req.params.id);
+app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
   const { personaId, nombre, telefono, tipo, cuitDni } = req.body;
 
   const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
@@ -252,7 +269,9 @@ app.put('/mostrador/ventas/:id/persona', async (req, res) => {
 
   let persona;
   if (personaId) {
-    persona = await prisma.persona.findUnique({ where: { id: Number(personaId) } });
+    const personaIdParsed = parsePositiveInt(personaId);
+    if (!personaIdParsed) return res.status(400).json({ error: 'personaId inválido' });
+    persona = await prisma.persona.findUnique({ where: { id: personaIdParsed } });
     if (!persona) return res.status(404).json({ error: 'Persona no encontrada' });
   } else {
     if (!nombre || !telefono || !cuitDni) {
@@ -275,10 +294,11 @@ app.put('/mostrador/ventas/:id/persona', async (req, res) => {
   });
 
   res.json(ventaActualizada);
-});
+}));
 
-app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
-  const ventaId = Number(req.params.id);
+app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
   const venta = await prisma.venta.findUnique({
     where: { id: ventaId },
@@ -320,9 +340,9 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
   });
 
   res.json(ventaCerrada);
-});
+}));
 
-app.get('/caja/ventas', async (req, res) => {
+app.get('/caja/ventas', asyncHandler(async (req, res) => {
   const ventas = await prisma.venta.findMany({
     where: { estado: EstadoVenta.PENDIENTE_CAJA },
     include: { persona: true, items: { include: { producto: true } } },
@@ -330,10 +350,11 @@ app.get('/caja/ventas', async (req, res) => {
   });
 
   res.json(ventas);
-});
+}));
 
-app.post('/caja/cobrar/:id', async (req, res) => {
-  const ventaId = Number(req.params.id);
+app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
   const { medioPago } = req.body || {};
   const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
 
@@ -390,10 +411,11 @@ app.post('/caja/cobrar/:id', async (req, res) => {
   });
 
   res.json(ventaCobrada);
-});
+}));
 
-app.get('/cuenta-corriente/personas/:personaId', async (req, res) => {
-  const personaId = Number(req.params.personaId);
+app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) => {
+  const personaId = parsePositiveInt(req.params.personaId);
+  if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
   const cuenta = await prisma.cuentaCorriente.findUnique({
     where: { personaId },
     include: {
@@ -407,10 +429,11 @@ app.get('/cuenta-corriente/personas/:personaId', async (req, res) => {
 
   if (!cuenta) return res.status(404).json({ error: 'Cuenta corriente no encontrada' });
   res.json(cuenta);
-});
+}));
 
-app.post('/cuenta-corriente/personas/:personaId/pagos', async (req, res) => {
-  const personaId = Number(req.params.personaId);
+app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req, res) => {
+  const personaId = parsePositiveInt(req.params.personaId);
+  if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
   const { monto, descripcion } = req.body;
 
   if (!monto || Number(monto) <= 0) {
@@ -442,6 +465,12 @@ app.post('/cuenta-corriente/personas/:personaId/pagos', async (req, res) => {
   });
 
   res.json(cuentaActualizada);
+}));
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Error interno del servidor' });
 });
 
 app.get('/app', (req, res) => {
