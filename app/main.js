@@ -120,8 +120,43 @@ function getMediosPagoOptions(ventaCaja) {
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
   $('#pendientes').innerHTML = ventas.length
-    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="medio-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button data-cobrar="${v.id}" data-persona-id="${v.personaId || ''}">Cobrar</button></div>`).join('')
+    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="pago-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}">Cobrar</button></div>`).join('')
     : 'No hay ventas pendientes';
+
+  document.querySelectorAll('.btn-cobrar').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ventaId = btn.dataset.id;
+      const select = document.querySelector(`#pago-${ventaId}`);
+      const formaPago = select.value;
+
+      console.log('Cobrando venta:', ventaId, formaPago);
+
+      try {
+        const res = await fetch(`/caja/cobrar/${ventaId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ formaPago })
+        });
+
+        const data = await res.json();
+        console.log('Respuesta:', data);
+
+        if (!res.ok) {
+          alert('Error al cobrar: ' + data.error);
+          return;
+        }
+
+        alert('Venta cobrada');
+
+        // refrescar caja
+        location.reload();
+
+      } catch (err) {
+        console.error(err);
+        alert('Error de conexión');
+      }
+    });
+  });
 }
 
 $('#btn-nueva').addEventListener('click', async () => {
@@ -230,42 +265,6 @@ $('#btn-cerrar').addEventListener('click', async () => {
     setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
-    setMsg(err.message);
-  }
-});
-
-$('#pendientes').addEventListener('click', async (e) => {
-  const b = e.target.closest('button[data-cobrar]');
-  if (!b) return;
-  const ventaId = Number(b.dataset.cobrar);
-  const formaPago = document.getElementById(`medio-${ventaId}`).value;
-  const personaId = b.dataset.personaId ? Number(b.dataset.personaId) : null;
-  const formasPagoValidas = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CUENTA_CORRIENTE'];
-
-  if (formaPago === 'CUENTA_CORRIENTE' && !personaId) {
-    return setMsg('Cuenta corriente solo para clientes registrados');
-  }
-  if (!formasPagoValidas.includes(formaPago)) {
-    return setMsg('Forma de pago inválida');
-  }
-
-  try {
-    console.log('Cobrando venta:', ventaId, formaPago);
-    const response = await fetch(`/caja/cobrar/${ventaId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formaPago })
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(data?.error || data?.message || `Error ${response.status}`);
-    }
-    alert('Venta cobrada correctamente');
-    await loadCaja();
-    await loadResumenCaja();
-    setMsg('');
-  } catch (err) {
-    console.error(err);
     setMsg(err.message);
   }
 });
