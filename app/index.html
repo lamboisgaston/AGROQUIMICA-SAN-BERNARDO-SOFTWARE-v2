@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mostrador - Venta</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <h1>Venta de mostrador</h1>
+
+        <div class="bloque cliente-activo" id="cliente-activo">
+          <strong>Cliente activo:</strong>
+          <p id="cliente-activo-vacio">Sin cliente seleccionado</p>
+          <div id="cliente-activo-data" class="hidden">
+            <p><b>Nombre:</b> <span data-cliente="nombre"></span></p>
+            <p><b>Teléfono:</b> <span data-cliente="telefono"></span></p>
+            <p><b>CUIT/DNI:</b> <span data-cliente="cuitDni"></span></p>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <label for="buscar-cliente">Buscar cliente (nombre, teléfono o CUIT/DNI)</label>
+          <input id="buscar-cliente" type="text" placeholder="Ej: Juan, 2234..., 20-..." autocomplete="off" />
+          <div id="resultados" class="resultados"></div>
+          <button id="btn-crear" class="btn btn-secundario hidden" type="button">Crear cliente</button>
+        </div>
+
+        <form id="form-crear" class="bloque hidden">
+          <h2>Crear cliente</h2>
+          <label for="nuevo-nombre">Nombre (obligatorio)</label>
+          <input id="nuevo-nombre" required />
+          <label for="nuevo-telefono">Teléfono (opcional)</label>
+          <input id="nuevo-telefono" />
+          <label for="nuevo-cuitdni">CUIT/DNI (opcional)</label>
+          <input id="nuevo-cuitdni" />
+          <button class="btn" type="submit">Guardar y seleccionar</button>
+        </form>
+
+        <div class="bloque acciones">
+          <button id="btn-cerrar-venta" class="btn" type="button">Cerrar venta</button>
+          <p id="msg" class="msg"></p>
+        </div>
+      </section>
+    </main>
+
+    <script src="./main.js"></script>
+  </body>
+</html>
