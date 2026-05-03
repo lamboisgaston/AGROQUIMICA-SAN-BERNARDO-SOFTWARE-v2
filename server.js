@@ -416,6 +416,9 @@ app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
 app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) => {
   const personaId = parsePositiveInt(req.params.personaId);
   if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
+  const persona = await prisma.persona.findUnique({ where: { id: personaId } });
+  if (!persona) return res.status(404).json({ error: 'Persona no encontrada' });
+
   const cuenta = await prisma.cuentaCorriente.findUnique({
     where: { personaId },
     include: {
@@ -427,7 +430,15 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
     }
   });
 
-  if (!cuenta) return res.status(404).json({ error: 'Cuenta corriente no encontrada' });
+  if (!cuenta) {
+    return res.json({
+      id: null,
+      personaId: persona.id,
+      persona,
+      saldo: 0,
+      movimientos: []
+    });
+  }
   res.json(cuenta);
 }));
 
