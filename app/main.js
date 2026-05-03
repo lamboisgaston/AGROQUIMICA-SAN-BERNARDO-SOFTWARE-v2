@@ -304,6 +304,16 @@ $('#btn-cc-registrar-pago').addEventListener('click', async () => {
 });
 
 
+
+$('#btn-actualizar-resumen').addEventListener('click', async () => {
+  try {
+    await loadResumenCaja();
+    setMsg('Resumen de caja actualizado');
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
+
 $('#btn-cerrar-caja').addEventListener('click', async () => {
   try {
     await api('/caja/cerrar', { method: 'POST', body: '{}' });
