@@ -309,9 +309,6 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
   if (venta.estado !== EstadoVenta.BORRADOR) {
     return res.status(400).json({ error: 'La venta ya no está en BORRADOR' });
   }
-  if (!venta.persona || !venta.persona.nombre || !venta.persona.telefono || !venta.persona.cuitDni) {
-    return res.status(400).json({ error: 'Antes de cerrar la venta debe existir nombre, telefono y CUIT/DNI' });
-  }
   if (venta.items.length === 0) {
     return res.status(400).json({ error: 'No se puede cerrar una venta sin productos' });
   }
