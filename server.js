@@ -85,8 +85,39 @@ app.get('/personas', async (req, res) => {
 });
 
 app.post('/personas', async (req, res) => {
-  const persona = await prisma.persona.create({ data: req.body });
+  const { nombre, telefono, cuitDni, tipo } = req.body || {};
+  if (!nombre || !telefono) {
+    return res.status(400).json({ error: 'nombre y telefono son obligatorios' });
+  }
+
+  const persona = await prisma.persona.create({
+    data: {
+      nombre,
+      telefono,
+      cuitDni: cuitDni || null,
+      tipo: tipo || 'CLIENTE'
+    }
+  });
   res.json(persona);
+});
+
+app.get('/personas/buscar', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.json([]);
+
+  const personas = await prisma.persona.findMany({
+    where: {
+      OR: [
+        { nombre: { contains: q } },
+        { telefono: { contains: q } },
+        { cuitDni: { contains: q } }
+      ]
+    },
+    take: 20,
+    orderBy: { id: 'desc' }
+  });
+
+  res.json(personas);
 });
 
 app.post('/mostrador/ventas', async (req, res) => {
@@ -429,18 +460,27 @@ body{font-family:Arial,sans-serif;margin:0;background:#e5e7eb;color:#111827} .ap
 <div>
 <div>Total: <span id="tt" class="mono">$0.00</span></div><div class="total">Final: $<span id="tf">0.00</span></div>
 </div>
-<h3>Datos comprador</h3><div class="row"><input id="nom" placeholder="Nombre"/><input id="tel" placeholder="Teléfono"/><input id="cuit" placeholder="CUIT/DNI"/></div>
-<div class="row"><button id="guardar">Guardar comprador</button><button id="cerrar" class="danger">Cerrar venta</button></div>
+<h3>Datos comprador</h3><div class="row"><input id="buyerSearch" placeholder="Buscar por nombre, teléfono o CUIT/DNI"/><button id="buscarComprador">Buscar</button></div>
+<div id="buyerResults" class="pending">Sin búsqueda</div>
+<div id="buyerCreate" style="display:none"><div class="row"><input id="nom" placeholder="Nombre"/><input id="tel" placeholder="Teléfono"/><input id="cuit" placeholder="CUIT/DNI"/></div><div class="row"><button id="crearComprador">Crear comprador</button></div></div>
+<div class="row"><button id="cerrar" class="danger">Cerrar venta</button></div>
+<div id="buyerActive">Comprador activo: Sin seleccionar</div>
 </section>
 <section class="panel"><h2>Caja simple</h2><div id="pend"></div></section></div><p id="st"></p>
 <script>let ventaId=null,productos=[],venta=null,f='';const $=s=>document.querySelector(s),money=v=>Number(v||0).toFixed(2);const set=m=>$('#st').textContent=m;async function api(u,o={}){const r=await fetch(u,{headers:{'Content-Type':'application/json'},...o});const d=await r.json();if(!r.ok) throw new Error(d.error||'Error');return d;}
 function renderProd(){const l=$('#results');const q=f.toLowerCase().trim();const xs=productos.filter(p=>p.stock>0&&(!q||p.nombre.toLowerCase().includes(q))).slice(0,6);l.innerHTML=xs.map(p=>'<div class=\"result\" data-id=\"'+p.id+'\"><span>'+p.nombre+'</span><span class=\"mono\">$'+money(p.precioPesosCalculado)+'</span><span>Stock:'+p.stock+'</span></div>').join('')||'<div style=\"padding:8px\">Sin resultados</div>';}
 function totalFinal(){const t=Number(venta?.total||0),dp=Math.max(0,Math.min(100,Number($('#dp').value||0))),df=Math.max(0,Number($('#df').value||0));const fin=Math.max(0,t-(t*dp/100)-df);$('#tt').textContent='$'+money(t);$('#tf').textContent=money(fin);}
 function renderVenta(){const b=$('#cart');b.innerHTML='';if(!venta||!venta.items?.length){b.innerHTML='<tr><td colspan=4>Sin productos</td></tr>';totalFinal();return;}for(const i of venta.items){b.innerHTML+='<tr><td>'+i.producto.nombre+'</td><td><div class=\"qty\"><button data-a=\"-\" data-p=\"'+i.productoId+'\">-</button><b>'+i.cantidad+'</b><button data-a=\"+\" data-p=\"'+i.productoId+'\">+</button></div></td><td>$'+money(i.precioUnitario)+'</td><td>$'+money(i.subtotal)+'</td></tr>'; }totalFinal();}
-async function refresh(){if(!ventaId) return;venta=await api('/mostrador/ventas/'+ventaId);$('#vid').textContent='Venta #'+venta.id;renderVenta();}
+function renderCompradorActivo(){const p=venta?.persona;$('#buyerActive').textContent='Comprador activo: '+(p?(p.nombre+' | '+p.telefono+' | '+(p.cuitDni||'Sin CUIT/DNI')):'Sin seleccionar');}
+function renderResultadosComprador(list){if(!list.length){$('#buyerResults').innerHTML='No se encontraron resultados. <button id=\"showCreate\">Crear comprador</button>';return;}$('#buyerResults').innerHTML=list.map(p=>'<div class=\"pending\"><div><b>'+p.nombre+'</b> - '+p.telefono+' - '+(p.cuitDni||'Sin CUIT/DNI')+'</div><button data-persona=\"'+p.id+'\">Seleccionar</button></div>').join('');}
+async function refresh(){if(!ventaId) return;venta=await api('/mostrador/ventas/'+ventaId);$('#vid').textContent='Venta #'+venta.id;renderVenta();renderCompradorActivo();}
 async function load(){productos=await api('/productos');renderProd();const vs=await api('/caja/ventas');$('#pend').innerHTML=vs.map(v=>'<div class=\"pending\"><div><b>Venta #'+v.id+'</b> - '+(v.persona?.nombre||'Sin cliente')+'</div><div>Total $'+money(v.total)+'</div><select id=\"m'+v.id+'\"><option>EFECTIVO</option><option>TRANSFERENCIA</option><option>TARJETA</option><option>CUENTA_CORRIENTE</option></select><button onclick=\"cob('+v.id+')\">Cobrar</button></div>').join('')||'No hay ventas pendientes';}
 window.cob=async id=>{try{await api('/caja/cobrar/'+id,{method:'POST',body:JSON.stringify({medioPago:document.getElementById('m'+id).value})});set('Venta cobrada');await Promise.all([load(),refresh()]);}catch(e){set(e.message)}};
-$('#nueva').onclick=async()=>{const v=await api('/mostrador/ventas',{method:'POST',body:'{}'});ventaId=v.id;await refresh();set('Venta creada');};$('#q').oninput=e=>{f=e.target.value;renderProd();};$('#results').onclick=async e=>{const r=e.target.closest('[data-id]');if(!r||!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/items',{method:'POST',body:JSON.stringify({productoId:Number(r.dataset.id),cantidad:1})});await Promise.all([refresh(),load()]);};$('#cart').onclick=async e=>{const b=e.target.closest('button[data-p]');if(!b||!ventaId)return;const pid=Number(b.dataset.p);const it=venta.items.find(x=>x.productoId===pid);const c=b.dataset.a==='+'?it.cantidad+1:it.cantidad-1;await api('/mostrador/ventas/'+ventaId+'/items/'+pid,{method:'PUT',body:JSON.stringify({cantidad:Math.max(0,c)})});await Promise.all([refresh(),load()]);};$('#guardar').onclick=async()=>{if(!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/persona',{method:'PUT',body:JSON.stringify({nombre:$('#nom').value,telefono:$('#tel').value,cuitDni:$('#cuit').value})});set('Comprador guardado');};$('#cerrar').onclick=async()=>{if(!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/cerrar',{method:'POST',body:'{}'});ventaId=null;venta=null;$('#vid').textContent='Sin venta activa';renderVenta();await load();set('Venta enviada a caja');};$('#dp').oninput=totalFinal;$('#df').oninput=totalFinal;(async()=>{await load();renderVenta();})();
+$('#nueva').onclick=async()=>{const v=await api('/mostrador/ventas',{method:'POST',body:'{}'});ventaId=v.id;await refresh();set('Venta creada');};$('#q').oninput=e=>{f=e.target.value;renderProd();};$('#results').onclick=async e=>{const r=e.target.closest('[data-id]');if(!r||!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/items',{method:'POST',body:JSON.stringify({productoId:Number(r.dataset.id),cantidad:1})});await Promise.all([refresh(),load()]);};$('#cart').onclick=async e=>{const b=e.target.closest('button[data-p]');if(!b||!ventaId)return;const pid=Number(b.dataset.p);const it=venta.items.find(x=>x.productoId===pid);const c=b.dataset.a==='+'?it.cantidad+1:it.cantidad-1;await api('/mostrador/ventas/'+ventaId+'/items/'+pid,{method:'PUT',body:JSON.stringify({cantidad:Math.max(0,c)})});await Promise.all([refresh(),load()]);};
+$('#buscarComprador').onclick=async()=>{const q=$('#buyerSearch').value.trim();if(!q){$('#buyerResults').textContent='Ingrese un criterio de búsqueda';return;}const rs=await api('/personas/buscar?q='+encodeURIComponent(q));renderResultadosComprador(rs);$('#buyerCreate').style.display='none';};
+$('#buyerResults').onclick=async e=>{if(e.target.id==='showCreate'){$('#buyerCreate').style.display='block';return;}const b=e.target.closest('button[data-persona]');if(!b||!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/persona',{method:'PUT',body:JSON.stringify({personaId:Number(b.dataset.persona)})});await refresh();set('Comprador seleccionado');};
+$('#crearComprador').onclick=async()=>{if(!ventaId)return;const persona=await api('/personas',{method:'POST',body:JSON.stringify({nombre:$('#nom').value,telefono:$('#tel').value,cuitDni:$('#cuit').value,tipo:'CLIENTE'})});await api('/mostrador/ventas/'+ventaId+'/persona',{method:'PUT',body:JSON.stringify({personaId:persona.id})});$('#buyerCreate').style.display='none';$('#buyerResults').textContent='Comprador creado y seleccionado';await refresh();set('Comprador creado');};
+$('#cerrar').onclick=async()=>{if(!ventaId)return;await api('/mostrador/ventas/'+ventaId+'/cerrar',{method:'POST',body:'{}'});ventaId=null;venta=null;$('#vid').textContent='Sin venta activa';renderVenta();renderCompradorActivo();await load();set('Venta enviada a caja');};$('#dp').oninput=totalFinal;$('#df').oninput=totalFinal;(async()=>{await load();renderVenta();renderCompradorActivo();})();
 </script></body></html>`);
 });
 
