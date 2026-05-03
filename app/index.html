@@ -3,49 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mostrador - Venta</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <title>Mostrador</title>
+    <link rel="stylesheet" href="/app/styles.css" />
   </head>
   <body>
-    <main class="layout">
-      <section class="panel">
-        <h1>Venta de mostrador</h1>
+    <h1>Mostrador</h1>
 
-        <div class="bloque cliente-activo" id="cliente-activo">
-          <strong>Cliente activo:</strong>
-          <p id="cliente-activo-vacio">Sin cliente seleccionado</p>
-          <div id="cliente-activo-data" class="hidden">
-            <p><b>Nombre:</b> <span data-cliente="nombre"></span></p>
-            <p><b>Teléfono:</b> <span data-cliente="telefono"></span></p>
-            <p><b>CUIT/DNI:</b> <span data-cliente="cuitDni"></span></p>
-          </div>
-        </div>
+    <section class="bloque">
+      <button id="btn-nueva">Nueva venta</button>
+      <strong id="venta-activa">Sin venta activa</strong>
+    </section>
 
-        <div class="bloque">
-          <label for="buscar-cliente">Buscar cliente (nombre, teléfono o CUIT/DNI)</label>
-          <input id="buscar-cliente" type="text" placeholder="Ej: Juan, 2234..., 20-..." autocomplete="off" />
-          <div id="resultados" class="resultados"></div>
-          <button id="btn-crear" class="btn btn-secundario hidden" type="button">Crear cliente</button>
-        </div>
+    <section class="bloque">
+      <h2>1) Buscador de productos</h2>
+      <input id="buscar-producto" placeholder="Escriba para buscar producto" />
+      <div id="resultados-productos" class="lista"></div>
+    </section>
 
-        <form id="form-crear" class="bloque hidden">
-          <h2>Crear cliente</h2>
-          <label for="nuevo-nombre">Nombre (obligatorio)</label>
-          <input id="nuevo-nombre" required />
-          <label for="nuevo-telefono">Teléfono (opcional)</label>
-          <input id="nuevo-telefono" />
-          <label for="nuevo-cuitdni">CUIT/DNI (opcional)</label>
-          <input id="nuevo-cuitdni" />
-          <button class="btn" type="submit">Guardar y seleccionar</button>
-        </form>
+    <section class="bloque">
+      <h2>2) Carrito (siempre visible)</h2>
+      <table>
+        <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
+        <tbody id="carrito"></tbody>
+      </table>
+      <label>Descuento $ <input id="descuento" type="number" min="0" value="0" /></label>
+      <p>Total: <span id="total">$0.00</span></p>
+      <p><b>Total final: <span id="total-final">$0.00</span></b></p>
+    </section>
 
-        <div class="bloque acciones">
-          <button id="btn-cerrar-venta" class="btn" type="button">Cerrar venta</button>
-          <p id="msg" class="msg"></p>
-        </div>
-      </section>
-    </main>
+    <section class="bloque">
+      <h2>3) Cliente</h2>
+      <input id="buscar-cliente" placeholder="Buscar por nombre / teléfono / cuit" />
+      <button id="btn-buscar-cliente">Buscar cliente</button>
+      <div id="resultados-clientes" class="lista"></div>
 
-    <script src="./main.js"></script>
+      <h3>Crear rápido</h3>
+      <input id="nuevo-nombre" placeholder="Nombre obligatorio" />
+      <input id="nuevo-telefono" placeholder="Teléfono opcional" />
+      <input id="nuevo-cuit" placeholder="CUIT opcional" />
+      <button id="btn-crear-cliente">Crear cliente</button>
+
+      <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
+    </section>
+
+    <section class="bloque">
+      <h2>4) Cerrar venta</h2>
+      <button id="btn-cerrar">Cerrar venta</button>
+    </section>
+
+    <section class="bloque">
+      <h2>5) Caja</h2>
+      <div id="pendientes">Cargando...</div>
+    </section>
+
+    <p id="msg"></p>
+    <script src="/app/main.js"></script>
   </body>
 </html>

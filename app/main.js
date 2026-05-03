@@ -1,112 +1,163 @@
-const $buscar = document.querySelector('#buscar-cliente');
-const $resultados = document.querySelector('#resultados');
-const $btnCrear = document.querySelector('#btn-crear');
-const $formCrear = document.querySelector('#form-crear');
-const $msg = document.querySelector('#msg');
-const $btnCerrarVenta = document.querySelector('#btn-cerrar-venta');
+const $ = (s) => document.querySelector(s);
+const money = (v) => '$' + Number(v || 0).toFixed(2);
 
-const $clienteVacio = document.querySelector('#cliente-activo-vacio');
-const $clienteData = document.querySelector('#cliente-activo-data');
-const $clienteNombre = document.querySelector('[data-cliente="nombre"]');
-const $clienteTelefono = document.querySelector('[data-cliente="telefono"]');
-const $clienteCuitDni = document.querySelector('[data-cliente="cuitDni"]');
+let ventaId = null;
+let venta = null;
+let productos = [];
 
-let clienteSeleccionado = null;
-let debounceTimer;
-
-function mostrarCliente(cliente) {
-  clienteSeleccionado = cliente;
-  $clienteVacio.classList.add('hidden');
-  $clienteData.classList.remove('hidden');
-  $clienteNombre.textContent = cliente.nombre || '-';
-  $clienteTelefono.textContent = cliente.telefono || '-';
-  $clienteCuitDni.textContent = cliente.cuitDni || '-';
-  $msg.textContent = 'Cliente seleccionado correctamente';
+async function api(url, options = {}) {
+  const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Error');
+  return data;
 }
 
-function renderResultados(personas, query) {
-  $resultados.innerHTML = '';
+function setMsg(text) { $('#msg').textContent = text; }
 
-  if (!query || query.length < 2) {
-    $btnCrear.classList.add('hidden');
-    return;
-  }
-
-  if (personas.length === 0) {
-    $resultados.innerHTML = '<p>Sin resultados.</p>';
-    $btnCrear.classList.remove('hidden');
-    return;
-  }
-
-  $btnCrear.classList.add('hidden');
-  personas.slice(0, 6).forEach(persona => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'resultado';
-    item.innerHTML = `
-      <div><b>${persona.nombre || '-'}</b></div>
-      <div>Tel: ${persona.telefono || '-'}</div>
-      <div>CUIT/DNI: ${persona.cuitDni || '-'}</div>
-    `;
-    item.addEventListener('click', () => mostrarCliente(persona));
-    $resultados.appendChild(item);
-  });
+function renderProductos() {
+  const q = $('#buscar-producto').value.trim().toLowerCase();
+  const lista = productos.filter(p => p.stock > 0 && (!q || p.nombre.toLowerCase().includes(q))).slice(0, 20);
+  $('#resultados-productos').innerHTML = lista.length
+    ? lista.map(p => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-producto="${p.id}">Agregar</button></div>`).join('')
+    : '<div class="item">Sin resultados</div>';
 }
 
-async function buscarClientes(query) {
-  const res = await fetch(`/personas/buscar?q=${encodeURIComponent(query)}`);
-  if (!res.ok) throw new Error('No se pudo buscar clientes');
-  return res.json();
+function renderCarrito() {
+  const items = venta?.items || [];
+  $('#carrito').innerHTML = items.length
+    ? items.map(i => `<tr><td>${i.producto.nombre}</td><td>${money(i.precioUnitario)}</td><td><button data-accion="menos" data-producto="${i.productoId}">-</button> ${i.cantidad} <button data-accion="mas" data-producto="${i.productoId}">+</button></td><td>${money(i.subtotal)}</td></tr>`).join('')
+    : '<tr><td colspan="4">Sin productos</td></tr>';
+
+  const total = Number(venta?.total || 0);
+  const descuento = Math.max(0, Number($('#descuento').value || 0));
+  const final = Math.max(0, total - descuento);
+  $('#total').textContent = money(total);
+  $('#total-final').textContent = money(final);
 }
 
-$buscar.addEventListener('input', () => {
-  const query = $buscar.value.trim();
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(async () => {
-    try {
-      const personas = await buscarClientes(query);
-      renderResultados(personas, query);
-    } catch (error) {
-      $msg.textContent = error.message;
-    }
-  }, 250);
-});
+function renderClienteActivo() {
+  const p = venta?.persona;
+  $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'}` : 'Ninguno';
+}
 
-$btnCrear.addEventListener('click', () => {
-  $formCrear.classList.remove('hidden');
-  document.querySelector('#nuevo-nombre').focus();
-});
+async function refreshVenta() {
+  if (!ventaId) return;
+  venta = await api(`/mostrador/ventas/${ventaId}`);
+  $('#venta-activa').textContent = `Venta #${venta.id}`;
+  renderCarrito();
+  renderClienteActivo();
+}
 
-$formCrear.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const nombre = document.querySelector('#nuevo-nombre').value.trim();
-  const telefono = document.querySelector('#nuevo-telefono').value.trim();
-  const cuitDni = document.querySelector('#nuevo-cuitdni').value.trim();
+async function loadCaja() {
+  const ventas = await api('/caja/ventas');
+  $('#pendientes').innerHTML = ventas.length
+    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Sin cliente'} | ${money(v.total)} <select id="medio-${v.id}"><option>EFECTIVO</option><option>TRANSFERENCIA</option><option>TARJETA</option><option>CUENTA_CORRIENTE</option></select> <button data-cobrar="${v.id}">Cobrar</button></div>`).join('')
+    : 'No hay ventas pendientes';
+}
 
+$('#btn-nueva').addEventListener('click', async () => {
   try {
-    const res = await fetch('/personas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, telefono: telefono || 'N/D', cuitDni: cuitDni || undefined })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'No se pudo crear cliente');
-
-    mostrarCliente(data);
-    $formCrear.reset();
-    $formCrear.classList.add('hidden');
-    $btnCrear.classList.add('hidden');
-    $resultados.innerHTML = '';
-  } catch (error) {
-    $msg.textContent = error.message;
-  }
+    const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    ventaId = v.id;
+    await refreshVenta();
+    setMsg('Venta creada');
+  } catch (e) { setMsg(e.message); }
 });
 
-$btnCerrarVenta.addEventListener('click', async () => {
-  if (!clienteSeleccionado) {
-    $msg.textContent = 'Debe seleccionar un cliente antes de cerrar la venta';
-    return;
-  }
+$('#buscar-producto').addEventListener('input', renderProductos);
 
-  $msg.textContent = 'Cliente validado. Ya se puede cerrar venta.';
+$('#resultados-productos').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-producto]');
+  if (!b || !ventaId) return;
+  try {
+    await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId: Number(b.dataset.producto), cantidad: 1 }) });
+    await refreshVenta();
+    await loadCaja();
+  } catch (err) { setMsg(err.message); }
 });
+
+$('#carrito').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-producto]');
+  if (!b || !ventaId) return;
+  const productoId = Number(b.dataset.producto);
+  const item = (venta.items || []).find(i => i.productoId === productoId);
+  if (!item) return;
+  const cantidad = b.dataset.accion === 'mas' ? item.cantidad + 1 : item.cantidad - 1;
+  try {
+    await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, { method: 'PUT', body: JSON.stringify({ cantidad: Math.max(0, cantidad) }) });
+    await refreshVenta();
+    await loadCaja();
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#descuento').addEventListener('input', renderCarrito);
+
+$('#btn-buscar-cliente').addEventListener('click', async () => {
+  const q = $('#buscar-cliente').value.trim();
+  if (!q) return;
+  try {
+    const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
+    $('#resultados-clientes').innerHTML = personas.length
+      ? personas.map(p => `<div class="item">${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'} <button data-persona="${p.id}">Seleccionar</button></div>`).join('')
+      : '<div class="item">Sin resultados</div>';
+  } catch (e) { setMsg(e.message); }
+});
+
+$('#resultados-clientes').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-persona]');
+  if (!b || !ventaId) return;
+  try {
+    await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: Number(b.dataset.persona) }) });
+    await refreshVenta();
+    setMsg('Cliente seleccionado');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-crear-cliente').addEventListener('click', async () => {
+  if (!ventaId) return;
+  const nombre = $('#nuevo-nombre').value.trim();
+  if (!nombre) return setMsg('Nombre obligatorio');
+  const telefono = $('#nuevo-telefono').value.trim() || 'N/D';
+  const cuitDni = $('#nuevo-cuit').value.trim();
+  try {
+    const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuitDni, tipo: 'CLIENTE' }) });
+    await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
+    await refreshVenta();
+    setMsg('Cliente creado y seleccionado');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-cerrar').addEventListener('click', async () => {
+  if (!ventaId) return setMsg('Primero cree una venta');
+  if (!venta?.personaId) return setMsg('No se puede cerrar sin cliente');
+  try {
+    await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: '{}' });
+    ventaId = null;
+    venta = null;
+    $('#venta-activa').textContent = 'Sin venta activa';
+    renderCarrito();
+    renderClienteActivo();
+    await loadCaja();
+    setMsg('Venta cerrada y enviada a caja');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#pendientes').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-cobrar]');
+  if (!b) return;
+  const id = Number(b.dataset.cobrar);
+  const medioPago = document.getElementById(`medio-${id}`).value;
+  try {
+    await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ medioPago }) });
+    await loadCaja();
+    setMsg('Venta cobrada');
+  } catch (err) { setMsg(err.message); }
+});
+
+(async function init() {
+  productos = await api('/productos');
+  renderProductos();
+  renderCarrito();
+  renderClienteActivo();
+  await loadCaja();
+})();
