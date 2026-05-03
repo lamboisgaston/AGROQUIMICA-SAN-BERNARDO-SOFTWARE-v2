@@ -238,19 +238,19 @@ $('#pendientes').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-cobrar]');
   if (!b) return;
   const id = Number(b.dataset.cobrar);
-  const medioPago = document.getElementById(`medio-${id}`).value;
+  const formaPago = document.getElementById(`medio-${id}`).value;
   const personaId = b.dataset.personaId ? Number(b.dataset.personaId) : null;
 
-  if (medioPago === 'CUENTA_CORRIENTE' && !personaId) {
+  if (formaPago === 'CUENTA_CORRIENTE' && !personaId) {
     return setMsg('Cuenta corriente solo para clientes registrados');
   }
 
   try {
-    await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ medioPago }) });
+    await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ formaPago }) });
     await loadCaja();
     await loadResumenCaja();
-    setMsg(medioPago === 'CUENTA_CORRIENTE' ? 'Venta enviada a cuenta corriente (DEBE registrado)' : 'Venta cobrada');
-  } catch (err) { setMsg(err.message); }
+    setMsg('Venta cobrada');
+  } catch (err) { console.error('[cobrar-venta] error', err); setMsg(err.message); }
 });
 
 $('#btn-cc-buscar').addEventListener('click', async () => {
