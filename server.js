@@ -409,7 +409,7 @@ app.post('/caja/cobrar/:id', async (req, res) => {
       return res.status(400).json({ error: 'La venta no está pendiente de caja' });
     }
 
-    if (pago === MedioPago.CUENTA_CORRIENTE || pago === 'CUENTA_CORRIENTE') {
+    if (pago === 'CUENTA_CORRIENTE') {
       if (!venta.personaId) {
         return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
       }
@@ -436,11 +436,11 @@ app.post('/caja/cobrar/:id', async (req, res) => {
 
         await tx.venta.update({
           where: { id: ventaId },
-          data: { estado: EstadoVenta.COBRADA, medioPago: MedioPago.CUENTA_CORRIENTE }
+          data: { estado: EstadoVenta.COBRADA, medioPago: 'CUENTA_CORRIENTE' }
         });
       });
     } else {
-      const mediosPermitidos = [MedioPago.EFECTIVO, MedioPago.TRANSFERENCIA, MedioPago.TARJETA];
+      const mediosPermitidos = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
       if (!mediosPermitidos.includes(pago)) {
         return res.status(400).json({ error: 'formaPago inválida' });
       }
