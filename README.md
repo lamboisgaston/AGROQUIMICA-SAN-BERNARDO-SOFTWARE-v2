@@ -18,6 +18,7 @@ Backend con Express + Prisma + SQLite.
 - No existe endpoint de cobro en mostrador (cobro queda para caja en otro módulo).
 
 ### Endpoints útiles
+- `GET /mostrador/ventas?estado=PENDIENTE_CAJA` para listar ventas (opcionalmente filtradas por estado).
 - `GET /mostrador/ventas/:id` para consultar detalle de una venta.
 
 ## Cuenta corriente
