@@ -8,8 +8,19 @@ let cuentaCorrienteMostrada = null;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Error');
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const errorMessage = data?.error || data?.message || `Error ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
   return data;
 }
 
@@ -100,10 +111,16 @@ async function loadResumenCaja() {
   $('#cierre-total').textContent = money(resumen.totalGeneral);
 }
 
+function getMediosPagoOptions(ventaCaja) {
+  const mediosBase = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
+  if (ventaCaja?.personaId) mediosBase.push('CUENTA_CORRIENTE');
+  return mediosBase.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
   $('#pendientes').innerHTML = ventas.length
-    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="medio-${v.id}"><option>EFECTIVO</option><option>TRANSFERENCIA</option><option>TARJETA</option><option>CUENTA_CORRIENTE</option></select> <button data-cobrar="${v.id}">Cobrar</button></div>`).join('')
+    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="medio-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button data-cobrar="${v.id}" data-persona-id="${v.personaId || ''}">Cobrar</button></div>`).join('')
     : 'No hay ventas pendientes';
 }
 
@@ -222,6 +239,12 @@ $('#pendientes').addEventListener('click', async (e) => {
   if (!b) return;
   const id = Number(b.dataset.cobrar);
   const medioPago = document.getElementById(`medio-${id}`).value;
+  const personaId = b.dataset.personaId ? Number(b.dataset.personaId) : null;
+
+  if (medioPago === 'CUENTA_CORRIENTE' && !personaId) {
+    return setMsg('Cuenta corriente solo para clientes registrados');
+  }
+
   try {
     await api(`/caja/cobrar/${id}`, { method: 'POST', body: JSON.stringify({ medioPago }) });
     await loadCaja();

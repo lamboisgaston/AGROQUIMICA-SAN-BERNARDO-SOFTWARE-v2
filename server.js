@@ -400,13 +400,16 @@ app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
   }
 
   if (medioPago === 'CUENTA_CORRIENTE') {
+    if (!venta.personaId) {
+      return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
+    }
     const ventaConPersona = await prisma.venta.findUnique({
       where: { id: ventaId },
       include: { persona: true }
     });
 
     if (!ventaConPersona?.personaId) {
-      return res.status(400).json({ error: 'La venta debe tener una persona para enviarla a cuenta corriente' });
+      return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
     }
 
     await prisma.$transaction(async tx => {
