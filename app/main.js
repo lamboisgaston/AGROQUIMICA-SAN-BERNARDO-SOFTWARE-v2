@@ -46,7 +46,7 @@ function renderCarrito() {
 
 function renderClienteActivo() {
   const p = venta?.persona;
-  $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'}` : 'Ninguno';
+  $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'}` : 'Consumidor final';
 }
 
 async function cargarCuentaCorrientePersona(personaId) {
@@ -93,7 +93,7 @@ async function refreshVenta() {
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
   $('#pendientes').innerHTML = ventas.length
-    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Sin cliente'} | ${money(v.total)} <select id="medio-${v.id}"><option>EFECTIVO</option><option>TRANSFERENCIA</option><option>TARJETA</option><option>CUENTA_CORRIENTE</option></select> <button data-cobrar="${v.id}">Cobrar</button></div>`).join('')
+    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="medio-${v.id}"><option>EFECTIVO</option><option>TRANSFERENCIA</option><option>TARJETA</option><option>CUENTA_CORRIENTE</option></select> <button data-cobrar="${v.id}">Cobrar</button></div>`).join('')
     : 'No hay ventas pendientes';
 }
 
@@ -185,11 +185,6 @@ $('#btn-cerrar').addEventListener('click', async () => {
   }
 
   console.log('[cerrar-venta] cliente actual', venta?.persona);
-  if (!venta?.personaId) {
-    console.log('[cerrar-venta] validación fallida: sin cliente');
-    return setMsg('Debe seleccionar o crear cliente');
-  }
-
   try {
     console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
     const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: '{}' });
@@ -202,7 +197,7 @@ $('#btn-cerrar').addEventListener('click', async () => {
     renderClienteActivo();
     await loadCaja();
     logFlujo('caja actualizada');
-    setMsg('Venta cerrada y enviada a caja');
+    setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
     setMsg(err.message);
