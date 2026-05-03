@@ -391,7 +391,8 @@ app.get('/caja/ventas', asyncHandler(async (req, res) => {
 app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
-  const { medioPago } = req.body || {};
+  const { formaPago, medioPago } = req.body || {};
+  const pago = formaPago || medioPago;
   const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
 
   if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
@@ -399,7 +400,7 @@ app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'La venta no está pendiente de caja' });
   }
 
-  if (medioPago === 'CUENTA_CORRIENTE') {
+  if (pago === 'CUENTA_CORRIENTE') {
     if (!venta.personaId) {
       return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
     }
@@ -439,13 +440,13 @@ app.post('/caja/cobrar/:id', asyncHandler(async (req, res) => {
     });
   } else {
     const mediosPermitidos = [MedioPago.EFECTIVO, MedioPago.TRANSFERENCIA, MedioPago.TARJETA];
-    if (!mediosPermitidos.includes(medioPago)) {
-      return res.status(400).json({ error: 'medioPago inválido' });
+    if (!mediosPermitidos.includes(pago)) {
+      return res.status(400).json({ error: 'formaPago inválida' });
     }
 
     await prisma.venta.update({
       where: { id: ventaId },
-      data: { estado: EstadoVenta.COBRADA, medioPago }
+      data: { estado: EstadoVenta.COBRADA, medioPago: pago }
     });
   }
 
