@@ -154,6 +154,11 @@ function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
   const precioFinalPesos = calcularPrecioFinalPesos(producto, tipoCambioActual);
   return {
     ...producto,
+    ivaPorcentaje: producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0,
+    fletePorcentaje: producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0,
+    gananciaPorcentaje: producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0,
+    createdAt: producto.createdAt || null,
+    updatedAt: producto.updatedAt || null,
     precioFinalPesos,
     precioPesosCalculado: precioFinalPesos
   };
@@ -170,9 +175,13 @@ function calcularPrecioFinalPesos(producto, tipoCambioActual) {
     ? Number(costoBaseFuente) * Number(tipoCambioActual || 1)
     : Number(costoBaseFuente);
 
-  const baseConUva = aplicarPorcentajeAcumulado(costoBasePesos, producto.porcentajeUva);
-  const baseConFlete = aplicarPorcentajeAcumulado(baseConUva, producto.porcentajeFlete);
-  const precioFinal = aplicarPorcentajeAcumulado(baseConFlete, producto.porcentajeGanancia);
+  const ivaPorcentaje = producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
+  const fletePorcentaje = producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
+  const gananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
+
+  const baseConUva = aplicarPorcentajeAcumulado(costoBasePesos, ivaPorcentaje);
+  const baseConFlete = aplicarPorcentajeAcumulado(baseConUva, fletePorcentaje);
+  const precioFinal = aplicarPorcentajeAcumulado(baseConFlete, gananciaPorcentaje);
   return Number(precioFinal.toFixed(2));
 }
 
@@ -187,9 +196,9 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     stock: Number.isInteger(Number(payload.stock)) ? Number(payload.stock) : 0,
     monedaCosto,
     costoBase,
-    porcentajeUva: Number(payload.porcentajeUva || 0),
-    porcentajeFlete: Number(payload.porcentajeFlete || 0),
-    porcentajeGanancia: Number(payload.porcentajeGanancia || 0),
+    porcentajeUva: Number(payload.ivaPorcentaje ?? payload.porcentajeUva ?? 0),
+    porcentajeFlete: Number(payload.fletePorcentaje ?? payload.porcentajeFlete ?? 0),
+    porcentajeGanancia: Number(payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
     precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
   };
   productoNormalizado.precioFinalPesos = calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual);
@@ -200,10 +209,9 @@ app.get('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const q = String(req.query.q || '').trim();
   const productos = await prisma.producto.findMany({
-    where: q ? { nombre: { contains: q, mode: 'insensitive' } } : undefined,
+    where: q ? { nombre: { contains: q } } : undefined,
     include: { proveedores: { include: { proveedor: true } } },
-    orderBy: { nombre: 'asc' },
-    take: q ? 8 : undefined
+    orderBy: { nombre: 'asc' }
   });
   res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
 }));
