@@ -9,3 +9,10 @@ table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
 th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 
 .total-grande { font-size: 24px; font-weight: bold; }
+
+.estado-monto { padding: 2px 6px; border-radius: 4px; }
+.estado-deuda { color: #b91c1c; background: #fee2e2; }
+.estado-cero { color: #166534; background: #dcfce7; }
+.item-movimiento { display: grid; grid-template-columns: 170px 70px 110px 1fr; gap: 8px; align-items: center; }
+.mov-debe { color: #b91c1c; }
+.mov-haber { color: #166534; }

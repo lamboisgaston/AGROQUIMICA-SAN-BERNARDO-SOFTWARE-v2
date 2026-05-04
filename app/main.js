@@ -85,6 +85,14 @@ function renderCarrito() {
   $('#total-final').textContent = money(final);
 }
 
+
+function aplicarEstadoSaldo(selector, saldo) {
+  const el = $(selector);
+  if (!el) return;
+  el.classList.remove('estado-deuda', 'estado-cero');
+  el.classList.add(Number(saldo) > 0 ? 'estado-deuda' : 'estado-cero');
+}
+
 function renderClienteActivo() {
   const p = venta?.persona;
   $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'}` : 'Consumidor final';
@@ -100,12 +108,16 @@ async function renderCuentaCorrienteClienteActivo() {
   if (!personaId) {
     $('#cliente-saldo').textContent = money(0);
     $('#cliente-deuda').textContent = money(0);
+    aplicarEstadoSaldo('#cliente-saldo', 0);
+    aplicarEstadoSaldo('#cliente-deuda', 0);
     return;
   }
   try {
     const cuenta = await cargarCuentaCorrientePersona(personaId);
     $('#cliente-saldo').textContent = money(cuenta.saldo);
     $('#cliente-deuda').textContent = money(cuenta.saldo);
+    aplicarEstadoSaldo('#cliente-saldo', cuenta.saldo);
+    aplicarEstadoSaldo('#cliente-deuda', cuenta.saldo);
   } catch (e) {
     setMsg(e.message);
   }
@@ -116,9 +128,11 @@ function renderPanelCuentaCorriente(cuenta) {
   $('#cc-cliente-activo').textContent = cuenta?.persona
     ? `${cuenta.persona.nombre} | ${cuenta.persona.telefono} | ${cuenta.persona.cuitDni || '-'}`
     : 'Ninguno';
-  $('#cc-saldo').textContent = money(cuenta?.saldo || 0);
+  const saldo = cuenta?.saldo || 0;
+  $('#cc-saldo').textContent = money(saldo);
+  aplicarEstadoSaldo('#cc-saldo', saldo);
   $('#cc-movimientos').innerHTML = (cuenta?.movimientos || []).length
-    ? cuenta.movimientos.map(m => `<div class="item">${new Date(m.createdAt).toLocaleString()} | ${m.tipo === 'DEBITO' ? 'DEBE' : 'HABER'} | ${money(m.monto)} | ${m.descripcion || '-'}</div>`).join('')
+    ? cuenta.movimientos.map(m => `<div class="item item-movimiento"><span>${new Date(m.createdAt).toLocaleString('es-AR')}</span><strong class="${m.tipo === 'DEBITO' ? 'mov-debe' : 'mov-haber'}">${m.tipo === 'DEBITO' ? 'DEBE' : 'HABER'}</strong><span>${money(m.monto)}</span><span>${m.descripcion || '-'}</span></div>`).join('')
     : '<div class="item">Sin movimientos</div>';
 }
 
