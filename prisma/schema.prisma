@@ -12,8 +12,6 @@ model Producto {
   nombre            String
   categoria         String
   stock             Int        @default(0)
-  proveedorId       Int?
-  proveedor         Proveedor? @relation(fields: [proveedorId], references: [id])
   monedaCosto       String     @default("USD")
   costoBase         Float      @default(0)
   porcentajeUva     Float      @default(0)
@@ -23,6 +21,8 @@ model Producto {
   precioUsd         Float?
   items             VentaItem[]
   movimientosStock  MovimientoStock[]
+  proveedores       ProductoProveedor[]
+  detalleRemitos    DetalleRemitoProveedor[]
 }
 
 model Proveedor {
@@ -31,7 +31,42 @@ model Proveedor {
   telefono       String?
   cuit           String?
   observaciones  String?
-  productos      Producto[]
+  productos      ProductoProveedor[]
+  remitos        RemitoProveedor[]
+}
+
+model ProductoProveedor {
+  productoId  Int
+  proveedorId Int
+  producto    Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  proveedor   Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+
+  @@id([productoId, proveedorId])
+}
+
+model RemitoProveedor {
+  id           Int      @id @default(autoincrement())
+  proveedorId  Int
+  numeroRemito String
+  fecha        DateTime
+  observaciones String?
+  createdAt    DateTime @default(now())
+  proveedor    Proveedor @relation(fields: [proveedorId], references: [id])
+  detalles     DetalleRemitoProveedor[]
+}
+
+model DetalleRemitoProveedor {
+  id                Int      @id @default(autoincrement())
+  remitoId          Int
+  productoId        Int
+  cantidad          Int
+  costoCompra       Float
+  monedaCosto       String
+  ivaPorcentaje     Float
+  fletePorcentaje   Float
+  gananciaPorcentaje Float
+  remito            RemitoProveedor @relation(fields: [remitoId], references: [id], onDelete: Cascade)
+  producto          Producto @relation(fields: [productoId], references: [id])
 }
 
 model MovimientoStock {
