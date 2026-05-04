@@ -382,20 +382,31 @@ function renderPresupuestoProductos() {
   const lista = origen
     .filter(p => !filtroProductosPresupuesto || p.nombre.toLowerCase().includes(filtroProductosPresupuesto))
     .slice(0, 8);
-  const subtotal = presupuestoItems.reduce((acc, it) => {
-    const prod = productos.find(p => p.id === it.productoId);
-    return acc + (Number(prod?.precioPesosCalculado || 0) * Number(it.cantidad || 0));
-  }, 0);
-  const descuento = Math.max(0, Number($('#pres-descuento')?.value || 0));
-  const total = Math.max(0, subtotal - descuento);
+  presupuestoItems = presupuestoItems.map((it) => {
+    const base = Number(it.precioUnitario || 0) * Number(it.cantidad || 0);
+    const desc = it.descuentoTipo === 'PORCENTAJE' ? base * (Number(it.descuentoValor || 0) / 100) : Number(it.descuentoValor || 0);
+    return { ...it, subtotal: Math.max(0, base - desc) };
+  });
+  const subtotal = presupuestoItems.reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
+  const descuentoGeneral = Math.max(0, Number($('#pres-descuento')?.value || 0));
+  const total = Math.max(0, subtotal - descuentoGeneral);
   $('#pres-total').textContent = money(total);
 
-  $('#pres-productos').innerHTML = lista.map(p => {
-    const it = presupuestoItems.find(x => x.productoId === p.id);
-    const c = it?.cantidad || 0;
-    const sub = Number(p.precioPesosCalculado || 0) * c;
-    return `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-pres-menos="${p.id}">-</button> ${c} <button data-pres-mas="${p.id}">+</button> <button data-pres-agregar="${p.id}">Agregar al presupuesto</button> | Subtotal ${money(sub)}</div>`;
-  }).join('') || '<div class="item">Sin productos encontrados</div>';
+  const resultados = lista.map(p => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado || p.precioFinalPesos)} | Stock ${p.stock} <button data-pres-agregar="${p.id}">Agregar</button></div>`).join('');
+  const tabla = presupuestoItems.length
+    ? `<table style="width:100%;margin-top:8px;"><thead><tr><th>Producto</th><th>Precio unitario</th><th>Cantidad</th><th>Desc %</th><th>Desc $</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>${
+      presupuestoItems.map(it => `<tr>
+        <td>${it.nombre}</td>
+        <td>${money(it.precioUnitario)}</td>
+        <td><button data-pres-menos="${it.productoId}">-</button> ${it.cantidad} <button data-pres-mas="${it.productoId}">+</button></td>
+        <td><input type="number" min="0" step="0.01" data-pres-desc-pct="${it.productoId}" value="${it.descuentoTipo === 'PORCENTAJE' ? it.descuentoValor : 0}" /></td>
+        <td><input type="number" min="0" step="0.01" data-pres-desc-monto="${it.productoId}" value="${it.descuentoTipo === 'MONTO' ? it.descuentoValor : 0}" /></td>
+        <td>${money(it.subtotal)}</td>
+        <td><button data-pres-quitar="${it.productoId}">Quitar</button></td>
+      </tr>`).join('')
+    }</tbody></table>`
+    : '<div class="item">Debe agregar al menos un producto</div>';
+  $('#pres-productos').innerHTML = `${resultados || '<div class="item">Sin productos encontrados</div>'}${tabla}`;
 }
 async function loadPresupuestos() {
   const lista = await api('/presupuestos');
@@ -800,17 +811,48 @@ $('#pres-productos').addEventListener('click', (e) => {
   const mas = e.target.closest('button[data-pres-mas]');
   const menos = e.target.closest('button[data-pres-menos]');
   const agregar = e.target.closest('button[data-pres-agregar]');
-  const id = Number(mas?.dataset.presMas || menos?.dataset.presMenos || agregar?.dataset.presAgregar || 0);
+  const quitar = e.target.closest('button[data-pres-quitar]');
+  const id = Number(mas?.dataset.presMas || menos?.dataset.presMenos || agregar?.dataset.presAgregar || quitar?.dataset.presQuitar || 0);
+  if (!id) return;
+  const prod = productos.find(p => p.id === id) || productosPresupuestoVisibles.find(p => p.id === id);
+  const it = presupuestoItems.find(x => x.productoId === id);
+  if (mas || agregar) {
+    if (it) it.cantidad += 1;
+    else if (prod) {
+      const nuevo = { productoId: id, nombre: prod.nombre, precioUnitario: Number(prod.precioPesosCalculado || prod.precioFinalPesos || 0), cantidad: 1, descuentoTipo: 'NINGUNO', descuentoValor: 0, subtotal: Number(prod.precioPesosCalculado || prod.precioFinalPesos || 0) };
+      console.log('Producto agregado al presupuesto:', nuevo);
+      presupuestoItems.push(nuevo);
+    }
+  }
+  if (menos && it) { it.cantidad -= 1; if (it.cantidad <= 0) presupuestoItems = presupuestoItems.filter(x => x.productoId !== id); }
+  if (quitar) presupuestoItems = presupuestoItems.filter(x => x.productoId !== id);
+  console.log('Items presupuesto:', presupuestoItems);
+  renderPresupuestoProductos();
+});
+$('#pres-productos').addEventListener('input', (e) => {
+  const pctInput = e.target.closest('input[data-pres-desc-pct]');
+  const montoInput = e.target.closest('input[data-pres-desc-monto]');
+  const id = Number(pctInput?.dataset.presDescPct || montoInput?.dataset.presDescMonto || 0);
   if (!id) return;
   const it = presupuestoItems.find(x => x.productoId === id);
-  if (mas || agregar) { if (it) it.cantidad += 1; else presupuestoItems.push({ productoId: id, cantidad: 1 }); }
-  if (menos && it) { it.cantidad -= 1; if (it.cantidad <= 0) presupuestoItems = presupuestoItems.filter(x => x.productoId !== id); }
+  if (!it) return;
+  if (pctInput) {
+    it.descuentoTipo = Number(pctInput.value || 0) > 0 ? 'PORCENTAJE' : 'NINGUNO';
+    it.descuentoValor = Math.max(0, Number(pctInput.value || 0));
+  }
+  if (montoInput) {
+    it.descuentoTipo = Number(montoInput.value || 0) > 0 ? 'MONTO' : 'NINGUNO';
+    it.descuentoValor = Math.max(0, Number(montoInput.value || 0));
+  }
   renderPresupuestoProductos();
 });
 async function buscarProductoPresupuesto() {
-  filtroProductosPresupuesto = $('#pres-buscar-producto').value.trim().toLowerCase();
+  const query = $('#pres-buscar-producto').value.trim();
+  filtroProductosPresupuesto = query.toLowerCase();
+  console.log('Buscando producto presupuesto:', query);
   try {
     productosPresupuestoVisibles = filtroProductosPresupuesto ? await buscarProductos(filtroProductosPresupuesto) : [];
+    console.log('Resultados productos presupuesto:', productosPresupuestoVisibles);
     renderPresupuestoProductos();
   } catch (error) { mostrarErrorBusqueda('#pres-productos', error); }
 }
@@ -820,7 +862,8 @@ $('#pres-descuento').addEventListener('input', renderPresupuestoProductos);
 $('#pres-guardar').addEventListener('click', async () => {
   try {
     if (!presupuestoClienteId) throw new Error('Debe seleccionar un cliente para presupuestar');
-    await api('/presupuestos', { method: 'POST', body: JSON.stringify({ clienteId: presupuestoClienteId, items: presupuestoItems, descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
+    if (!presupuestoItems.length) throw new Error('Debe agregar al menos un producto');
+    await api('/presupuestos', { method: 'POST', body: JSON.stringify({ clienteId: presupuestoClienteId, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
     presupuestoItems = [];
     presupuestoClienteId = null;
     $('#pres-cliente-activo').textContent = 'Ninguno';

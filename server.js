@@ -200,7 +200,7 @@ app.get('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const q = String(req.query.q || '').trim();
   const productos = await prisma.producto.findMany({
-    where: q ? { nombre: { contains: q } } : undefined,
+    where: q ? { nombre: { contains: q, mode: 'insensitive' } } : undefined,
     include: { proveedores: { include: { proveedor: true } } },
     orderBy: { nombre: 'asc' },
     take: q ? 8 : undefined
