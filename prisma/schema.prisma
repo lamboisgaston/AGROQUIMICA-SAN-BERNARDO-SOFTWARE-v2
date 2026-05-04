@@ -12,6 +12,8 @@ model Producto {
   nombre            String
   categoria         String
   stock             Int        @default(0)
+  proveedorId       Int?
+  proveedor         Proveedor? @relation(fields: [proveedorId], references: [id])
   monedaCosto       String     @default("USD")
   costoBase         Float      @default(0)
   porcentajeUva     Float      @default(0)
@@ -20,6 +22,32 @@ model Producto {
   precioFinalPesos  Float      @default(0)
   precioUsd         Float?
   items             VentaItem[]
+  movimientosStock  MovimientoStock[]
+}
+
+model Proveedor {
+  id             Int        @id @default(autoincrement())
+  nombre         String
+  telefono       String?
+  cuit           String?
+  observaciones  String?
+  productos      Producto[]
+}
+
+model MovimientoStock {
+  id         Int      @id @default(autoincrement())
+  productoId Int
+  tipo       TipoMovimientoStock
+  cantidad   Int
+  motivo     String
+  createdAt  DateTime @default(now())
+  producto   Producto @relation(fields: [productoId], references: [id])
+}
+
+enum TipoMovimientoStock {
+  ENTRADA
+  SALIDA
+  AJUSTE
 }
 
 model ConfiguracionGlobal {

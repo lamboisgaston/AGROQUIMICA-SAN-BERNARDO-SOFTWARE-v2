@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock } = require('@prisma/client');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -185,6 +185,7 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     nombre: String(payload.nombre || '').trim(),
     categoria: String(payload.categoria || '').trim(),
     stock: Number.isInteger(Number(payload.stock)) ? Number(payload.stock) : 0,
+    proveedorId: payload.proveedorId == null ? null : Number(payload.proveedorId),
     monedaCosto,
     costoBase,
     porcentajeUva: Number(payload.porcentajeUva || 0),
@@ -198,7 +199,7 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
 
 app.get('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
-  const productos = await prisma.producto.findMany();
+  const productos = await prisma.producto.findMany({ include: { proveedor: true } });
   res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
 }));
 
@@ -226,6 +227,62 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
 
   const producto = await prisma.producto.update({ where: { id }, data });
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
+}));
+
+app.get('/proveedores', asyncHandler(async (_req, res) => {
+  const proveedores = await prisma.proveedor.findMany({ orderBy: { nombre: 'asc' } });
+  res.json(proveedores);
+}));
+
+app.post('/proveedores', asyncHandler(async (req, res) => {
+  const { nombre, telefono, cuit, observaciones } = req.body || {};
+  if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'nombre es obligatorio' });
+  const proveedor = await prisma.proveedor.create({
+    data: { nombre: String(nombre).trim(), telefono: telefono || null, cuit: cuit || null, observaciones: observaciones || null }
+  });
+  res.status(201).json(proveedor);
+}));
+
+app.put('/proveedores/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { nombre, telefono, cuit, observaciones } = req.body || {};
+  const proveedor = await prisma.proveedor.update({
+    where: { id },
+    data: { nombre: String(nombre || '').trim(), telefono: telefono || null, cuit: cuit || null, observaciones: observaciones || null }
+  });
+  res.json(proveedor);
+}));
+
+app.get('/productos/:id/stock', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const producto = await prisma.producto.findUnique({ where: { id } });
+  if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+  const movimientos = await prisma.movimientoStock.findMany({ where: { productoId: id }, orderBy: { createdAt: 'desc' }, take: 20 });
+  res.json({ productoId: id, stockActual: producto.stock, movimientos });
+}));
+
+app.post('/productos/:id/stock', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { tipo, cantidad, motivo } = req.body || {};
+  const cantidadNum = Number(cantidad);
+  if (!Object.values(TipoMovimientoStock).includes(tipo)) return res.status(400).json({ error: 'tipo inválido' });
+  if (!Number.isInteger(cantidadNum) || cantidadNum <= 0) return res.status(400).json({ error: 'cantidad debe ser entero > 0' });
+  if (!motivo || !String(motivo).trim()) return res.status(400).json({ error: 'motivo es obligatorio' });
+
+  const result = await prisma.$transaction(async tx => {
+    const producto = await tx.producto.findUnique({ where: { id } });
+    if (!producto) throw new Error('Producto no encontrado');
+    const delta = tipo === TipoMovimientoStock.ENTRADA ? cantidadNum : -cantidadNum;
+    const nuevoStock = tipo === TipoMovimientoStock.AJUSTE ? cantidadNum : producto.stock + delta;
+    if (nuevoStock < 0) throw new Error('Stock no puede quedar negativo');
+    const actualizado = await tx.producto.update({ where: { id }, data: { stock: nuevoStock } });
+    const movimiento = await tx.movimientoStock.create({ data: { productoId: id, tipo, cantidad: cantidadNum, motivo: String(motivo).trim() } });
+    return { actualizado, movimiento };
+  });
+  res.status(201).json({ stockActual: result.actualizado.stock, movimiento: result.movimiento });
 }));
 
 app.get('/config/tipo-cambio', asyncHandler(async (req, res) => {
@@ -495,6 +552,9 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
       await tx.producto.update({
         where: { id: item.productoId },
         data: { stock: { decrement: item.cantidad } }
+      });
+      await tx.movimientoStock.create({
+        data: { productoId: item.productoId, tipo: TipoMovimientoStock.SALIDA, cantidad: item.cantidad, motivo: `Venta #${ventaId}` }
       });
     }
 
