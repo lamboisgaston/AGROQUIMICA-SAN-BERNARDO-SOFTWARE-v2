@@ -112,6 +112,7 @@ async function loadResumenCaja() {
   $('#cierre-cc').textContent = money(resumen.CUENTA_CORRIENTE);
   $('#cierre-total').textContent = money(resumen.totalGeneral);
   $('#caja-dia').textContent = `Caja del día: ${resumen.fechaCaja}`;
+  $('#caja-estado').textContent = resumen.estado === 'CERRADO' ? 'Cerrado' : 'Abierto';
 }
 
 function setFechaCajaHoy() {
@@ -139,9 +140,24 @@ async function loadCierresCaja() {
       | Transferencia ${money(c.totalTransferencia)}
       | Tarjeta ${money(c.totalTarjeta)}
       | Cta Cte ${money(c.totalCuentaCorriente)}
+      <button class="btn-ver-cierre" data-fecha="${c.fechaCaja}">Ver este día</button>
       <button class="btn-eliminar-cierre" data-id="${c.id}">Eliminar cierre de prueba</button>
     </div>
   `).join('');
+
+
+  document.querySelectorAll('.btn-ver-cierre').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      fechaCajaSeleccionada = btn.dataset.fecha || null;
+      $('#caja-fecha').value = fechaCajaSeleccionada || '';
+      try {
+        await loadResumenCaja();
+        setMsg(`Mostrando resumen de caja del ${fechaCajaSeleccionada}`);
+      } catch (err) {
+        setMsg(err.message);
+      }
+    });
+  });
 
   document.querySelectorAll('.btn-eliminar-cierre').forEach(btn => {
     btn.addEventListener('click', async () => {

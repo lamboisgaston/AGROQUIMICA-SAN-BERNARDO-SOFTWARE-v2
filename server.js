@@ -58,13 +58,19 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
   const rango = obtenerRangoDiaCaja(fechaCaja);
   if (!rango) throw new Error('fecha inválida, use YYYY-MM-DD');
   const { inicio, fin } = rango;
-  const ventas = await prisma.venta.findMany({
-    where: {
-      estado: EstadoVenta.COBRADA,
-      createdAt: { gte: inicio, lt: fin }
-    },
-    select: { total: true, medioPago: true }
-  });
+  const [ventas, cierre] = await Promise.all([
+    prisma.venta.findMany({
+      where: {
+        estado: EstadoVenta.COBRADA,
+        createdAt: { gte: inicio, lt: fin }
+      },
+      select: { total: true, medioPago: true }
+    }),
+    prisma.cierreCajaDiario.findUnique({
+      where: { fechaCaja },
+      select: { id: true, fecha: true, fechaCaja: true }
+    })
+  ]);
 
   const resumen = {
     fechaCaja,
@@ -82,7 +88,9 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
 
   return {
     ...resumen,
-    totalGeneral: resumen.EFECTIVO + resumen.TRANSFERENCIA + resumen.TARJETA + resumen.CUENTA_CORRIENTE
+    totalGeneral: resumen.EFECTIVO + resumen.TRANSFERENCIA + resumen.TARJETA + resumen.CUENTA_CORRIENTE,
+    estado: cierre ? 'CERRADO' : 'ABIERTO',
+    cierre
   };
 }
 
