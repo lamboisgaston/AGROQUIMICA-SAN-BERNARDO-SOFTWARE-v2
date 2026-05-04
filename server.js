@@ -196,14 +196,14 @@ app.get('/personas', asyncHandler(async (req, res) => {
 
 app.post('/personas', asyncHandler(async (req, res) => {
   const { nombre, telefono, cuitDni, tipo } = req.body || {};
-  if (!nombre || !telefono) {
-    return res.status(400).json({ error: 'nombre y telefono son obligatorios' });
+  if (!nombre || !String(nombre).trim()) {
+    return res.status(400).json({ error: 'nombre es obligatorio' });
   }
 
   const persona = await prisma.persona.create({
     data: {
-      nombre,
-      telefono,
+      nombre: String(nombre).trim(),
+      telefono: telefono ? String(telefono).trim() : null,
       cuitDni: cuitDni || null,
       tipo: tipo || 'CLIENTE'
     }
@@ -377,14 +377,14 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
     persona = await prisma.persona.findUnique({ where: { id: personaIdParsed } });
     if (!persona) return res.status(404).json({ error: 'Persona no encontrada' });
   } else {
-    if (!nombre || !telefono || !cuitDni) {
-      return res.status(400).json({ error: 'Debe enviar personaId o bien nombre, telefono y cuitDni' });
+    if (!nombre || !String(nombre).trim()) {
+      return res.status(400).json({ error: 'Debe enviar personaId o bien nombre completo' });
     }
     persona = await prisma.persona.create({
       data: {
-        nombre,
-        telefono,
-        cuitDni,
+        nombre: String(nombre).trim(),
+        telefono: telefono ? String(telefono).trim() : null,
+        cuitDni: cuitDni ? String(cuitDni).trim() : null,
         tipo: tipo || 'CONSUMIDOR_FINAL'
       }
     });
@@ -419,6 +419,10 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
 
   if (descuentoTipo && !['PORCENTAJE', 'MONTO'].includes(descuentoTipo)) {
     return res.status(400).json({ error: 'descuentoTipo inválido' });
+  }
+
+  if (Number(descuentoValor || 0) > 0 && !venta.personaId) {
+    return res.status(400).json({ error: 'Para aplicar descuento, primero debe dar de alta al cliente.' });
   }
 
   const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0);
