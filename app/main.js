@@ -11,6 +11,7 @@ let fechaCajaSeleccionada = null;
 let fechaVentasCobradasSeleccionada = null;
 let tipoCambioActual = 1;
 let proveedores = [];
+let remitoDetalles = [];
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -32,6 +33,10 @@ async function api(url, options = {}) {
 
 function setMsg(text) { $('#msg').innerHTML = text; }
 function pct(base, p) { return Number(base) * (1 + (Number(p || 0) / 100)); }
+function calcularSubtotalRemito(item) {
+  const basePesos = item.monedaCosto === 'USD' ? Number(item.costoCompra || 0) * tipoCambioActual : Number(item.costoCompra || 0);
+  return pct(pct(pct(basePesos, item.ivaPorcentaje), item.fletePorcentaje), item.gananciaPorcentaje) * Number(item.cantidad || 0);
+}
 function calcularPrecioProductoForm() {
   const moneda = $('#prod-moneda').value;
   const costoBase = Number($('#prod-costo').value || 0);
@@ -365,6 +370,47 @@ async function loadProductosAll() {
   renderProductos();
   renderProductosAdmin();
   renderStockProductos();
+  renderBuscadorRemitoProductos();
+}
+
+function renderBuscadorRemitoProductos() {
+  const proveedorId = Number($('#remito-proveedor').value || 0);
+  const q = ($('#remito-buscar-producto').value || '').trim().toLowerCase();
+  if (!proveedorId) {
+    $('#remito-resultados-productos').innerHTML = '<div class="item">Seleccione proveedor para buscar productos</div>';
+    return;
+  }
+  const lista = productos
+    .filter(p => !q || p.nombre.toLowerCase().includes(q))
+    .slice(0, 20);
+  $('#remito-resultados-productos').innerHTML = lista.length
+    ? lista.map(p => {
+      const asociado = (p.proveedores || []).some(pp => Number(pp.proveedorId) === proveedorId);
+      return `<div class="item">${p.nombre} | Stock ${p.stock} | Costo ${p.monedaCosto} ${Number(p.costoBase || 0).toFixed(2)}
+        <button data-remito-agregar="${p.id}">Agregar al remito</button>
+        ${asociado ? '' : `<button data-remito-asociar="${p.id}">Asociar producto a proveedor</button>`}
+      </div>`;
+    }).join('')
+    : '<div class="item">Sin resultados</div>';
+}
+
+function renderRemitoItems() {
+  const tbody = $('#remito-items');
+  tbody.innerHTML = remitoDetalles.length
+    ? remitoDetalles.map((item, idx) => `<tr>
+      <td>${item.productoNombre}</td>
+      <td><input type="number" min="1" data-remito-field="cantidad" data-index="${idx}" value="${item.cantidad}" /></td>
+      <td><input type="number" min="0" step="0.01" data-remito-field="costoCompra" data-index="${idx}" value="${item.costoCompra}" /></td>
+      <td><select data-remito-field="monedaCosto" data-index="${idx}"><option value="ARS" ${item.monedaCosto === 'ARS' ? 'selected' : ''}>ARS</option><option value="USD" ${item.monedaCosto === 'USD' ? 'selected' : ''}>USD</option></select></td>
+      <td><input type="number" min="0" step="0.01" data-remito-field="ivaPorcentaje" data-index="${idx}" value="${item.ivaPorcentaje}" /></td>
+      <td><input type="number" min="0" step="0.01" data-remito-field="fletePorcentaje" data-index="${idx}" value="${item.fletePorcentaje}" /></td>
+      <td><input type="number" min="0" step="0.01" data-remito-field="gananciaPorcentaje" data-index="${idx}" value="${item.gananciaPorcentaje}" /></td>
+      <td>${money(calcularSubtotalRemito(item))}</td>
+      <td><button data-remito-quitar="${idx}">Quitar</button></td>
+    </tr>`).join('')
+    : '<tr><td colspan="9">Sin productos en el remito</td></tr>';
+  const total = remitoDetalles.reduce((acc, item) => acc + calcularSubtotalRemito(item), 0);
+  $('#remito-total').textContent = money(total);
 }
 
 $('#btn-nueva').addEventListener('click', async () => {
@@ -693,10 +739,60 @@ $('#btn-registrar-stock').addEventListener('click', async () => {
   } catch (err) { setMsg(err.message); }
 });
 
+$('#remito-proveedor').addEventListener('change', renderBuscadorRemitoProductos);
+$('#remito-buscar-producto').addEventListener('input', renderBuscadorRemitoProductos);
+
+$('#remito-resultados-productos').addEventListener('click', async (e) => {
+  const agregar = e.target.closest('button[data-remito-agregar]');
+  if (agregar) {
+    const producto = productos.find(p => Number(p.id) === Number(agregar.dataset.remitoAgregar));
+    if (!producto) return;
+    const existente = remitoDetalles.find(d => d.productoId === producto.id);
+    if (existente) existente.cantidad += 1;
+    else remitoDetalles.push({
+      productoId: producto.id,
+      productoNombre: producto.nombre,
+      cantidad: 1,
+      costoCompra: Number(producto.costoBase || 0),
+      monedaCosto: producto.monedaCosto || 'ARS',
+      ivaPorcentaje: Number(producto.porcentajeUva || 0),
+      fletePorcentaje: Number(producto.porcentajeFlete || 0),
+      gananciaPorcentaje: Number(producto.porcentajeGanancia || 0)
+    });
+    renderRemitoItems();
+    return;
+  }
+  const asociar = e.target.closest('button[data-remito-asociar]');
+  if (asociar) {
+    try {
+      const proveedorId = Number($('#remito-proveedor').value || 0);
+      await api(`/proveedores/${proveedorId}/productos/${Number(asociar.dataset.remitoAsociar)}`, { method: 'POST', body: '{}' });
+      await loadProductosAll();
+      setMsg('Producto asociado al proveedor');
+    } catch (err) { setMsg(err.message); }
+  }
+});
+
+$('#remito-items').addEventListener('click', (e) => {
+  const quitar = e.target.closest('button[data-remito-quitar]');
+  if (!quitar) return;
+  remitoDetalles.splice(Number(quitar.dataset.remitoQuitar), 1);
+  renderRemitoItems();
+});
+$('#remito-items').addEventListener('input', (e) => {
+  const input = e.target.closest('[data-remito-field]');
+  if (!input) return;
+  const idx = Number(input.dataset.index);
+  const field = input.dataset.remitoField;
+  if (!remitoDetalles[idx]) return;
+  remitoDetalles[idx][field] = ['monedaCosto'].includes(field) ? input.value : Number(input.value || 0);
+  renderRemitoItems();
+});
+
 $('#btn-guardar-remito').addEventListener('click', async () => {
   try {
     const proveedorId = Number($('#remito-proveedor').value || 0);
-    const detalles = JSON.parse($('#remito-detalles').value || '[]');
+    const detalles = remitoDetalles.map(({ productoId, cantidad, costoCompra, monedaCosto, ivaPorcentaje, fletePorcentaje, gananciaPorcentaje }) => ({ productoId, cantidad, costoCompra, monedaCosto, ivaPorcentaje, fletePorcentaje, gananciaPorcentaje }));
     await api('/remitos-proveedor', {
       method: 'POST',
       body: JSON.stringify({
@@ -709,6 +805,8 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
     });
     await loadProductosAll();
     await cargarStockProducto();
+    remitoDetalles = [];
+    renderRemitoItems();
     setMsg('Remito guardado y stock actualizado');
   } catch (err) { setMsg(err.message); }
 });
@@ -728,5 +826,6 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadCierresCaja();
   renderPanelCuentaCorriente(null);
   limpiarFormularioProducto();
+  renderRemitoItems();
   $('#buscar-producto').focus();
 })();
