@@ -24,7 +24,7 @@ async function api(url, options = {}) {
   return data;
 }
 
-function setMsg(text) { $('#msg').textContent = text; }
+function setMsg(text) { $('#msg').innerHTML = text; }
 
 function logFlujo(paso, payload) {
   if (payload !== undefined) {
@@ -154,9 +154,16 @@ function getMediosPagoOptions(ventaCaja) {
 
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
+  const ventasRecientesCobradas = await api('/ventas/cobradas-recientes');
   $('#pendientes').innerHTML = ventas.length
     ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="pago-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}">Cobrar</button></div>`).join('')
     : 'No hay ventas pendientes';
+
+  const recientesHtml = ventasRecientesCobradas.length
+    ? ventasRecientesCobradas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <a href="/ventas/${v.id}/ticket" target="_blank" rel="noopener noreferrer">Ver ticket</a></div>`).join('')
+    : '<div class="item">Sin ventas cobradas recientes</div>';
+
+  $('#pendientes').innerHTML += `<h3>Ventas cobradas recientes</h3>${recientesHtml}`;
 
   document.querySelectorAll('.btn-cobrar').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -182,6 +189,7 @@ async function loadCaja() {
         }
 
         alert('Venta cobrada');
+        setMsg(`✅ Venta #${data.id} cobrada. <a href="/ventas/${data.id}/ticket" target="_blank" rel="noopener noreferrer">Ver ticket</a>`);
 
         // refrescar caja
         location.reload();

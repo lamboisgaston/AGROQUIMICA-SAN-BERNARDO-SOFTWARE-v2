@@ -15,6 +15,15 @@ function parsePositiveInt(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function obtenerRangoDia(fecha = new Date()) {
   const inicio = new Date(fecha);
   inicio.setHours(0, 0, 0, 0);
@@ -466,6 +475,81 @@ app.post('/caja/cobrar/:id', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+app.get('/ventas/cobradas-recientes', asyncHandler(async (req, res) => {
+  const ventas = await prisma.venta.findMany({
+    where: { estado: EstadoVenta.COBRADA },
+    include: { persona: true },
+    orderBy: { updatedAt: 'desc' },
+    take: 10
+  });
+
+  res.json(ventas);
+}));
+
+app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).send('id de venta inválido');
+
+  const venta = await prisma.venta.findUnique({
+    where: { id: ventaId },
+    include: { persona: true, items: { include: { producto: true } } }
+  });
+
+  if (!venta) return res.status(404).send('Venta no encontrada');
+  if (venta.estado !== EstadoVenta.COBRADA) {
+    return res.status(400).send('Solo se puede generar ticket para ventas cobradas');
+  }
+
+  const negocio = 'Agroquímica San Bernardo';
+  const cliente = venta.persona?.nombre || 'Consumidor final';
+  const fecha = new Date(venta.updatedAt || venta.createdAt).toLocaleString('es-AR');
+  const medioPago = venta.medioPago || '-';
+  const rows = (venta.items || []).map(item => `
+    <tr>
+      <td>${escapeHtml(item.producto?.nombre || 'Producto')}</td>
+      <td>${item.cantidad}</td>
+      <td>$${Number(item.subtotal || 0).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ticket Venta #${venta.id}</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      h1 { margin: 0 0 8px; font-size: 20px; }
+      p { margin: 4px 0; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
+      .total { font-size: 18px; margin-top: 10px; }
+      @media print { button { display: none; } }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(negocio)}</h1>
+    <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+    <p><strong>Número de venta:</strong> #${venta.id}</p>
+    <p><strong>Cliente:</strong> ${escapeHtml(cliente)}</p>
+    <table>
+      <thead>
+        <tr><th>Producto</th><th>Cantidad</th><th>Subtotal</th></tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="3">Sin productos</td></tr>'}
+      </tbody>
+    </table>
+    <p class="total"><strong>Total:</strong> $${Number(venta.total || 0).toFixed(2)}</p>
+    <p><strong>Medio de pago:</strong> ${escapeHtml(medioPago)}</p>
+    <button onclick="window.print()">Imprimir</button>
+  </body>
+</html>`;
+
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+}));
 
 app.get('/caja/resumen', asyncHandler(async (req, res) => {
   const resumen = await calcularResumenCajaDia(new Date());
