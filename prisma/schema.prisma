@@ -37,6 +37,9 @@ model Venta {
   persona   Persona?    @relation(fields: [personaId], references: [id])
   estado    EstadoVenta @default(BORRADOR)
   total     Float       @default(0)
+  descuentoTipo String?
+  descuentoValor Float   @default(0)
+  subtotal  Float       @default(0)
   items     VentaItem[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
