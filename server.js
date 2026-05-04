@@ -295,8 +295,7 @@ app.post('/remitos-proveedor', asyncHandler(async (req, res) => {
       const productoId = Number(item.productoId);
       const cantidad = Number(item.cantidad || 0);
       if (!Number.isInteger(cantidad) || cantidad <= 0) throw new Error('Cantidad inválida');
-      const vinculo = await tx.productoProveedor.findUnique({ where: { productoId_proveedorId: { productoId, proveedorId: Number(proveedorId) } } });
-      if (!vinculo) throw new Error(`Producto ${productoId} no asociado al proveedor`);
+      await tx.productoProveedor.create({ data: { productoId, proveedorId: Number(proveedorId) } }).catch(() => null);
       const producto = await tx.producto.findUnique({ where: { id: productoId } });
       const monedaCosto = item.monedaCosto === 'USD' ? 'USD' : 'ARS';
       const costoBase = Number(item.costoCompra || 0);

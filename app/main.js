@@ -376,22 +376,20 @@ async function loadProductosAll() {
 function renderBuscadorRemitoProductos() {
   const proveedorId = Number($('#remito-proveedor').value || 0);
   const q = ($('#remito-buscar-producto').value || '').trim().toLowerCase();
+  const panelCrear = $('#remito-crear-producto');
   if (!proveedorId) {
     $('#remito-resultados-productos').innerHTML = '<div class="item">Seleccione proveedor para buscar productos</div>';
+    panelCrear.style.display = 'none';
     return;
   }
-  const lista = productos
-    .filter(p => !q || p.nombre.toLowerCase().includes(q))
-    .slice(0, 20);
+  const lista = productos.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 20);
   $('#remito-resultados-productos').innerHTML = lista.length
-    ? lista.map(p => {
-      const asociado = (p.proveedores || []).some(pp => Number(pp.proveedorId) === proveedorId);
-      return `<div class="item">${p.nombre} | Stock ${p.stock} | Costo ${p.monedaCosto} ${Number(p.costoBase || 0).toFixed(2)}
+    ? lista.map(p => `<div class="item">${p.nombre} | Stock ${p.stock} | Costo ${p.monedaCosto} ${Number(p.costoBase || 0).toFixed(2)}
         <button data-remito-agregar="${p.id}">Agregar al remito</button>
-        ${asociado ? '' : `<button data-remito-asociar="${p.id}">Asociar producto a proveedor</button>`}
-      </div>`;
-    }).join('')
-    : '<div class="item">Sin resultados</div>';
+      </div>`).join('')
+    : '<div class="item">Sin resultados. <button id="btn-mostrar-crear-producto">Crear producto nuevo</button></div>';
+  panelCrear.style.display = lista.length ? 'none' : 'block';
+  if (!q) panelCrear.style.display = 'none';
 }
 
 function renderRemitoItems() {
@@ -762,15 +760,40 @@ $('#remito-resultados-productos').addEventListener('click', async (e) => {
     renderRemitoItems();
     return;
   }
-  const asociar = e.target.closest('button[data-remito-asociar]');
-  if (asociar) {
-    try {
-      const proveedorId = Number($('#remito-proveedor').value || 0);
-      await api(`/proveedores/${proveedorId}/productos/${Number(asociar.dataset.remitoAsociar)}`, { method: 'POST', body: '{}' });
-      await loadProductosAll();
-      setMsg('Producto asociado al proveedor');
-    } catch (err) { setMsg(err.message); }
-  }
+});
+
+$('#btn-remito-crear-producto').addEventListener('click', async () => {
+  try {
+    const proveedorId = Number($('#remito-proveedor').value || 0);
+    if (!proveedorId) return setMsg('Seleccione proveedor');
+    const nombre = $('#remito-nuevo-nombre').value.trim() || $('#remito-buscar-producto').value.trim();
+    if (!nombre) return setMsg('Ingrese nombre del producto');
+    const body = {
+      nombre,
+      categoria: $('#remito-nuevo-categoria').value.trim() || 'General',
+      stock: Number($('#remito-nuevo-stock').value || 0),
+      monedaCosto: $('#remito-nuevo-moneda').value,
+      costoBase: Number($('#remito-nuevo-costo').value || 0),
+      porcentajeUva: Number($('#remito-nuevo-iva').value || 0),
+      porcentajeFlete: Number($('#remito-nuevo-flete').value || 0),
+      porcentajeGanancia: Number($('#remito-nuevo-ganancia').value || 0),
+      proveedorIds: [proveedorId]
+    };
+    const producto = await api('/productos', { method: 'POST', body: JSON.stringify(body) });
+    remitoDetalles.push({
+      productoId: producto.id,
+      productoNombre: producto.nombre,
+      cantidad: 1,
+      costoCompra: Number(producto.costoBase || 0),
+      monedaCosto: producto.monedaCosto || 'ARS',
+      ivaPorcentaje: Number(producto.porcentajeUva || 0),
+      fletePorcentaje: Number(producto.porcentajeFlete || 0),
+      gananciaPorcentaje: Number(producto.porcentajeGanancia || 0)
+    });
+    await loadProductosAll();
+    renderRemitoItems();
+    setMsg('Producto creado y agregado al remito');
+  } catch (err) { setMsg(err.message); }
 });
 
 $('#remito-items').addEventListener('click', (e) => {
