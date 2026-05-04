@@ -94,6 +94,28 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
   };
 }
 
+
+
+function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuentoValor = 0) {
+  const subtotal = items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+  const valor = Math.max(0, Number(descuentoValor || 0));
+
+  let descuentoAplicado = 0;
+  if (descuentoTipo === 'PORCENTAJE') {
+    descuentoAplicado = subtotal * (valor / 100);
+  } else if (descuentoTipo === 'MONTO') {
+    descuentoAplicado = valor;
+  }
+
+  const total = Math.max(0, subtotal - descuentoAplicado);
+
+  return {
+    subtotal,
+    descuentoTipo: (descuentoTipo === 'PORCENTAJE' || descuentoTipo === 'MONTO') ? descuentoTipo : null,
+    descuentoValor: valor,
+    total
+  };
+}
 const usuarios = [
   { usuario: 'admin', password: 'admin123', rol: 'ADMINISTRADOR_GENERAL' },
   { usuario: 'gerente', password: 'gerente123', rol: 'GERENTE' },
@@ -277,10 +299,11 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
   });
 
   const items = await prisma.ventaItem.findMany({ where: { ventaId } });
-  const total = items.reduce((acc, item) => acc + item.subtotal, 0);
+  const ventaConDescuento = await prisma.venta.findUnique({ where: { id: ventaId }, select: { descuentoTipo: true, descuentoValor: true } });
+  const totales = calcularTotalesConDescuento(items, ventaConDescuento?.descuentoTipo, ventaConDescuento?.descuentoValor);
   const ventaActualizada = await prisma.venta.update({
     where: { id: ventaId },
-    data: { total },
+    data: { total: totales.total, subtotal: totales.subtotal },
     include: { persona: true, items: true }
   });
 
@@ -325,10 +348,11 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
   }
 
   const items = await prisma.ventaItem.findMany({ where: { ventaId } });
-  const total = items.reduce((acc, item) => acc + item.subtotal, 0);
+  const ventaConDescuento = await prisma.venta.findUnique({ where: { id: ventaId }, select: { descuentoTipo: true, descuentoValor: true } });
+  const totales = calcularTotalesConDescuento(items, ventaConDescuento?.descuentoTipo, ventaConDescuento?.descuentoValor);
   const ventaActualizada = await prisma.venta.update({
     where: { id: ventaId },
-    data: { total },
+    data: { total: totales.total, subtotal: totales.subtotal },
     include: { persona: true, items: { include: { producto: true } } }
   });
 
@@ -377,6 +401,7 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 
 app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
+  const { descuentoTipo, descuentoValor } = req.body || {};
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
   const venta = await prisma.venta.findUnique({
@@ -392,6 +417,12 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'No se puede cerrar una venta sin productos' });
   }
 
+  if (descuentoTipo && !['PORCENTAJE', 'MONTO'].includes(descuentoTipo)) {
+    return res.status(400).json({ error: 'descuentoTipo inválido' });
+  }
+
+  const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0);
+
   await prisma.$transaction(async tx => {
     for (const item of venta.items) {
       const producto = await tx.producto.findUnique({ where: { id: item.productoId } });
@@ -406,7 +437,13 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
 
     await tx.venta.update({
       where: { id: ventaId },
-      data: { estado: EstadoVenta.PENDIENTE_CAJA }
+      data: {
+        estado: EstadoVenta.PENDIENTE_CAJA,
+        subtotal: totales.subtotal,
+        descuentoTipo: totales.descuentoTipo,
+        descuentoValor: totales.descuentoValor,
+        total: totales.total
+      }
     });
   });
 
@@ -618,7 +655,9 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
         ${rows || '<tr><td colspan="3">Sin productos</td></tr>'}
       </tbody>
     </table>
-    <p class="total"><strong>Total:</strong> $${Number(venta.total || 0).toFixed(2)}</p>
+    <p><strong>Subtotal:</strong> $${Number(venta.subtotal || venta.total || 0).toFixed(2)}</p>
+    <p><strong>Descuento:</strong> ${venta.descuentoTipo ? `${escapeHtml(venta.descuentoTipo)} ${Number(venta.descuentoValor || 0).toFixed(2)}` : 'Sin descuento'}</p>
+    <p class="total"><strong>Total final:</strong> $${Number(venta.total || 0).toFixed(2)}</p>
     <p><strong>Medio de pago:</strong> ${escapeHtml(medioPago)}</p>
     <button onclick="window.print()">Imprimir</button>
   </body>

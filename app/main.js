@@ -50,10 +50,13 @@ function renderCarrito() {
     ? items.map(i => `<tr><td>${i.producto.nombre}</td><td>${money(i.precioUnitario)}</td><td><button data-accion="menos" data-producto="${i.productoId}">-</button> ${i.cantidad} <button data-accion="mas" data-producto="${i.productoId}">+</button></td><td>${money(i.subtotal)}</td></tr>`).join('')
     : '<tr><td colspan="4">Sin productos</td></tr>';
 
-  const total = Number(venta?.total || 0);
+  const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0));
   const descuento = Math.max(0, Number($('#descuento').value || 0));
-  const final = Math.max(0, total - descuento);
-  $('#total').textContent = money(total);
+  const descuentoTipo = $('#descuento-tipo').value;
+  const descuentoAplicado = descuentoTipo === 'PORCENTAJE' ? (subtotal * (descuento / 100)) : descuento;
+  const final = Math.max(0, subtotal - descuentoAplicado);
+  $('#subtotal').textContent = money(subtotal);
+  $('#total').textContent = money(subtotal);
   $('#total-final').textContent = money(final);
 }
 
@@ -291,6 +294,7 @@ $('#carrito').addEventListener('click', async (e) => {
 });
 
 $('#descuento').addEventListener('input', renderCarrito);
+$('#descuento-tipo').addEventListener('change', renderCarrito);
 
 $('#btn-buscar-cliente').addEventListener('click', async () => {
   const q = $('#buscar-cliente').value.trim();
@@ -345,7 +349,9 @@ $('#btn-cerrar').addEventListener('click', async () => {
   console.log('[cerrar-venta] cliente actual', venta?.persona);
   try {
     console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: '{}' });
+    const descuentoValor = Math.max(0, Number($('#descuento').value || 0));
+    const descuentoTipo = $('#descuento-tipo').value;
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor }) });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
@@ -356,6 +362,8 @@ $('#btn-cerrar').addEventListener('click', async () => {
     await loadCaja();
     await loadResumenCaja();
     logFlujo('caja actualizada');
+    $('#descuento').value = '0';
+    $('#descuento-tipo').value = 'MONTO';
     setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);

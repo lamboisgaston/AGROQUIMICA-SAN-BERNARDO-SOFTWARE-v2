@@ -26,9 +26,16 @@
         <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
         <tbody id="carrito"></tbody>
       </table>
-      <label>Descuento $ <input id="descuento" type="number" min="0" value="0" /></label>
+      <p>Subtotal: <span id="subtotal">$0.00</span></p>
+      <label>Tipo descuento
+        <select id="descuento-tipo">
+          <option value="MONTO">Monto fijo</option>
+          <option value="PORCENTAJE">Porcentaje</option>
+        </select>
+      </label>
+      <label>Valor descuento <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
       <p>Total: <span id="total">$0.00</span></p>
-      <p><b>Total final: <span id="total-final">$0.00</span></b></p>
+      <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
     </section>
 
     <section class="bloque">
