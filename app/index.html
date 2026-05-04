@@ -170,34 +170,20 @@
       <div id="stock-movimientos" class="lista"></div>
 
       <h3>Cargar remito</h3>
+      <label>Buscar proveedor <input id="remito-buscar-proveedor" placeholder="Nombre o CUIT" /></label>
       <label>Proveedor <select id="remito-proveedor"></select></label>
+      <button id="btn-remito-crear-proveedor">Crear proveedor</button>
       <label>Número <input id="remito-numero" /></label>
       <label>Fecha <input id="remito-fecha" type="date" /></label>
       <label>Observaciones <input id="remito-obs" /></label>
       <label>Buscar producto <input id="remito-buscar-producto" placeholder="Escriba nombre de producto" /></label>
       <div id="remito-resultados-productos" class="lista"></div>
-      <div id="remito-crear-producto" class="bloque" style="display:none; margin-top:8px;">
-        <h4>Crear producto nuevo</h4>
-        <label>Nombre <input id="remito-nuevo-nombre" /></label>
-        <label>Categoría <input id="remito-nuevo-categoria" /></label>
-        <label>Moneda costo
-          <select id="remito-nuevo-moneda"><option value="ARS">ARS</option><option value="USD">USD</option></select>
-        </label>
-        <label>Costo base <input id="remito-nuevo-costo" type="number" min="0" step="0.01" value="0" /></label>
-        <label>IVA % <input id="remito-nuevo-iva" type="number" min="0" step="0.01" value="0" /></label>
-        <label>Flete % <input id="remito-nuevo-flete" type="number" min="0" step="0.01" value="0" /></label>
-        <label>Ganancia % <input id="remito-nuevo-ganancia" type="number" min="0" step="0.01" value="0" /></label>
-        <label>Stock inicial (opcional) <input id="remito-nuevo-stock" type="number" min="0" step="1" placeholder="0" /></label>
-        <button id="btn-remito-crear-producto">Crear producto nuevo</button>
-      </div>
-
       <table style="width:100%;margin-top:8px;">
         <thead>
-          <tr><th>Producto</th><th>Cantidad</th><th>Costo compra</th><th>Moneda</th><th>IVA %</th><th>Flete %</th><th>Ganancia %</th><th>Subtotal</th><th>Acción</th></tr>
+          <tr><th>Producto</th><th>Cantidad que entra</th><th>Stock actual</th><th>Stock nuevo</th><th>Acción</th></tr>
         </thead>
         <tbody id="remito-items"></tbody>
       </table>
-      <p>Total remito: <strong id="remito-total">$0.00</strong></p>
       <button id="btn-guardar-remito">Guardar remito</button>
     </section>
 
