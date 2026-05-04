@@ -16,6 +16,7 @@ let filtroProductosAdmin = '';
 let presupuestoClienteId = null;
 let presupuestoItems = [];
 let filtroProductosPresupuesto = '';
+let productosPresupuestoVisibles = [];
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -59,18 +60,57 @@ function logFlujo(paso, payload) {
   console.log(`[flujo-venta] ${paso}`);
 }
 
-function renderProductos() {
-  const q = $('#buscar-producto').value.trim().toLowerCase();
-  const lista = productos.filter(p => p.stock > 0 && (!q || p.nombre.toLowerCase().includes(q))).slice(0, 20);
-  resultadosProductosVisibles = lista;
-  if (lista.length === 0) indiceProductoSeleccionado = -1;
-  if (lista.length > 0 && (indiceProductoSeleccionado < 0 || indiceProductoSeleccionado >= lista.length)) {
-    indiceProductoSeleccionado = 0;
-  }
 
-  $('#resultados-productos').innerHTML = lista.length
-    ? lista.map((p, idx) => `<div class="item ${idx === indiceProductoSeleccionado ? 'item-seleccionado' : ''}">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-producto="${p.id}">Agregar</button></div>`).join('')
-    : '<div class="item">Sin resultados</div>';
+function mostrarErrorBusqueda(containerSelector, error) {
+  const container = $(containerSelector);
+  if (!container) return;
+  container.innerHTML = `<div class="item">Error al buscar: ${error.message}</div>`;
+}
+
+async function buscarProductos(query) {
+  const q = (query || '').trim();
+  console.log(`Buscando productos: ${q}`);
+  if (!q) return [];
+  const lista = await api('/productos?q=' + encodeURIComponent(q));
+  console.log('Resultados productos:', lista);
+  return (lista || []).slice(0, 8);
+}
+
+async function buscarPersonas(query) {
+  const q = (query || '').trim();
+  console.log(`Buscando clientes: ${q}`);
+  if (!q) return [];
+  return api('/personas/buscar?q=' + encodeURIComponent(q));
+}
+
+async function buscarProveedores(query) {
+  const q = (query || '').trim();
+  console.log(`Buscando proveedor: ${q}`);
+  if (!q) return [];
+  return api('/proveedores?q=' + encodeURIComponent(q));
+}
+
+async function renderProductos() {
+  const q = $('#buscar-producto').value.trim();
+  if (!q) {
+    resultadosProductosVisibles = [];
+    indiceProductoSeleccionado = -1;
+    $('#resultados-productos').innerHTML = '<div class="item">Sin resultados</div>';
+    return;
+  }
+  try {
+    const lista = await buscarProductos(q);
+    resultadosProductosVisibles = lista;
+    if (lista.length === 0) indiceProductoSeleccionado = -1;
+    if (lista.length > 0 && (indiceProductoSeleccionado < 0 || indiceProductoSeleccionado >= lista.length)) {
+      indiceProductoSeleccionado = 0;
+    }
+    $('#resultados-productos').innerHTML = lista.length
+      ? lista.map((p, idx) => `<div class="item ${idx === indiceProductoSeleccionado ? 'item-seleccionado' : ''}">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-producto="${p.id}">Agregar</button></div>`).join('')
+      : '<div class="item">Sin resultados</div>';
+  } catch (error) {
+    mostrarErrorBusqueda('#resultados-productos', error);
+  }
 }
 
 async function agregarProductoAlCarrito(productoId) {
@@ -338,9 +378,10 @@ function renderProductosAdmin() {
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
-  const lista = productos
+  const origen = productosPresupuestoVisibles.length ? productosPresupuestoVisibles : productos;
+  const lista = origen
     .filter(p => !filtroProductosPresupuesto || p.nombre.toLowerCase().includes(filtroProductosPresupuesto))
-    .slice(0, 30);
+    .slice(0, 8);
   const subtotal = presupuestoItems.reduce((acc, it) => {
     const prod = productos.find(p => p.id === it.productoId);
     return acc + (Number(prod?.precioPesosCalculado || 0) * Number(it.cantidad || 0));
@@ -370,12 +411,14 @@ function renderProveedores() {
   const remSel = $('#remito-proveedor');
   if (remSel) renderProveedoresRemito();
 }
-function renderProveedoresRemito() {
+async function renderProveedoresRemito() {
   const remSel = $('#remito-proveedor');
   if (!remSel) return;
-  const q = ($('#remito-buscar-proveedor')?.value || '').trim().toLowerCase();
-  const lista = proveedores.filter(pr => !q || pr.nombre.toLowerCase().includes(q) || (pr.cuit || '').toLowerCase().includes(q));
-  remSel.innerHTML = '<option value="">Seleccione proveedor</option>' + lista.map(pr => `<option value="${pr.id}">${pr.nombre}${pr.cuit ? ` (${pr.cuit})` : ''}</option>`).join('');
+  const q = ($('#remito-buscar-proveedor')?.value || '').trim();
+  try {
+    const lista = q ? await buscarProveedores(q) : proveedores;
+    remSel.innerHTML = '<option value="">Seleccione proveedor</option>' + lista.slice(0, 8).map(pr => `<option value="${pr.id}">${pr.nombre}${pr.cuit ? ` (${pr.cuit})` : ''}</option>`).join('');
+  } catch (error) { mostrarErrorBusqueda('#remito-resultados-productos', error); }
 }
 function renderStockProductos() {
   $('#stock-producto').innerHTML = productos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -408,14 +451,19 @@ async function loadProductosAll() {
   renderBuscadorRemitoProductos();
 }
 
-function renderBuscadorRemitoProductos() {
+async function renderBuscadorRemitoProductos() {
   const proveedorId = Number($('#remito-proveedor').value || 0);
-  const q = ($('#remito-buscar-producto').value || '').trim().toLowerCase();
+  const q = ($('#remito-buscar-producto').value || '').trim();
   if (!proveedorId) {
     $('#remito-resultados-productos').innerHTML = '<div class=\"item\">Seleccione proveedor para buscar productos</div>';
     return;
   }
-  const encontrados = productos.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 20);
+  let encontrados = [];
+  try {
+    encontrados = q ? await buscarProductos(q) : productos.slice(0, 8);
+  } catch (error) {
+    return mostrarErrorBusqueda('#remito-resultados-productos', error);
+  }
   $('#remito-resultados-productos').innerHTML = encontrados.length
     ? encontrados.map(p => `<div class=\"item\">${p.nombre} | Stock actual ${p.stock} <button data-remito-agregar=\"${p.id}\">Agregar</button></div>`).join('')
     : '<div class=\"item\">Producto no encontrado. Cárguelo primero desde Productos.</div>';
@@ -466,6 +514,7 @@ $('#buscar-producto').addEventListener('keydown', async (e) => {
     }
     const seleccionado = resultadosProductosVisibles[indiceProductoSeleccionado] || resultadosProductosVisibles[0];
     if (!seleccionado) return setMsg('No se encontró ningún producto con esa búsqueda');
+    console.log('Seleccionado producto:', seleccionado.id);
     await agregarProductoAlCarrito(Number(seleccionado.id));
   }
 });
@@ -473,6 +522,7 @@ $('#buscar-producto').addEventListener('keydown', async (e) => {
 $('#resultados-productos').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-producto]');
   if (!b) return;
+  console.log('Seleccionado producto:', b.dataset.producto);
   await agregarProductoAlCarrito(Number(b.dataset.producto));
 });
 
@@ -494,21 +544,25 @@ $('#carrito').addEventListener('click', async (e) => {
 $('#descuento').addEventListener('input', renderCarrito);
 $('#descuento-tipo').addEventListener('change', renderCarrito);
 
-$('#btn-buscar-cliente').addEventListener('click', async () => {
+async function buscarClienteMostrador() {
   const q = $('#buscar-cliente').value.trim();
-  if (!q) return;
+  if (!q) { $('#resultados-clientes').innerHTML = '<div class="item">Sin resultados</div>'; return; }
   try {
-    const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
+    const personas = await buscarPersonas(q);
     $('#resultados-clientes').innerHTML = personas.length
-      ? personas.map(p => `<div class="item">${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+      ? personas.slice(0, 8).map(p => `<div class="item">${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
       : '<div class="item">Sin resultados <button id="btn-crear-desde-busqueda">Crear cliente</button></div>';
-  } catch (e) { setMsg(e.message); }
-});
+  } catch (error) { mostrarErrorBusqueda('#resultados-clientes', error); }
+}
+
+$('#btn-buscar-cliente').addEventListener('click', buscarClienteMostrador);
+$('#buscar-cliente').addEventListener('input', buscarClienteMostrador);
 
 $('#resultados-clientes').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-persona]');
   if (!b || !ventaId) return;
   try {
+    console.log('Seleccionado cliente:', b.dataset.persona);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: Number(b.dataset.persona) }) });
     await refreshVenta();
     setMsg('Cliente seleccionado');
@@ -531,6 +585,7 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
   const cuitDni = $('#nuevo-cuit').value.trim();
   try {
     const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuitDni, tipo: 'CLIENTE' }) });
+    console.log('Seleccionado cliente:', persona.id);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
     await refreshVenta();
     setMsg('Cliente creado y seleccionado');
@@ -723,16 +778,21 @@ $('#productos-admin').addEventListener('click', (e) => {
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);
 });
-$('#pres-btn-buscar-cliente').addEventListener('click', async () => {
+async function buscarClientePresupuesto() {
   const q = $('#pres-buscar-cliente').value.trim();
-  if (!q) return;
-  const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
-  $('#pres-clientes').innerHTML = personas.filter(p => (p.tipo || '').toUpperCase() !== 'CONSUMIDOR_FINAL')
-    .map(p => `<div class="item">${p.nombre} <button data-pres-cliente="${p.id}" data-pres-nombre="${p.nombre}">Seleccionar</button></div>`).join('');
-});
+  if (!q) { $('#pres-clientes').innerHTML = '<div class="item">Sin resultados</div>'; return; }
+  try {
+    const personas = await buscarPersonas(q);
+    $('#pres-clientes').innerHTML = personas.filter(p => (p.tipo || '').toUpperCase() !== 'CONSUMIDOR_FINAL').slice(0, 8)
+      .map(p => `<div class="item">${p.nombre} <button data-pres-cliente="${p.id}" data-pres-nombre="${p.nombre}">Seleccionar</button></div>`).join('') || '<div class="item">Sin resultados</div>';
+  } catch (error) { mostrarErrorBusqueda('#pres-clientes', error); }
+}
+$('#pres-btn-buscar-cliente').addEventListener('click', buscarClientePresupuesto);
+$('#pres-buscar-cliente').addEventListener('input', buscarClientePresupuesto);
 $('#pres-clientes').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-pres-cliente]');
   if (!b) return;
+  console.log('Seleccionado cliente:', b.dataset.presCliente);
   presupuestoClienteId = Number(b.dataset.presCliente);
   $('#pres-cliente-activo').textContent = b.dataset.presNombre;
 });
@@ -747,14 +807,15 @@ $('#pres-productos').addEventListener('click', (e) => {
   if (menos && it) { it.cantidad -= 1; if (it.cantidad <= 0) presupuestoItems = presupuestoItems.filter(x => x.productoId !== id); }
   renderPresupuestoProductos();
 });
-$('#pres-btn-buscar-producto').addEventListener('click', () => {
+async function buscarProductoPresupuesto() {
   filtroProductosPresupuesto = $('#pres-buscar-producto').value.trim().toLowerCase();
-  renderPresupuestoProductos();
-});
-$('#pres-buscar-producto').addEventListener('input', () => {
-  filtroProductosPresupuesto = $('#pres-buscar-producto').value.trim().toLowerCase();
-  renderPresupuestoProductos();
-});
+  try {
+    productosPresupuestoVisibles = filtroProductosPresupuesto ? await buscarProductos(filtroProductosPresupuesto) : [];
+    renderPresupuestoProductos();
+  } catch (error) { mostrarErrorBusqueda('#pres-productos', error); }
+}
+$('#pres-btn-buscar-producto').addEventListener('click', buscarProductoPresupuesto);
+$('#pres-buscar-producto').addEventListener('input', buscarProductoPresupuesto);
 $('#pres-descuento').addEventListener('input', renderPresupuestoProductos);
 $('#pres-guardar').addEventListener('click', async () => {
   try {
@@ -845,6 +906,7 @@ $('#btn-remito-crear-proveedor').addEventListener('click', async () => {
     const observaciones = prompt('Observaciones (opcional):')?.trim() || null;
     const creado = await api('/proveedores', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuit, observaciones }) });
     await loadProveedores();
+    console.log('Seleccionado proveedor:', creado.id);
     $('#remito-proveedor').value = String(creado.id);
     renderBuscadorRemitoProductos();
     setMsg('Proveedor creado');
