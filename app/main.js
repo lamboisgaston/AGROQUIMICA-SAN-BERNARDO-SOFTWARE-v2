@@ -12,6 +12,9 @@ let fechaVentasCobradasSeleccionada = null;
 let tipoCambioActual = 1;
 let proveedores = [];
 let remitoDetalles = [];
+let filtroProductosAdmin = '';
+let presupuestoClienteId = null;
+let presupuestoItems = [];
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -328,9 +331,21 @@ function limpiarFormularioProducto() {
 
 function renderProductosAdmin() {
   const container = $('#productos-admin');
-  container.innerHTML = productos.length
-    ? productos.map(p => `<div class="item">${p.nombre} | ${p.categoria} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+  const lista = productos.filter(p => !filtroProductosAdmin || p.nombre.toLowerCase().includes(filtroProductosAdmin));
+  container.innerHTML = lista.length
+    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
     : '<div class="item">Sin productos</div>';
+}
+function renderPresupuestoProductos() {
+  $('#pres-productos').innerHTML = productos.map(p => {
+    const it = presupuestoItems.find(x => x.productoId === p.id);
+    const c = it?.cantidad || 0;
+    return `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado)} <button data-pres-menos="${p.id}">-</button> ${c} <button data-pres-mas="${p.id}">+</button></div>`;
+  }).join('');
+}
+async function loadPresupuestos() {
+  const lista = await api('/presupuestos');
+  $('#pres-lista').innerHTML = lista.map(p => `<div class="item">#${p.id} | ${p.persona?.nombre} | ${p.estado} | ${money(p.total)} <button data-pres-imprimir="${p.id}">Imprimir</button> <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`).join('');
 }
 function renderProveedores() {
   $('#proveedores-lista').innerHTML = proveedores.length
@@ -676,6 +691,7 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
 });
 
 $('#btn-nuevo-producto').addEventListener('click', limpiarFormularioProducto);
+$('#admin-buscar-producto').addEventListener('input', (e) => { filtroProductosAdmin = e.target.value.trim().toLowerCase(); renderProductosAdmin(); });
 $('#productos-admin').addEventListener('click', (e) => {
   const id = e.target.dataset.editarProducto;
   if (!id) return;
@@ -693,6 +709,47 @@ $('#productos-admin').addEventListener('click', (e) => {
   const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);
+});
+$('#pres-btn-buscar-cliente').addEventListener('click', async () => {
+  const q = $('#pres-buscar-cliente').value.trim();
+  if (!q) return;
+  const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
+  $('#pres-clientes').innerHTML = personas.filter(p => (p.tipo || '').toUpperCase() !== 'CONSUMIDOR_FINAL')
+    .map(p => `<div class="item">${p.nombre} <button data-pres-cliente="${p.id}" data-pres-nombre="${p.nombre}">Seleccionar</button></div>`).join('');
+});
+$('#pres-clientes').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-pres-cliente]');
+  if (!b) return;
+  presupuestoClienteId = Number(b.dataset.presCliente);
+  $('#pres-cliente-activo').textContent = b.dataset.presNombre;
+});
+$('#pres-productos').addEventListener('click', (e) => {
+  const mas = e.target.closest('button[data-pres-mas]');
+  const menos = e.target.closest('button[data-pres-menos]');
+  const id = Number(mas?.dataset.presMas || menos?.dataset.presMenos || 0);
+  if (!id) return;
+  const it = presupuestoItems.find(x => x.productoId === id);
+  if (mas) { if (it) it.cantidad += 1; else presupuestoItems.push({ productoId: id, cantidad: 1 }); }
+  if (menos && it) { it.cantidad -= 1; if (it.cantidad <= 0) presupuestoItems = presupuestoItems.filter(x => x.productoId !== id); }
+  renderPresupuestoProductos();
+});
+$('#pres-guardar').addEventListener('click', async () => {
+  try {
+    await api('/presupuestos', { method: 'POST', body: JSON.stringify({ clienteId: presupuestoClienteId, items: presupuestoItems, descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
+    presupuestoItems = [];
+    renderPresupuestoProductos();
+    await loadPresupuestos();
+    setMsg('Presupuesto guardado');
+  } catch (err) { setMsg(err.message); }
+});
+$('#pres-lista').addEventListener('click', async (e) => {
+  const imp = e.target.closest('button[data-pres-imprimir]');
+  const ac = e.target.closest('button[data-pres-aceptar]');
+  const re = e.target.closest('button[data-pres-rechazar]');
+  if (imp) window.open(`/presupuestos/${imp.dataset.presImprimir}/imprimir`, '_blank', 'noopener,noreferrer');
+  if (ac) await api(`/presupuestos/${ac.dataset.presAceptar}/aceptar`, { method: 'POST', body: JSON.stringify({ estadoVenta: 'PENDIENTE_CAJA' }) });
+  if (re) await api(`/presupuestos/${re.dataset.presRechazar}/rechazar`, { method: 'POST', body: '{}' });
+  if (ac || re) await loadPresupuestos();
 });
 
 $('#btn-crear-proveedor').addEventListener('click', async () => {
@@ -808,6 +865,8 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadTipoCambio();
   await loadProveedores();
   await loadProductosAll();
+  renderPresupuestoProductos();
+  await loadPresupuestos();
   renderCarrito();
   renderClienteActivo();
   await loadCaja();

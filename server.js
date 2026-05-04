@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto } = require('@prisma/client');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -414,6 +414,104 @@ app.get('/personas/buscar', asyncHandler(async (req, res) => {
   });
 
   res.json(personas);
+}));
+
+function validarClienteParaPresupuesto(persona) {
+  if (!persona) return 'Cliente no encontrado';
+  if (!String(persona.nombre || '').trim()) return 'El cliente debe tener nombre completo';
+  if (String(persona.tipo || '').toUpperCase() === 'CONSUMIDOR_FINAL') return 'No se puede presupuestar a Consumidor Final';
+  return null;
+}
+
+app.get('/presupuestos', asyncHandler(async (_req, res) => {
+  const presupuestos = await prisma.presupuesto.findMany({
+    include: { persona: true, items: { include: { producto: true } } },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(presupuestos);
+}));
+
+app.get('/presupuestos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const p = await prisma.presupuesto.findUnique({ where: { id }, include: { persona: true, items: { include: { producto: true } } } });
+  if (!p) return res.status(404).json({ error: 'Presupuesto no encontrado' });
+  res.json(p);
+}));
+
+async function guardarPresupuesto(req, res, id = null) {
+  const { clienteId, items, descuentoTipo, descuentoValor, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
+  const personaId = parsePositiveInt(clienteId);
+  if (!personaId) return res.status(400).json({ error: 'clienteId es obligatorio' });
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe incluir productos' });
+  const persona = await prisma.persona.findUnique({ where: { id: personaId } });
+  const errorCliente = validarClienteParaPresupuesto(persona);
+  if (errorCliente) return res.status(400).json({ error: errorCliente });
+
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const itemsCalculados = [];
+  for (const item of items) {
+    const productoId = parsePositiveInt(item.productoId);
+    const cantidad = parsePositiveInt(item.cantidad);
+    if (!productoId || !cantidad) return res.status(400).json({ error: 'productoId y cantidad son obligatorios' });
+    const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+    if (!producto) return res.status(404).json({ error: `Producto ${productoId} no encontrado` });
+    const precioUnitario = calcularPrecioFinalPesos(producto, tipoCambioActual);
+    itemsCalculados.push({ productoId, cantidad, precioUnitario, subtotal: Number((precioUnitario * cantidad).toFixed(2)) });
+  }
+  const totales = calcularTotalesConDescuento(itemsCalculados, descuentoTipo || null, descuentoValor || 0);
+  const payload = {
+    personaId,
+    subtotal: totales.subtotal,
+    descuentoTipo: totales.descuentoTipo,
+    descuentoValor: totales.descuentoValor,
+    total: totales.total,
+    observaciones: observaciones || null,
+    validez: validez || null,
+    aliasTransferencia: aliasTransferencia || null,
+    datosBancarios: datosBancarios || null,
+    estado: Object.values(EstadoPresupuesto).includes(estado) ? estado : EstadoPresupuesto.BORRADOR
+  };
+  const saved = await prisma.$transaction(async tx => {
+    const pres = id ? await tx.presupuesto.update({ where: { id }, data: payload }) : await tx.presupuesto.create({ data: payload });
+    if (id) await tx.presupuestoItem.deleteMany({ where: { presupuestoId: id } });
+    await tx.presupuestoItem.createMany({ data: itemsCalculados.map(i => ({ ...i, presupuestoId: pres.id })) });
+    return tx.presupuesto.findUnique({ where: { id: pres.id }, include: { persona: true, items: { include: { producto: true } } } });
+  });
+  return res.status(id ? 200 : 201).json(saved);
+}
+
+app.post('/presupuestos', asyncHandler(async (req, res) => guardarPresupuesto(req, res)));
+app.put('/presupuestos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  return guardarPresupuesto(req, res, id);
+}));
+app.post('/presupuestos/:id/aceptar', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  const estadoVenta = req.body?.estadoVenta === 'BORRADOR' ? EstadoVenta.BORRADOR : EstadoVenta.PENDIENTE_CAJA;
+  const p = await prisma.presupuesto.findUnique({ where: { id }, include: { items: true } });
+  if (!p) return res.status(404).json({ error: 'Presupuesto no encontrado' });
+  const venta = await prisma.$transaction(async tx => {
+    await tx.presupuesto.update({ where: { id }, data: { estado: EstadoPresupuesto.ACEPTADO } });
+    const v = await tx.venta.create({ data: { personaId: p.personaId, estado: estadoVenta, subtotal: p.subtotal, descuentoTipo: p.descuentoTipo, descuentoValor: p.descuentoValor, total: p.total } });
+    if (p.items.length) await tx.ventaItem.createMany({ data: p.items.map(i => ({ ventaId: v.id, productoId: i.productoId, cantidad: i.cantidad, precioUnitario: i.precioUnitario, subtotal: i.subtotal })) });
+    return v;
+  });
+  res.json({ ok: true, ventaId: venta.id });
+}));
+app.post('/presupuestos/:id/rechazar', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  await prisma.presupuesto.update({ where: { id }, data: { estado: EstadoPresupuesto.RECHAZADO } });
+  res.json({ ok: true });
+}));
+app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  const p = await prisma.presupuesto.findUnique({ where: { id }, include: { persona: true, items: { include: { producto: true } } } });
+  if (!p) return res.status(404).send('No encontrado');
+  const moneda = (n) => '$' + Number(n || 0).toFixed(2);
+  res.type('html').send(`<html><body><h1>Presupuesto #${p.id}</h1><p>Cliente: ${escapeHtml(p.persona.nombre)}</p><p>Estado: ${p.estado}</p><ul>${p.items.map(i => `<li>${escapeHtml(i.producto.nombre)} x ${i.cantidad} = ${moneda(i.subtotal)}</li>`).join('')}</ul><p>Total: ${moneda(p.total)}</p><p>Observaciones: ${escapeHtml(p.observaciones || '-')}</p></body></html>`);
 }));
 
 app.post('/mostrador/ventas', asyncHandler(async (req, res) => {
