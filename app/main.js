@@ -317,22 +317,25 @@ function limpiarFormularioProducto() {
   $('#prod-iva').value = '0';
   $('#prod-flete').value = '0';
   $('#prod-ganancia').value = '0';
+  Array.from($('#prod-proveedor').options || []).forEach(o => { o.selected = false; });
   $('#prod-precio-final').textContent = money(0);
 }
 
 function renderProductosAdmin() {
   const container = $('#productos-admin');
   container.innerHTML = productos.length
-    ? productos.map(p => `<div class="item">${p.nombre} | ${p.categoria} | Prov: ${p.proveedor?.nombre || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    ? productos.map(p => `<div class="item">${p.nombre} | ${p.categoria} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderProveedores() {
   $('#proveedores-lista').innerHTML = proveedores.length
     ? proveedores.map(pr => `<div class="item">${pr.nombre} | ${pr.telefono || '-'} | ${pr.cuit || '-'} </div>`).join('')
     : '<div class="item">Sin proveedores</div>';
-  const opt = ['<option value="">Sin proveedor</option>', ...proveedores.map(pr => `<option value="${pr.id}">${pr.nombre}</option>`)];
+  const opt = proveedores.map(pr => `<option value="${pr.id}">${pr.nombre}</option>`);
   const sel = $('#prod-proveedor');
   if (sel) sel.innerHTML = opt.join('');
+  const remSel = $('#remito-proveedor');
+  if (remSel) remSel.innerHTML = '<option value="">Seleccione</option>' + opt.join('');
 }
 function renderStockProductos() {
   $('#stock-producto').innerHTML = productos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -622,7 +625,7 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       porcentajeUva: Number($('#prod-iva').value || 0),
       porcentajeFlete: Number($('#prod-flete').value || 0),
       porcentajeGanancia: Number($('#prod-ganancia').value || 0),
-      proveedorId: $('#prod-proveedor').value ? Number($('#prod-proveedor').value) : null
+      proveedorIds: Array.from($('#prod-proveedor').selectedOptions || []).map(o => Number(o.value)).filter(Boolean)
     };
     const id = $('#prod-id').value;
     if (id) await api(`/productos/${id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -648,7 +651,8 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-iva').value = p.porcentajeUva || 0;
   $('#prod-flete').value = p.porcentajeFlete || 0;
   $('#prod-ganancia').value = p.porcentajeGanancia || 0;
-  $('#prod-proveedor').value = p.proveedorId || '';
+  const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
+  Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);
 });
 
@@ -686,6 +690,26 @@ $('#btn-registrar-stock').addEventListener('click', async () => {
     await loadProductosAll();
     await cargarStockProducto();
     setMsg('Movimiento de stock registrado');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-guardar-remito').addEventListener('click', async () => {
+  try {
+    const proveedorId = Number($('#remito-proveedor').value || 0);
+    const detalles = JSON.parse($('#remito-detalles').value || '[]');
+    await api('/remitos-proveedor', {
+      method: 'POST',
+      body: JSON.stringify({
+        proveedorId,
+        numeroRemito: $('#remito-numero').value.trim(),
+        fecha: $('#remito-fecha').value,
+        observaciones: $('#remito-obs').value.trim() || null,
+        detalles
+      })
+    });
+    await loadProductosAll();
+    await cargarStockProducto();
+    setMsg('Remito guardado y stock actualizado');
   } catch (err) { setMsg(err.message); }
 });
 

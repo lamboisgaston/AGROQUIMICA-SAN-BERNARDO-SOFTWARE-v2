@@ -140,8 +140,8 @@
         <input id="prod-ganancia" type="number" step="0.01" />
       </div>
       <div class="campo-producto">
-        <label for="prod-proveedor">Proveedor</label>
-        <select id="prod-proveedor"><option value="">Sin proveedor</option></select>
+        <label for="prod-proveedor">Proveedores (Ctrl/Cmd + click para múltiple)</label>
+        <select id="prod-proveedor" multiple size="4"></select>
       </div>
       <p>Precio final en pesos: <strong id="prod-precio-final">$0.00</strong></p>
       <button id="btn-guardar-producto">Guardar producto</button>
@@ -168,6 +168,15 @@
       <label>Motivo <input id="stock-motivo" placeholder="Motivo" /></label>
       <button id="btn-registrar-stock">Registrar movimiento</button>
       <div id="stock-movimientos" class="lista"></div>
+
+      <h3>Cargar remito</h3>
+      <label>Proveedor <select id="remito-proveedor"></select></label>
+      <label>Número <input id="remito-numero" /></label>
+      <label>Fecha <input id="remito-fecha" type="date" /></label>
+      <label>Observaciones <input id="remito-obs" /></label>
+      <p>Detalles (JSON array)</p>
+      <textarea id="remito-detalles" rows="6" style="width:100%" placeholder='[{"productoId":1,"cantidad":1,"costoCompra":1000,"monedaCosto":"ARS","ivaPorcentaje":21,"fletePorcentaje":0,"gananciaPorcentaje":30}]'></textarea>
+      <button id="btn-guardar-remito">Guardar remito</button>
     </section>
 
     <p id="msg"></p>

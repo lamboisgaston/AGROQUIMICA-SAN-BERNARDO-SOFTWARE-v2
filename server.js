@@ -185,7 +185,6 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     nombre: String(payload.nombre || '').trim(),
     categoria: String(payload.categoria || '').trim(),
     stock: Number.isInteger(Number(payload.stock)) ? Number(payload.stock) : 0,
-    proveedorId: payload.proveedorId == null ? null : Number(payload.proveedorId),
     monedaCosto,
     costoBase,
     porcentajeUva: Number(payload.porcentajeUva || 0),
@@ -199,18 +198,22 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
 
 app.get('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
-  const productos = await prisma.producto.findMany({ include: { proveedor: true } });
+  const productos = await prisma.producto.findMany({ include: { proveedores: { include: { proveedor: true } } } });
   res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
 }));
 
 app.post('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const data = normalizarPayloadProducto(req.body, tipoCambioActual);
+  const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
   if (!data.nombre || !data.categoria) {
     return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
   }
+  if (!proveedorIds.length) return res.status(400).json({ error: 'Debe asociar al menos un proveedor' });
   const producto = await prisma.producto.create({ data });
-  res.status(201).json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
+  await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
+  const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } } } });
+  res.status(201).json(mapearProductoConPrecioPesos(productoConProveedores, tipoCambioActual));
 }));
 
 app.put('/productos/:id', asyncHandler(async (req, res) => {
@@ -221,11 +224,17 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
   if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
 
   const data = normalizarPayloadProducto({ ...existente, ...req.body }, tipoCambioActual);
+  const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
   if (!data.nombre || !data.categoria) {
     return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
   }
-
-  const producto = await prisma.producto.update({ where: { id }, data });
+  if (!proveedorIds.length) return res.status(400).json({ error: 'Debe asociar al menos un proveedor' });
+  await prisma.$transaction(async tx => {
+    await tx.producto.update({ where: { id }, data });
+    await tx.productoProveedor.deleteMany({ where: { productoId: id } });
+    await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })), skipDuplicates: true });
+  });
+  const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
 }));
 
@@ -252,6 +261,43 @@ app.put('/proveedores/:id', asyncHandler(async (req, res) => {
     data: { nombre: String(nombre || '').trim(), telefono: telefono || null, cuit: cuit || null, observaciones: observaciones || null }
   });
   res.json(proveedor);
+}));
+
+app.get('/proveedores/:id/productos', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const productos = await prisma.producto.findMany({ where: { proveedores: { some: { proveedorId: id } } }, orderBy: { nombre: 'asc' } });
+  res.json(productos);
+}));
+
+app.post('/remitos-proveedor', asyncHandler(async (req, res) => {
+  const { proveedorId, numeroRemito, fecha, observaciones, detalles } = req.body || {};
+  if (!proveedorId || !numeroRemito || !fecha || !Array.isArray(detalles) || !detalles.length) {
+    return res.status(400).json({ error: 'Datos de remito incompletos' });
+  }
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const remito = await prisma.$transaction(async tx => {
+    const nuevo = await tx.remitoProveedor.create({ data: { proveedorId: Number(proveedorId), numeroRemito: String(numeroRemito), fecha: new Date(fecha), observaciones: observaciones || null } });
+    for (const item of detalles) {
+      const productoId = Number(item.productoId);
+      const cantidad = Number(item.cantidad || 0);
+      if (!Number.isInteger(cantidad) || cantidad <= 0) throw new Error('Cantidad inválida');
+      const vinculo = await tx.productoProveedor.findUnique({ where: { productoId_proveedorId: { productoId, proveedorId: Number(proveedorId) } } });
+      if (!vinculo) throw new Error(`Producto ${productoId} no asociado al proveedor`);
+      const producto = await tx.producto.findUnique({ where: { id: productoId } });
+      const monedaCosto = item.monedaCosto === 'USD' ? 'USD' : 'ARS';
+      const costoBase = Number(item.costoCompra || 0);
+      const porcentajeUva = Number(item.ivaPorcentaje || 0);
+      const porcentajeFlete = Number(item.fletePorcentaje || 0);
+      const porcentajeGanancia = Number(item.gananciaPorcentaje || 0);
+      const precioFinalPesos = calcularPrecioFinalPesos({ ...producto, monedaCosto, costoBase, porcentajeUva, porcentajeFlete, porcentajeGanancia }, tipoCambioActual);
+      await tx.detalleRemitoProveedor.create({ data: { remitoId: nuevo.id, productoId, cantidad, costoCompra: costoBase, monedaCosto, ivaPorcentaje: porcentajeUva, fletePorcentaje: porcentajeFlete, gananciaPorcentaje: porcentajeGanancia } });
+      await tx.producto.update({ where: { id: productoId }, data: { stock: producto.stock + cantidad, monedaCosto, costoBase, porcentajeUva, porcentajeFlete, porcentajeGanancia, precioFinalPesos, precioUsd: monedaCosto === 'USD' ? costoBase : null } });
+      await tx.movimientoStock.create({ data: { productoId, tipo: TipoMovimientoStock.ENTRADA, cantidad, motivo: `Remito ${numeroRemito}` } });
+    }
+    return nuevo;
+  });
+  res.status(201).json(remito);
 }));
 
 app.get('/productos/:id/stock', asyncHandler(async (req, res) => {
