@@ -47,6 +47,7 @@ model Venta {
 model CierreCajaDiario {
   id                      Int      @id @default(autoincrement())
   fecha                   DateTime @unique
+  fechaCaja               String   @unique
   totalEfectivo           Float
   totalTransferencia      Float
   totalTarjeta            Float

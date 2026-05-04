@@ -5,6 +5,7 @@ let ventaId = null;
 let venta = null;
 let productos = [];
 let cuentaCorrienteMostrada = null;
+let fechaCajaSeleccionada = null;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -103,12 +104,21 @@ async function refreshVenta() {
 
 
 async function loadResumenCaja() {
-  const resumen = await api('/caja/resumen');
+  const query = fechaCajaSeleccionada ? `?fecha=${encodeURIComponent(fechaCajaSeleccionada)}` : '';
+  const resumen = await api('/caja/resumen' + query);
   $('#cierre-efectivo').textContent = money(resumen.EFECTIVO);
   $('#cierre-transferencia').textContent = money(resumen.TRANSFERENCIA);
   $('#cierre-tarjeta').textContent = money(resumen.TARJETA);
   $('#cierre-cc').textContent = money(resumen.CUENTA_CORRIENTE);
   $('#cierre-total').textContent = money(resumen.totalGeneral);
+  $('#caja-dia').textContent = `Caja del día: ${resumen.fechaCaja}`;
+}
+
+function setFechaCajaHoy() {
+  const ahora = new Date();
+  const fechaLocal = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Salta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ahora);
+  fechaCajaSeleccionada = fechaLocal;
+  $('#caja-fecha').value = fechaLocal;
 }
 
 
@@ -123,7 +133,7 @@ async function loadCierresCaja() {
 
   container.innerHTML = cierres.map(c => `
     <div class="item">
-      <strong>${new Date(c.fecha).toLocaleDateString()}</strong>
+      <strong>${c.fechaCaja || new Date(c.fecha).toLocaleDateString()}</strong>
       | Total ${money(c.totalGeneral)}
       | Efectivo ${money(c.totalEfectivo)}
       | Transferencia ${money(c.totalTransferencia)}
@@ -358,6 +368,16 @@ $('#btn-cc-registrar-pago').addEventListener('click', async () => {
 
 
 
+
+$('#caja-fecha').addEventListener('change', async (e) => {
+  fechaCajaSeleccionada = e.target.value || null;
+  try {
+    await loadResumenCaja();
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
+
 $('#btn-actualizar-resumen').addEventListener('click', async () => {
   try {
     await loadResumenCaja();
@@ -379,6 +399,7 @@ $('#btn-cerrar-caja').addEventListener('click', async () => {
 });
 
 (async function init() {
+  setFechaCajaHoy();
   productos = await api('/productos');
   renderProductos();
   renderCarrito();
