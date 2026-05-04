@@ -627,7 +627,12 @@ app.get('/caja/cierres', asyncHandler(async (req, res) => {
     orderBy: [{ fechaCaja: 'desc' }, { fecha: 'desc' }]
   });
 
-  res.json(cierres);
+  const cierresConFechaVisible = cierres.map(cierre => ({
+    ...cierre,
+    fechaCaja: cierre.fechaCaja || obtenerFechaCajaArgentina(cierre.fecha)
+  }));
+
+  res.json(cierresConFechaVisible);
 }));
 
 app.delete('/caja/cierres/:id', asyncHandler(async (req, res) => {

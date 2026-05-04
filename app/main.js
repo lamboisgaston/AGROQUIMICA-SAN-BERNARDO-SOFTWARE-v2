@@ -111,8 +111,8 @@ async function loadResumenCaja() {
   $('#cierre-tarjeta').textContent = money(resumen.TARJETA);
   $('#cierre-cc').textContent = money(resumen.CUENTA_CORRIENTE);
   $('#cierre-total').textContent = money(resumen.totalGeneral);
-  $('#caja-dia').textContent = `Caja del día: ${resumen.fechaCaja}`;
-  $('#caja-estado').textContent = resumen.estado === 'CERRADO' ? 'Cerrado' : 'Abierto';
+  $('#caja-dia').textContent = `Fecha consultada: ${resumen.fechaCaja}`;
+  $('#caja-estado').textContent = resumen.estado === 'CERRADO' ? 'CERRADA' : 'ABIERTA';
 }
 
 function setFechaCajaHoy() {
@@ -394,10 +394,10 @@ $('#caja-fecha').addEventListener('change', async (e) => {
   }
 });
 
-$('#btn-actualizar-resumen').addEventListener('click', async () => {
+$('#btn-ver-caja').addEventListener('click', async () => {
   try {
     await loadResumenCaja();
-    setMsg('Resumen de caja actualizado');
+    setMsg('Caja consultada correctamente');
   } catch (err) {
     setMsg(err.message);
   }
