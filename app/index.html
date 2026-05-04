@@ -152,16 +152,29 @@
 
     <section class="bloque">
       <h2>11) Presupuestos</h2>
-      <input id="pres-buscar-cliente" placeholder="Buscar cliente registrado" />
-      <button id="pres-btn-buscar-cliente">Buscar</button>
+      <h3>Cliente</h3>
+      <input id="pres-buscar-cliente" placeholder="Buscar por nombre, teléfono o CUIT/DNI" />
+      <button id="pres-btn-buscar-cliente">Buscar cliente</button>
       <div id="pres-clientes" class="lista"></div>
+      <details>
+        <summary>Cliente no encontrado: crear cliente</summary>
+        <input id="pres-crear-nombre" placeholder="Nombre completo" />
+        <input id="pres-crear-telefono" placeholder="Teléfono" />
+        <input id="pres-crear-cuitdni" placeholder="CUIT/DNI" />
+        <button id="pres-btn-crear-cliente">Crear y seleccionar</button>
+      </details>
       <p>Cliente presupuesto: <strong id="pres-cliente-activo">Ninguno</strong></p>
+      <h3>Datos comerciales</h3>
       <input id="pres-observaciones" placeholder="Observaciones" />
-      <input id="pres-validez" placeholder="Validez" />
+      <input id="pres-validez" placeholder="Validez del presupuesto (ej: 7 días)" />
       <input id="pres-alias" placeholder="Alias transferencia" />
       <input id="pres-banco" placeholder="Datos bancarios" />
       <label>Descuento <input id="pres-descuento" type="number" min="0" step="0.01" value="0" /></label>
+      <h3>Productos</h3>
+      <input id="pres-buscar-producto" placeholder="Buscar producto por nombre" />
+      <button id="pres-btn-buscar-producto">Buscar producto</button>
       <div id="pres-productos" class="lista"></div>
+      <p>Total presupuesto: <strong id="pres-total">$0.00</strong></p>
       <button id="pres-guardar">Guardar presupuesto</button>
       <div id="pres-lista" class="lista"></div>
     </section>

@@ -511,7 +511,60 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const p = await prisma.presupuesto.findUnique({ where: { id }, include: { persona: true, items: { include: { producto: true } } } });
   if (!p) return res.status(404).send('No encontrado');
   const moneda = (n) => '$' + Number(n || 0).toFixed(2);
-  res.type('html').send(`<html><body><h1>Presupuesto #${p.id}</h1><p>Cliente: ${escapeHtml(p.persona.nombre)}</p><p>Estado: ${p.estado}</p><ul>${p.items.map(i => `<li>${escapeHtml(i.producto.nombre)} x ${i.cantidad} = ${moneda(i.subtotal)}</li>`).join('')}</ul><p>Total: ${moneda(p.total)}</p><p>Observaciones: ${escapeHtml(p.observaciones || '-')}</p></body></html>`);
+  const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
+  const rows = p.items.map(i => `<tr><td>${escapeHtml(i.producto.nombre)}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`).join('');
+  res.type('html').send(`<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Presupuesto #${p.id}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color:#111; }
+    .wrap { max-width: 900px; margin:0 auto; }
+    .head { display:flex; justify-content:space-between; border-bottom:2px solid #222; padding-bottom:10px; }
+    table { width:100%; border-collapse: collapse; margin-top:16px; }
+    th, td { border:1px solid #ccc; padding:8px; }
+    th { background:#f2f2f2; }
+    .tot { margin-top:12px; text-align:right; }
+    .box { margin-top:16px; border:1px solid #ccc; padding:10px; border-radius:6px; }
+    .print { margin-top:18px; }
+    @media print { .print { display:none; } body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>Agroquímica y Fumigaciones San Bernardo</h1>
+        <div>Dirección: Chile 1455</div>
+      </div>
+      <div>
+        <strong>Presupuesto #${p.id}</strong><br/>
+        Fecha: ${fecha}<br/>
+        Estado: ${escapeHtml(p.estado)}
+      </div>
+    </div>
+    <div class="box">
+      <strong>Cliente:</strong> ${escapeHtml(p.persona?.nombre || '-')}<br/>
+      <strong>Teléfono:</strong> ${escapeHtml(p.persona?.telefono || '-')}<br/>
+      <strong>CUIT/DNI:</strong> ${escapeHtml(p.persona?.cuitDni || '-')}
+    </div>
+    <table>
+      <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="tot">
+      Subtotal: <strong>${moneda(p.subtotal)}</strong><br/>
+      Descuento: <strong>${moneda(p.descuentoValor || 0)}</strong><br/>
+      Total final: <strong>${moneda(p.total)}</strong>
+    </div>
+    <div class="box"><strong>Observaciones:</strong> ${escapeHtml(p.observaciones || '-')}</div>
+    <div class="box"><strong>Validez del presupuesto:</strong> ${escapeHtml(p.validez || '-')}</div>
+    <div class="box"><strong>Alias de transferencia:</strong> ${escapeHtml(p.aliasTransferencia || '-')}<br/><strong>Datos bancarios:</strong> ${escapeHtml(p.datosBancarios || '-')}</div>
+    <button class="print" onclick="window.print()">Imprimir</button>
+  </div>
+</body>
+</html>`);
 }));
 
 app.post('/mostrador/ventas', asyncHandler(async (req, res) => {

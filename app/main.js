@@ -15,6 +15,7 @@ let remitoDetalles = [];
 let filtroProductosAdmin = '';
 let presupuestoClienteId = null;
 let presupuestoItems = [];
+let filtroProductosPresupuesto = '';
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -337,11 +338,23 @@ function renderProductosAdmin() {
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
-  $('#pres-productos').innerHTML = productos.map(p => {
+  const lista = productos
+    .filter(p => !filtroProductosPresupuesto || p.nombre.toLowerCase().includes(filtroProductosPresupuesto))
+    .slice(0, 30);
+  const subtotal = presupuestoItems.reduce((acc, it) => {
+    const prod = productos.find(p => p.id === it.productoId);
+    return acc + (Number(prod?.precioPesosCalculado || 0) * Number(it.cantidad || 0));
+  }, 0);
+  const descuento = Math.max(0, Number($('#pres-descuento')?.value || 0));
+  const total = Math.max(0, subtotal - descuento);
+  $('#pres-total').textContent = money(total);
+
+  $('#pres-productos').innerHTML = lista.map(p => {
     const it = presupuestoItems.find(x => x.productoId === p.id);
     const c = it?.cantidad || 0;
-    return `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado)} <button data-pres-menos="${p.id}">-</button> ${c} <button data-pres-mas="${p.id}">+</button></div>`;
-  }).join('');
+    const sub = Number(p.precioPesosCalculado || 0) * c;
+    return `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-pres-menos="${p.id}">-</button> ${c} <button data-pres-mas="${p.id}">+</button> <button data-pres-agregar="${p.id}">Agregar al presupuesto</button> | Subtotal ${money(sub)}</div>`;
+  }).join('') || '<div class="item">Sin productos encontrados</div>';
 }
 async function loadPresupuestos() {
   const lista = await api('/presupuestos');
@@ -726,20 +739,51 @@ $('#pres-clientes').addEventListener('click', (e) => {
 $('#pres-productos').addEventListener('click', (e) => {
   const mas = e.target.closest('button[data-pres-mas]');
   const menos = e.target.closest('button[data-pres-menos]');
-  const id = Number(mas?.dataset.presMas || menos?.dataset.presMenos || 0);
+  const agregar = e.target.closest('button[data-pres-agregar]');
+  const id = Number(mas?.dataset.presMas || menos?.dataset.presMenos || agregar?.dataset.presAgregar || 0);
   if (!id) return;
   const it = presupuestoItems.find(x => x.productoId === id);
-  if (mas) { if (it) it.cantidad += 1; else presupuestoItems.push({ productoId: id, cantidad: 1 }); }
+  if (mas || agregar) { if (it) it.cantidad += 1; else presupuestoItems.push({ productoId: id, cantidad: 1 }); }
   if (menos && it) { it.cantidad -= 1; if (it.cantidad <= 0) presupuestoItems = presupuestoItems.filter(x => x.productoId !== id); }
   renderPresupuestoProductos();
 });
+$('#pres-btn-buscar-producto').addEventListener('click', () => {
+  filtroProductosPresupuesto = $('#pres-buscar-producto').value.trim().toLowerCase();
+  renderPresupuestoProductos();
+});
+$('#pres-buscar-producto').addEventListener('input', () => {
+  filtroProductosPresupuesto = $('#pres-buscar-producto').value.trim().toLowerCase();
+  renderPresupuestoProductos();
+});
+$('#pres-descuento').addEventListener('input', renderPresupuestoProductos);
 $('#pres-guardar').addEventListener('click', async () => {
   try {
+    if (!presupuestoClienteId) throw new Error('Debe seleccionar un cliente para presupuestar');
     await api('/presupuestos', { method: 'POST', body: JSON.stringify({ clienteId: presupuestoClienteId, items: presupuestoItems, descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
     presupuestoItems = [];
+    presupuestoClienteId = null;
+    $('#pres-cliente-activo').textContent = 'Ninguno';
     renderPresupuestoProductos();
     await loadPresupuestos();
     setMsg('Presupuesto guardado');
+  } catch (err) { setMsg(err.message); }
+});
+$('#pres-btn-crear-cliente').addEventListener('click', async () => {
+  try {
+    const nombre = $('#pres-crear-nombre').value.trim();
+    if (!nombre) throw new Error('Nombre de cliente obligatorio');
+    const nuevo = await api('/personas', {
+      method: 'POST',
+      body: JSON.stringify({
+        nombre,
+        telefono: $('#pres-crear-telefono').value.trim() || null,
+        cuitDni: $('#pres-crear-cuitdni').value.trim() || null,
+        tipo: 'CLIENTE'
+      })
+    });
+    presupuestoClienteId = nuevo.id;
+    $('#pres-cliente-activo').textContent = nuevo.nombre;
+    setMsg('Cliente creado y seleccionado');
   } catch (err) { setMsg(err.message); }
 });
 $('#pres-lista').addEventListener('click', async (e) => {
