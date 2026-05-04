@@ -151,10 +151,49 @@ async function obtenerTipoCambioActual() {
 }
 
 function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
+  const precioFinalPesos = calcularPrecioFinalPesos(producto, tipoCambioActual);
   return {
     ...producto,
-    precioPesosCalculado: producto.precioUsd * tipoCambioActual
+    precioFinalPesos,
+    precioPesosCalculado: precioFinalPesos
   };
+}
+
+function aplicarPorcentajeAcumulado(base, porcentaje) {
+  return base * (1 + (Number(porcentaje || 0) / 100));
+}
+
+function calcularPrecioFinalPesos(producto, tipoCambioActual) {
+  const monedaCosto = producto.monedaCosto || (producto.precioUsd != null ? 'USD' : 'ARS');
+  const costoBaseFuente = producto.costoBase ?? producto.precioUsd ?? 0;
+  const costoBasePesos = monedaCosto === 'USD'
+    ? Number(costoBaseFuente) * Number(tipoCambioActual || 1)
+    : Number(costoBaseFuente);
+
+  const baseConUva = aplicarPorcentajeAcumulado(costoBasePesos, producto.porcentajeUva);
+  const baseConFlete = aplicarPorcentajeAcumulado(baseConUva, producto.porcentajeFlete);
+  const precioFinal = aplicarPorcentajeAcumulado(baseConFlete, producto.porcentajeGanancia);
+  return Number(precioFinal.toFixed(2));
+}
+
+function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
+  const monedaCosto = payload.monedaCosto === 'ARS' || payload.monedaCosto === 'USD'
+    ? payload.monedaCosto
+    : (payload.precioUsd != null ? 'USD' : 'ARS');
+  const costoBase = Number(payload.costoBase ?? payload.precioUsd ?? 0);
+  const productoNormalizado = {
+    nombre: String(payload.nombre || '').trim(),
+    categoria: String(payload.categoria || '').trim(),
+    stock: Number.isInteger(Number(payload.stock)) ? Number(payload.stock) : 0,
+    monedaCosto,
+    costoBase,
+    porcentajeUva: Number(payload.porcentajeUva || 0),
+    porcentajeFlete: Number(payload.porcentajeFlete || 0),
+    porcentajeGanancia: Number(payload.porcentajeGanancia || 0),
+    precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
+  };
+  productoNormalizado.precioFinalPesos = calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual);
+  return productoNormalizado;
 }
 
 app.get('/productos', asyncHandler(async (req, res) => {
@@ -164,8 +203,28 @@ app.get('/productos', asyncHandler(async (req, res) => {
 }));
 
 app.post('/productos', asyncHandler(async (req, res) => {
-  const producto = await prisma.producto.create({ data: req.body });
   const tipoCambioActual = await obtenerTipoCambioActual();
+  const data = normalizarPayloadProducto(req.body, tipoCambioActual);
+  if (!data.nombre || !data.categoria) {
+    return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
+  }
+  const producto = await prisma.producto.create({ data });
+  res.status(201).json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
+}));
+
+app.put('/productos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const existente = await prisma.producto.findUnique({ where: { id } });
+  if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
+
+  const data = normalizarPayloadProducto({ ...existente, ...req.body }, tipoCambioActual);
+  if (!data.nombre || !data.categoria) {
+    return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
+  }
+
+  const producto = await prisma.producto.update({ where: { id }, data });
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
 }));
 
@@ -271,7 +330,7 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
   const producto = await prisma.producto.findUnique({ where: { id: productoIdParsed } });
   if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
   const tipoCambioActual = await obtenerTipoCambioActual();
-  const precioPesosCalculado = producto.precioUsd * tipoCambioActual;
+  const precioPesosCalculado = calcularPrecioFinalPesos(producto, tipoCambioActual);
 
   const existente = await prisma.ventaItem.findUnique({
     where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } }

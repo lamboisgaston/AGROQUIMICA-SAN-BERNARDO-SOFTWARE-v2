@@ -8,12 +8,18 @@ datasource db {
 }
 
 model Producto {
-  id        Int        @id @default(autoincrement())
-  nombre    String
-  categoria String
-  precioUsd Float
-  stock     Int        @default(0)
-  items     VentaItem[]
+  id                Int        @id @default(autoincrement())
+  nombre            String
+  categoria         String
+  stock             Int        @default(0)
+  monedaCosto       String     @default("USD")
+  costoBase         Float      @default(0)
+  porcentajeUva     Float      @default(0)
+  porcentajeFlete   Float      @default(0)
+  porcentajeGanancia Float     @default(0)
+  precioFinalPesos  Float      @default(0)
+  precioUsd         Float?
+  items             VentaItem[]
 }
 
 model ConfiguracionGlobal {

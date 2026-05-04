@@ -9,6 +9,7 @@ let indiceProductoSeleccionado = -1;
 let cuentaCorrienteMostrada = null;
 let fechaCajaSeleccionada = null;
 let fechaVentasCobradasSeleccionada = null;
+let tipoCambioActual = 1;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -29,6 +30,16 @@ async function api(url, options = {}) {
 }
 
 function setMsg(text) { $('#msg').innerHTML = text; }
+function pct(base, p) { return Number(base) * (1 + (Number(p || 0) / 100)); }
+function calcularPrecioProductoForm() {
+  const moneda = $('#prod-moneda').value;
+  const costoBase = Number($('#prod-costo').value || 0);
+  const uva = Number($('#prod-uva').value || 0);
+  const flete = Number($('#prod-flete').value || 0);
+  const ganancia = Number($('#prod-ganancia').value || 0);
+  const basePesos = moneda === 'USD' ? (costoBase * tipoCambioActual) : costoBase;
+  return pct(pct(pct(basePesos, uva), flete), ganancia);
+}
 
 function logFlujo(paso, payload) {
   if (payload !== undefined) {
@@ -295,6 +306,38 @@ async function loadVentasCobradas() {
   });
 }
 
+function limpiarFormularioProducto() {
+  $('#prod-id').value = '';
+  $('#prod-nombre').value = '';
+  $('#prod-categoria').value = '';
+  $('#prod-stock').value = '0';
+  $('#prod-moneda').value = 'ARS';
+  $('#prod-costo').value = '0';
+  $('#prod-uva').value = '0';
+  $('#prod-flete').value = '0';
+  $('#prod-ganancia').value = '0';
+  $('#prod-precio-final').textContent = money(0);
+}
+
+function renderProductosAdmin() {
+  const container = $('#productos-admin');
+  container.innerHTML = productos.length
+    ? productos.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    : '<div class="item">Sin productos</div>';
+}
+
+async function loadTipoCambio() {
+  const config = await api('/config/tipo-cambio');
+  tipoCambioActual = Number(config.tipoCambioActual || 1);
+  $('#tipo-cambio').value = tipoCambioActual;
+}
+
+async function loadProductosAll() {
+  productos = await api('/productos');
+  renderProductos();
+  renderProductosAdmin();
+}
+
 $('#btn-nueva').addEventListener('click', async () => {
   try {
     const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
@@ -528,13 +571,65 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
     setMsg(err.message);
   }
 });
+['#prod-costo', '#prod-uva', '#prod-flete', '#prod-ganancia', '#prod-moneda'].forEach(sel => {
+  $(sel).addEventListener('input', () => { $('#prod-precio-final').textContent = money(calcularPrecioProductoForm()); });
+});
+
+$('#btn-guardar-tipo-cambio').addEventListener('click', async () => {
+  try {
+    const nuevo = Number($('#tipo-cambio').value || 0);
+    await api('/config/tipo-cambio', { method: 'PUT', body: JSON.stringify({ tipoCambioActual: nuevo }) });
+    await loadTipoCambio();
+    await loadProductosAll();
+    setMsg('Tipo de cambio actualizado');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-guardar-producto').addEventListener('click', async () => {
+  try {
+    const body = {
+      nombre: $('#prod-nombre').value,
+      categoria: $('#prod-categoria').value,
+      stock: Number($('#prod-stock').value || 0),
+      monedaCosto: $('#prod-moneda').value,
+      costoBase: Number($('#prod-costo').value || 0),
+      porcentajeUva: Number($('#prod-uva').value || 0),
+      porcentajeFlete: Number($('#prod-flete').value || 0),
+      porcentajeGanancia: Number($('#prod-ganancia').value || 0)
+    };
+    const id = $('#prod-id').value;
+    if (id) await api(`/productos/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    else await api('/productos', { method: 'POST', body: JSON.stringify(body) });
+    await loadProductosAll();
+    limpiarFormularioProducto();
+    setMsg('Producto guardado');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-nuevo-producto').addEventListener('click', limpiarFormularioProducto);
+$('#productos-admin').addEventListener('click', (e) => {
+  const id = e.target.dataset.editarProducto;
+  if (!id) return;
+  const p = productos.find(x => String(x.id) === String(id));
+  if (!p) return;
+  $('#prod-id').value = p.id;
+  $('#prod-nombre').value = p.nombre;
+  $('#prod-categoria').value = p.categoria;
+  $('#prod-stock').value = p.stock;
+  $('#prod-moneda').value = p.monedaCosto || 'ARS';
+  $('#prod-costo').value = p.costoBase || 0;
+  $('#prod-uva').value = p.porcentajeUva || 0;
+  $('#prod-flete').value = p.porcentajeFlete || 0;
+  $('#prod-ganancia').value = p.porcentajeGanancia || 0;
+  $('#prod-precio-final').textContent = money(p.precioFinalPesos);
+});
 
 (async function init() {
   setFechaCajaHoy();
   fechaVentasCobradasSeleccionada = fechaCajaSeleccionada;
   $('#ventas-cobradas-fecha').value = fechaVentasCobradasSeleccionada;
-  productos = await api('/productos');
-  renderProductos();
+  await loadTipoCambio();
+  await loadProductosAll();
   renderCarrito();
   renderClienteActivo();
   await loadCaja();
@@ -542,5 +637,6 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
   await loadResumenCaja();
   await loadCierresCaja();
   renderPanelCuentaCorriente(null);
+  limpiarFormularioProducto();
   $('#buscar-producto').focus();
 })();
