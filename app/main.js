@@ -34,11 +34,11 @@ function pct(base, p) { return Number(base) * (1 + (Number(p || 0) / 100)); }
 function calcularPrecioProductoForm() {
   const moneda = $('#prod-moneda').value;
   const costoBase = Number($('#prod-costo').value || 0);
-  const uva = Number($('#prod-uva').value || 0);
+  const iva = Number($('#prod-iva').value || 0);
   const flete = Number($('#prod-flete').value || 0);
   const ganancia = Number($('#prod-ganancia').value || 0);
   const basePesos = moneda === 'USD' ? (costoBase * tipoCambioActual) : costoBase;
-  return pct(pct(pct(basePesos, uva), flete), ganancia);
+  return pct(pct(pct(basePesos, iva), flete), ganancia);
 }
 
 function logFlujo(paso, payload) {
@@ -313,7 +313,7 @@ function limpiarFormularioProducto() {
   $('#prod-stock').value = '0';
   $('#prod-moneda').value = 'ARS';
   $('#prod-costo').value = '0';
-  $('#prod-uva').value = '0';
+  $('#prod-iva').value = '0';
   $('#prod-flete').value = '0';
   $('#prod-ganancia').value = '0';
   $('#prod-precio-final').textContent = money(0);
@@ -571,7 +571,7 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
     setMsg(err.message);
   }
 });
-['#prod-costo', '#prod-uva', '#prod-flete', '#prod-ganancia', '#prod-moneda'].forEach(sel => {
+['#prod-costo', '#prod-iva', '#prod-flete', '#prod-ganancia', '#prod-moneda'].forEach(sel => {
   $(sel).addEventListener('input', () => { $('#prod-precio-final').textContent = money(calcularPrecioProductoForm()); });
 });
 
@@ -593,7 +593,7 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       stock: Number($('#prod-stock').value || 0),
       monedaCosto: $('#prod-moneda').value,
       costoBase: Number($('#prod-costo').value || 0),
-      porcentajeUva: Number($('#prod-uva').value || 0),
+      porcentajeUva: Number($('#prod-iva').value || 0),
       porcentajeFlete: Number($('#prod-flete').value || 0),
       porcentajeGanancia: Number($('#prod-ganancia').value || 0)
     };
@@ -618,7 +618,7 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-stock').value = p.stock;
   $('#prod-moneda').value = p.monedaCosto || 'ARS';
   $('#prod-costo').value = p.costoBase || 0;
-  $('#prod-uva').value = p.porcentajeUva || 0;
+  $('#prod-iva').value = p.porcentajeUva || 0;
   $('#prod-flete').value = p.porcentajeFlete || 0;
   $('#prod-ganancia').value = p.porcentajeGanancia || 0;
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);

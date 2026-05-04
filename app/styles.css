@@ -16,3 +16,7 @@ th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 .item-movimiento { display: grid; grid-template-columns: 170px 70px 110px 1fr; gap: 8px; align-items: center; }
 .mov-debe { color: #b91c1c; }
 .mov-haber { color: #166534; }
+
+.campo-producto { margin: 6px 0; }
+.campo-producto label { display:block; font-weight:600; margin-bottom:4px; }
+.campo-producto input, .campo-producto select { width: 100%; max-width: 420px; }
