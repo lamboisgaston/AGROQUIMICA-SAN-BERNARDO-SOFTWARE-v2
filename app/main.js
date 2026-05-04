@@ -4,6 +4,8 @@ const money = (v) => '$' + Number(v || 0).toFixed(2);
 let ventaId = null;
 let venta = null;
 let productos = [];
+let resultadosProductosVisibles = [];
+let indiceProductoSeleccionado = -1;
 let cuentaCorrienteMostrada = null;
 let fechaCajaSeleccionada = null;
 let fechaVentasCobradasSeleccionada = null;
@@ -39,9 +41,32 @@ function logFlujo(paso, payload) {
 function renderProductos() {
   const q = $('#buscar-producto').value.trim().toLowerCase();
   const lista = productos.filter(p => p.stock > 0 && (!q || p.nombre.toLowerCase().includes(q))).slice(0, 20);
+  resultadosProductosVisibles = lista;
+  if (lista.length === 0) indiceProductoSeleccionado = -1;
+  if (lista.length > 0 && (indiceProductoSeleccionado < 0 || indiceProductoSeleccionado >= lista.length)) {
+    indiceProductoSeleccionado = 0;
+  }
+
   $('#resultados-productos').innerHTML = lista.length
-    ? lista.map(p => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-producto="${p.id}">Agregar</button></div>`).join('')
+    ? lista.map((p, idx) => `<div class="item ${idx === indiceProductoSeleccionado ? 'item-seleccionado' : ''}">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-producto="${p.id}">Agregar</button></div>`).join('')
     : '<div class="item">Sin resultados</div>';
+}
+
+async function agregarProductoAlCarrito(productoId) {
+  if (!ventaId) return setMsg('Debe crear una venta');
+  if (!productoId) return setMsg('Producto inválido');
+  try {
+    await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId, cantidad: 1 }) });
+    await refreshVenta();
+    await loadCaja();
+    await loadResumenCaja();
+    $('#buscar-producto').value = '';
+    indiceProductoSeleccionado = -1;
+    renderProductos();
+    $('#buscar-producto').focus();
+  } catch (err) {
+    setMsg(err.message);
+  }
 }
 
 function renderCarrito() {
@@ -266,16 +291,36 @@ $('#btn-nueva').addEventListener('click', async () => {
 });
 
 $('#buscar-producto').addEventListener('input', renderProductos);
+$('#buscar-producto').addEventListener('keydown', async (e) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!resultadosProductosVisibles.length) return;
+    indiceProductoSeleccionado = Math.min(indiceProductoSeleccionado + 1, resultadosProductosVisibles.length - 1);
+    renderProductos();
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!resultadosProductosVisibles.length) return;
+    indiceProductoSeleccionado = Math.max(indiceProductoSeleccionado - 1, 0);
+    renderProductos();
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (!resultadosProductosVisibles.length) {
+      return setMsg('No se encontró ningún producto con esa búsqueda');
+    }
+    const seleccionado = resultadosProductosVisibles[indiceProductoSeleccionado] || resultadosProductosVisibles[0];
+    if (!seleccionado) return setMsg('No se encontró ningún producto con esa búsqueda');
+    await agregarProductoAlCarrito(Number(seleccionado.id));
+  }
+});
 
 $('#resultados-productos').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-producto]');
-  if (!b || !ventaId) return;
-  try {
-    await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId: Number(b.dataset.producto), cantidad: 1 }) });
-    await refreshVenta();
-    await loadCaja();
-    await loadResumenCaja();
-  } catch (err) { setMsg(err.message); }
+  if (!b) return;
+  await agregarProductoAlCarrito(Number(b.dataset.producto));
 });
 
 $('#carrito').addEventListener('click', async (e) => {
@@ -347,6 +392,9 @@ $('#btn-cerrar').addEventListener('click', async () => {
   }
 
   console.log('[cerrar-venta] cliente actual', venta?.persona);
+  if (!venta?.persona) {
+    setMsg('Cerrando venta como Consumidor final');
+  }
   try {
     console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
     const descuentoValor = Math.max(0, Number($('#descuento').value || 0));
@@ -368,6 +416,13 @@ $('#btn-cerrar').addEventListener('click', async () => {
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
     setMsg(err.message);
+  }
+});
+
+document.addEventListener('keydown', async (e) => {
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    $('#btn-cerrar').click();
   }
 });
 
@@ -462,4 +517,5 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
   await loadResumenCaja();
   await loadCierresCaja();
   renderPanelCuentaCorriente(null);
+  $('#buscar-producto').focus();
 })();

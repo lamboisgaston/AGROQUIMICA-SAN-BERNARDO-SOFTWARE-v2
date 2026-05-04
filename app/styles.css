@@ -4,6 +4,7 @@ input, button, select { font-size: 16px; padding: 6px; margin: 4px 0; }
 button { cursor: pointer; }
 .lista { border: 1px solid #ddd; max-height: 220px; overflow: auto; }
 .item { padding: 8px; border-bottom: 1px solid #eee; }
+.item-seleccionado { background: #e8f3ff; }
 table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
 th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 
