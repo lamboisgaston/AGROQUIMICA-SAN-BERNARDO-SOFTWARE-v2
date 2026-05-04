@@ -95,7 +95,7 @@ function aplicarEstadoSaldo(selector, saldo) {
 
 function renderClienteActivo() {
   const p = venta?.persona;
-  $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'}` : 'Consumidor final';
+  $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'}` : 'Consumidor final';
 }
 
 async function cargarCuentaCorrientePersona(personaId) {
@@ -361,8 +361,8 @@ $('#btn-buscar-cliente').addEventListener('click', async () => {
   try {
     const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
     $('#resultados-clientes').innerHTML = personas.length
-      ? personas.map(p => `<div class="item">${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'} <button data-persona="${p.id}">Seleccionar</button></div>`).join('')
-      : '<div class="item">Sin resultados</div>';
+      ? personas.map(p => `<div class="item">${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+      : '<div class="item">Sin resultados <button id="btn-crear-desde-busqueda">Crear cliente</button></div>';
   } catch (e) { setMsg(e.message); }
 });
 
@@ -376,11 +376,19 @@ $('#resultados-clientes').addEventListener('click', async (e) => {
   } catch (err) { setMsg(err.message); }
 });
 
+
+$('#resultados-clientes').addEventListener('click', async (e) => {
+  const bCrear = e.target.closest('#btn-crear-desde-busqueda');
+  if (bCrear) {
+    document.querySelector('#nuevo-nombre')?.focus();
+    return;
+  }
+});
 $('#btn-crear-cliente').addEventListener('click', async () => {
   if (!ventaId) return;
   const nombre = $('#nuevo-nombre').value.trim();
   if (!nombre) return setMsg('Nombre obligatorio');
-  const telefono = $('#nuevo-telefono').value.trim() || 'N/D';
+  const telefono = $('#nuevo-telefono').value.trim();
   const cuitDni = $('#nuevo-cuit').value.trim();
   try {
     const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuitDni, tipo: 'CLIENTE' }) });
@@ -413,6 +421,9 @@ $('#btn-cerrar').addEventListener('click', async () => {
     console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
     const descuentoValor = Math.max(0, Number($('#descuento').value || 0));
     const descuentoTipo = $('#descuento-tipo').value;
+    if (descuentoValor > 0 && !venta?.personaId) {
+      return setMsg('Para aplicar descuento, primero debe dar de alta al cliente.');
+    }
     const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor }) });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
