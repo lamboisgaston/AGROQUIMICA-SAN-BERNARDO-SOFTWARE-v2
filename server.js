@@ -198,7 +198,13 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
 
 app.get('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
-  const productos = await prisma.producto.findMany({ include: { proveedores: { include: { proveedor: true } } } });
+  const q = String(req.query.q || '').trim();
+  const productos = await prisma.producto.findMany({
+    where: q ? { nombre: { contains: q } } : undefined,
+    include: { proveedores: { include: { proveedor: true } } },
+    orderBy: { nombre: 'asc' },
+    take: q ? 8 : undefined
+  });
   res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
 }));
 
@@ -238,8 +244,18 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
 }));
 
-app.get('/proveedores', asyncHandler(async (_req, res) => {
-  const proveedores = await prisma.proveedor.findMany({ orderBy: { nombre: 'asc' } });
+app.get('/proveedores', asyncHandler(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const proveedores = await prisma.proveedor.findMany({
+    where: q ? {
+      OR: [
+        { nombre: { contains: q } },
+        { cuit: { contains: q } }
+      ]
+    } : undefined,
+    orderBy: { nombre: 'asc' },
+    take: q ? 8 : undefined
+  });
   res.json(proveedores);
 }));
 
