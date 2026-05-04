@@ -174,8 +174,15 @@
       <label>Número <input id="remito-numero" /></label>
       <label>Fecha <input id="remito-fecha" type="date" /></label>
       <label>Observaciones <input id="remito-obs" /></label>
-      <p>Detalles (JSON array)</p>
-      <textarea id="remito-detalles" rows="6" style="width:100%" placeholder='[{"productoId":1,"cantidad":1,"costoCompra":1000,"monedaCosto":"ARS","ivaPorcentaje":21,"fletePorcentaje":0,"gananciaPorcentaje":30}]'></textarea>
+      <label>Buscar producto <input id="remito-buscar-producto" placeholder="Escriba nombre de producto" /></label>
+      <div id="remito-resultados-productos" class="lista"></div>
+      <table style="width:100%;margin-top:8px;">
+        <thead>
+          <tr><th>Producto</th><th>Cantidad</th><th>Costo compra</th><th>Moneda</th><th>IVA %</th><th>Flete %</th><th>Ganancia %</th><th>Subtotal</th><th>Acción</th></tr>
+        </thead>
+        <tbody id="remito-items"></tbody>
+      </table>
+      <p>Total remito: <strong id="remito-total">$0.00</strong></p>
       <button id="btn-guardar-remito">Guardar remito</button>
     </section>
 
