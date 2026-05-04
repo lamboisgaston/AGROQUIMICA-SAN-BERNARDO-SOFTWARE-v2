@@ -340,7 +340,14 @@ function renderProveedores() {
   const sel = $('#prod-proveedor');
   if (sel) sel.innerHTML = opt.join('');
   const remSel = $('#remito-proveedor');
-  if (remSel) remSel.innerHTML = '<option value="">Seleccione</option>' + opt.join('');
+  if (remSel) renderProveedoresRemito();
+}
+function renderProveedoresRemito() {
+  const remSel = $('#remito-proveedor');
+  if (!remSel) return;
+  const q = ($('#remito-buscar-proveedor')?.value || '').trim().toLowerCase();
+  const lista = proveedores.filter(pr => !q || pr.nombre.toLowerCase().includes(q) || (pr.cuit || '').toLowerCase().includes(q));
+  remSel.innerHTML = '<option value="">Seleccione proveedor</option>' + lista.map(pr => `<option value="${pr.id}">${pr.nombre}${pr.cuit ? ` (${pr.cuit})` : ''}</option>`).join('');
 }
 function renderStockProductos() {
   $('#stock-producto').innerHTML = productos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -376,31 +383,14 @@ async function loadProductosAll() {
 function renderBuscadorRemitoProductos() {
   const proveedorId = Number($('#remito-proveedor').value || 0);
   const q = ($('#remito-buscar-producto').value || '').trim().toLowerCase();
-  const panelCrear = $('#remito-crear-producto');
   if (!proveedorId) {
     $('#remito-resultados-productos').innerHTML = '<div class=\"item\">Seleccione proveedor para buscar productos</div>';
-    panelCrear.style.display = 'none';
     return;
   }
-
-  const asociados = productos.filter(p => (p.proveedores || []).some(pp => Number(pp.proveedorId) === proveedorId));
-  const asociadosFiltrados = asociados.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 20);
-
-  if (asociadosFiltrados.length) {
-    $('#remito-resultados-productos').innerHTML = asociadosFiltrados.map(p => `<div class=\"item\">${p.nombre} | Stock ${p.stock} | Costo ${p.monedaCosto} ${Number(p.costoBase || 0).toFixed(2)}
-      <button data-remito-agregar=\"${p.id}\">Agregar al remito</button>
-    </div>`).join('');
-    panelCrear.style.display = 'none';
-    return;
-  }
-
-  const sugeridos = productos.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 10);
-  $('#remito-resultados-productos').innerHTML = sugeridos.length
-    ? sugeridos.map(p => `<div class=\"item\">${p.nombre} | No asociado a este proveedor
-      <button data-remito-asociar=\"${p.id}\">Asociar</button>
-    </div>`).join('')
-    : '<div class=\"item\">Sin resultados. <button id=\"btn-mostrar-crear-producto\">Crear producto nuevo</button></div>';
-  panelCrear.style.display = !!q && !sugeridos.length;
+  const encontrados = productos.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 20);
+  $('#remito-resultados-productos').innerHTML = encontrados.length
+    ? encontrados.map(p => `<div class=\"item\">${p.nombre} | Stock actual ${p.stock} <button data-remito-agregar=\"${p.id}\">Agregar</button></div>`).join('')
+    : '<div class=\"item\">Producto no encontrado. Cárguelo primero desde Productos.</div>';
 }
 
 function renderRemitoItems() {
@@ -409,17 +399,11 @@ function renderRemitoItems() {
     ? remitoDetalles.map((item, idx) => `<tr>
       <td>${item.productoNombre}</td>
       <td><input type="number" min="1" data-remito-field="cantidad" data-index="${idx}" value="${item.cantidad}" /></td>
-      <td><input type="number" min="0" step="0.01" data-remito-field="costoCompra" data-index="${idx}" value="${item.costoCompra}" /></td>
-      <td><select data-remito-field="monedaCosto" data-index="${idx}"><option value="ARS" ${item.monedaCosto === 'ARS' ? 'selected' : ''}>ARS</option><option value="USD" ${item.monedaCosto === 'USD' ? 'selected' : ''}>USD</option></select></td>
-      <td><input type="number" min="0" step="0.01" data-remito-field="ivaPorcentaje" data-index="${idx}" value="${item.ivaPorcentaje}" /></td>
-      <td><input type="number" min="0" step="0.01" data-remito-field="fletePorcentaje" data-index="${idx}" value="${item.fletePorcentaje}" /></td>
-      <td><input type="number" min="0" step="0.01" data-remito-field="gananciaPorcentaje" data-index="${idx}" value="${item.gananciaPorcentaje}" /></td>
-      <td>${money(calcularSubtotalRemito(item))}</td>
+      <td>${item.stockActual}</td>
+      <td>${item.stockActual + item.cantidad}</td>
       <td><button data-remito-quitar="${idx}">Quitar</button></td>
     </tr>`).join('')
-    : '<tr><td colspan="9">Sin productos en el remito</td></tr>';
-  const total = remitoDetalles.reduce((acc, item) => acc + calcularSubtotalRemito(item), 0);
-  $('#remito-total').textContent = money(total);
+    : '<tr><td colspan="5">Sin productos en el remito</td></tr>';
 }
 
 $('#btn-nueva').addEventListener('click', async () => {
@@ -749,83 +733,34 @@ $('#btn-registrar-stock').addEventListener('click', async () => {
 });
 
 $('#remito-proveedor').addEventListener('change', renderBuscadorRemitoProductos);
+$('#remito-buscar-proveedor').addEventListener('input', renderProveedoresRemito);
 $('#remito-buscar-producto').addEventListener('input', renderBuscadorRemitoProductos);
+$('#btn-remito-crear-proveedor').addEventListener('click', async () => {
+  try {
+    const nombre = prompt('Nombre del proveedor (obligatorio):')?.trim();
+    if (!nombre) return setMsg('Nombre obligatorio');
+    const telefono = prompt('Teléfono (opcional):')?.trim() || null;
+    const cuit = prompt('CUIT (opcional):')?.trim() || null;
+    const observaciones = prompt('Observaciones (opcional):')?.trim() || null;
+    const creado = await api('/proveedores', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuit, observaciones }) });
+    await loadProveedores();
+    $('#remito-proveedor').value = String(creado.id);
+    renderBuscadorRemitoProductos();
+    setMsg('Proveedor creado');
+  } catch (err) { setMsg(err.message); }
+});
 
 $('#remito-resultados-productos').addEventListener('click', async (e) => {
-  const mostrarCrear = e.target.closest('#btn-mostrar-crear-producto');
-  if (mostrarCrear) {
-    $('#remito-crear-producto').style.display = 'block';
-    $('#remito-nuevo-nombre').focus();
-    return;
-  }
-
-  const asociar = e.target.closest('button[data-remito-asociar]');
-  if (asociar) {
-    try {
-      const proveedorId = Number($('#remito-proveedor').value || 0);
-      const productoId = Number(asociar.dataset.remitoAsociar);
-      if (!proveedorId || !productoId) return setMsg('Proveedor o producto inválido');
-      await api(`/proveedores/${proveedorId}/productos/${productoId}`, { method: 'POST', body: '{}' });
-      await loadProductosAll();
-      renderBuscadorRemitoProductos();
-      setMsg('Producto asociado al proveedor');
-    } catch (err) { setMsg(err.message); }
-    return;
-  }
-
   const agregar = e.target.closest('button[data-remito-agregar]');
   if (agregar) {
     const producto = productos.find(p => Number(p.id) === Number(agregar.dataset.remitoAgregar));
     if (!producto) return;
     const existente = remitoDetalles.find(d => d.productoId === producto.id);
     if (existente) existente.cantidad += 1;
-    else remitoDetalles.push({
-      productoId: producto.id,
-      productoNombre: producto.nombre,
-      cantidad: 1,
-      costoCompra: Number(producto.costoBase || 0),
-      monedaCosto: producto.monedaCosto || 'ARS',
-      ivaPorcentaje: Number(producto.porcentajeUva || 0),
-      fletePorcentaje: Number(producto.porcentajeFlete || 0),
-      gananciaPorcentaje: Number(producto.porcentajeGanancia || 0)
-    });
+    else remitoDetalles.push({ productoId: producto.id, productoNombre: producto.nombre, cantidad: 1, stockActual: Number(producto.stock || 0) });
     renderRemitoItems();
     return;
   }
-});
-
-$('#btn-remito-crear-producto').addEventListener('click', async () => {
-  try {
-    const proveedorId = Number($('#remito-proveedor').value || 0);
-    if (!proveedorId) return setMsg('Seleccione proveedor');
-    const nombre = $('#remito-nuevo-nombre').value.trim() || $('#remito-buscar-producto').value.trim();
-    if (!nombre) return setMsg('Ingrese nombre del producto');
-    const body = {
-      nombre,
-      categoria: $('#remito-nuevo-categoria').value.trim() || 'General',
-      stock: Number($('#remito-nuevo-stock').value || 0),
-      monedaCosto: $('#remito-nuevo-moneda').value,
-      costoBase: Number($('#remito-nuevo-costo').value || 0),
-      porcentajeUva: Number($('#remito-nuevo-iva').value || 0),
-      porcentajeFlete: Number($('#remito-nuevo-flete').value || 0),
-      porcentajeGanancia: Number($('#remito-nuevo-ganancia').value || 0),
-      proveedorIds: [proveedorId]
-    };
-    const producto = await api('/productos', { method: 'POST', body: JSON.stringify(body) });
-    remitoDetalles.push({
-      productoId: producto.id,
-      productoNombre: producto.nombre,
-      cantidad: 1,
-      costoCompra: Number(producto.costoBase || 0),
-      monedaCosto: producto.monedaCosto || 'ARS',
-      ivaPorcentaje: Number(producto.porcentajeUva || 0),
-      fletePorcentaje: Number(producto.porcentajeFlete || 0),
-      gananciaPorcentaje: Number(producto.porcentajeGanancia || 0)
-    });
-    await loadProductosAll();
-    renderRemitoItems();
-    setMsg('Producto creado y agregado al remito');
-  } catch (err) { setMsg(err.message); }
 });
 
 $('#remito-items').addEventListener('click', (e) => {
@@ -840,14 +775,14 @@ $('#remito-items').addEventListener('input', (e) => {
   const idx = Number(input.dataset.index);
   const field = input.dataset.remitoField;
   if (!remitoDetalles[idx]) return;
-  remitoDetalles[idx][field] = ['monedaCosto'].includes(field) ? input.value : Number(input.value || 0);
+  remitoDetalles[idx][field] = Number(input.value || 0);
   renderRemitoItems();
 });
 
 $('#btn-guardar-remito').addEventListener('click', async () => {
   try {
     const proveedorId = Number($('#remito-proveedor').value || 0);
-    const detalles = remitoDetalles.map(({ productoId, cantidad, costoCompra, monedaCosto, ivaPorcentaje, fletePorcentaje, gananciaPorcentaje }) => ({ productoId, cantidad, costoCompra, monedaCosto, ivaPorcentaje, fletePorcentaje, gananciaPorcentaje }));
+    const detalles = remitoDetalles.map(({ productoId, cantidad }) => ({ productoId, cantidad }));
     await api('/remitos-proveedor', {
       method: 'POST',
       body: JSON.stringify({

@@ -293,24 +293,17 @@ app.post('/remitos-proveedor', asyncHandler(async (req, res) => {
   if (!proveedorId || !numeroRemito || !fecha || !Array.isArray(detalles) || !detalles.length) {
     return res.status(400).json({ error: 'Datos de remito incompletos' });
   }
-  const tipoCambioActual = await obtenerTipoCambioActual();
   const remito = await prisma.$transaction(async tx => {
     const nuevo = await tx.remitoProveedor.create({ data: { proveedorId: Number(proveedorId), numeroRemito: String(numeroRemito), fecha: new Date(fecha), observaciones: observaciones || null } });
     for (const item of detalles) {
       const productoId = Number(item.productoId);
       const cantidad = Number(item.cantidad || 0);
       if (!Number.isInteger(cantidad) || cantidad <= 0) throw new Error('Cantidad inválida');
-      await tx.productoProveedor.create({ data: { productoId, proveedorId: Number(proveedorId) } }).catch(() => null);
       const producto = await tx.producto.findUnique({ where: { id: productoId } });
-      const monedaCosto = item.monedaCosto === 'USD' ? 'USD' : 'ARS';
-      const costoBase = Number(item.costoCompra || 0);
-      const porcentajeUva = Number(item.ivaPorcentaje || 0);
-      const porcentajeFlete = Number(item.fletePorcentaje || 0);
-      const porcentajeGanancia = Number(item.gananciaPorcentaje || 0);
-      const precioFinalPesos = calcularPrecioFinalPesos({ ...producto, monedaCosto, costoBase, porcentajeUva, porcentajeFlete, porcentajeGanancia }, tipoCambioActual);
-      await tx.detalleRemitoProveedor.create({ data: { remitoId: nuevo.id, productoId, cantidad, costoCompra: costoBase, monedaCosto, ivaPorcentaje: porcentajeUva, fletePorcentaje: porcentajeFlete, gananciaPorcentaje: porcentajeGanancia } });
-      await tx.producto.update({ where: { id: productoId }, data: { stock: producto.stock + cantidad, monedaCosto, costoBase, porcentajeUva, porcentajeFlete, porcentajeGanancia, precioFinalPesos, precioUsd: monedaCosto === 'USD' ? costoBase : null } });
-      await tx.movimientoStock.create({ data: { productoId, tipo: TipoMovimientoStock.ENTRADA, cantidad, motivo: `Remito ${numeroRemito}` } });
+      if (!producto) throw new Error('Producto no encontrado');
+      await tx.detalleRemitoProveedor.create({ data: { remitoId: nuevo.id, productoId, cantidad, costoCompra: producto.costoBase || 0, monedaCosto: producto.monedaCosto || 'ARS', ivaPorcentaje: producto.porcentajeUva || 0, fletePorcentaje: producto.porcentajeFlete || 0, gananciaPorcentaje: producto.porcentajeGanancia || 0 } });
+      await tx.producto.update({ where: { id: productoId }, data: { stock: producto.stock + cantidad } });
+      await tx.movimientoStock.create({ data: { productoId, tipo: TipoMovimientoStock.ENTRADA, cantidad, motivo: `Remito proveedor N°${numeroRemito}` } });
     }
     return nuevo;
   });
