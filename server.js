@@ -266,8 +266,13 @@ app.put('/proveedores/:id', asyncHandler(async (req, res) => {
 app.get('/proveedores/:id/productos', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
-  const productos = await prisma.producto.findMany({ where: { proveedores: { some: { proveedorId: id } } }, orderBy: { nombre: 'asc' } });
-  res.json(productos);
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const productos = await prisma.producto.findMany({
+    where: { proveedores: { some: { proveedorId: id } } },
+    orderBy: { nombre: 'asc' },
+    include: { proveedores: { include: { proveedor: true } } }
+  });
+  res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
 }));
 
 app.post('/proveedores/:id/productos/:productoId', asyncHandler(async (req, res) => {
@@ -310,6 +315,20 @@ app.post('/remitos-proveedor', asyncHandler(async (req, res) => {
     return nuevo;
   });
   res.status(201).json(remito);
+}));
+
+app.get('/remitos-proveedor', asyncHandler(async (req, res) => {
+  const proveedorId = req.query.proveedorId ? parsePositiveInt(req.query.proveedorId) : null;
+  const remitos = await prisma.remitoProveedor.findMany({
+    where: proveedorId ? { proveedorId } : undefined,
+    include: {
+      proveedor: true,
+      detalles: { include: { producto: true } }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100
+  });
+  res.json(remitos);
 }));
 
 app.get('/productos/:id/stock', asyncHandler(async (req, res) => {

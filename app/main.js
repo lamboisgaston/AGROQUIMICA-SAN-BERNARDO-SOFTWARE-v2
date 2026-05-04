@@ -378,18 +378,29 @@ function renderBuscadorRemitoProductos() {
   const q = ($('#remito-buscar-producto').value || '').trim().toLowerCase();
   const panelCrear = $('#remito-crear-producto');
   if (!proveedorId) {
-    $('#remito-resultados-productos').innerHTML = '<div class="item">Seleccione proveedor para buscar productos</div>';
+    $('#remito-resultados-productos').innerHTML = '<div class=\"item\">Seleccione proveedor para buscar productos</div>';
     panelCrear.style.display = 'none';
     return;
   }
-  const lista = productos.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 20);
-  $('#remito-resultados-productos').innerHTML = lista.length
-    ? lista.map(p => `<div class="item">${p.nombre} | Stock ${p.stock} | Costo ${p.monedaCosto} ${Number(p.costoBase || 0).toFixed(2)}
-        <button data-remito-agregar="${p.id}">Agregar al remito</button>
-      </div>`).join('')
-    : '<div class="item">Sin resultados. <button id="btn-mostrar-crear-producto">Crear producto nuevo</button></div>';
-  panelCrear.style.display = lista.length ? 'none' : 'block';
-  if (!q) panelCrear.style.display = 'none';
+
+  const asociados = productos.filter(p => (p.proveedores || []).some(pp => Number(pp.proveedorId) === proveedorId));
+  const asociadosFiltrados = asociados.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 20);
+
+  if (asociadosFiltrados.length) {
+    $('#remito-resultados-productos').innerHTML = asociadosFiltrados.map(p => `<div class=\"item\">${p.nombre} | Stock ${p.stock} | Costo ${p.monedaCosto} ${Number(p.costoBase || 0).toFixed(2)}
+      <button data-remito-agregar=\"${p.id}\">Agregar al remito</button>
+    </div>`).join('');
+    panelCrear.style.display = 'none';
+    return;
+  }
+
+  const sugeridos = productos.filter(p => !q || p.nombre.toLowerCase().includes(q)).slice(0, 10);
+  $('#remito-resultados-productos').innerHTML = sugeridos.length
+    ? sugeridos.map(p => `<div class=\"item\">${p.nombre} | No asociado a este proveedor
+      <button data-remito-asociar=\"${p.id}\">Asociar</button>
+    </div>`).join('')
+    : '<div class=\"item\">Sin resultados. <button id=\"btn-mostrar-crear-producto\">Crear producto nuevo</button></div>';
+  panelCrear.style.display = !!q && !sugeridos.length;
 }
 
 function renderRemitoItems() {
@@ -741,6 +752,27 @@ $('#remito-proveedor').addEventListener('change', renderBuscadorRemitoProductos)
 $('#remito-buscar-producto').addEventListener('input', renderBuscadorRemitoProductos);
 
 $('#remito-resultados-productos').addEventListener('click', async (e) => {
+  const mostrarCrear = e.target.closest('#btn-mostrar-crear-producto');
+  if (mostrarCrear) {
+    $('#remito-crear-producto').style.display = 'block';
+    $('#remito-nuevo-nombre').focus();
+    return;
+  }
+
+  const asociar = e.target.closest('button[data-remito-asociar]');
+  if (asociar) {
+    try {
+      const proveedorId = Number($('#remito-proveedor').value || 0);
+      const productoId = Number(asociar.dataset.remitoAsociar);
+      if (!proveedorId || !productoId) return setMsg('Proveedor o producto inválido');
+      await api(`/proveedores/${proveedorId}/productos/${productoId}`, { method: 'POST', body: '{}' });
+      await loadProductosAll();
+      renderBuscadorRemitoProductos();
+      setMsg('Producto asociado al proveedor');
+    } catch (err) { setMsg(err.message); }
+    return;
+  }
+
   const agregar = e.target.closest('button[data-remito-agregar]');
   if (agregar) {
     const producto = productos.find(p => Number(p.id) === Number(agregar.dataset.remitoAgregar));
