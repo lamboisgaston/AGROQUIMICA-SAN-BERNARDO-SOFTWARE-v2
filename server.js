@@ -24,18 +24,40 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
-function obtenerRangoDia(fecha = new Date()) {
-  const inicio = new Date(fecha);
-  inicio.setHours(0, 0, 0, 0);
+const TIMEZONE_CAJA = 'America/Argentina/Salta';
 
+function obtenerFechaCajaArgentina(fecha = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE_CAJA,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(fecha);
+}
+
+function parsearFechaCaja(fechaCaja) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaCaja)) return null;
+  const [y, m, d] = fechaCaja.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return { y, m, d };
+}
+
+function obtenerRangoDiaCaja(fechaCaja) {
+  const partes = parsearFechaCaja(fechaCaja);
+  if (!partes) return null;
+
+  const inicio = new Date(Date.UTC(partes.y, partes.m - 1, partes.d, 3, 0, 0, 0));
   const fin = new Date(inicio);
-  fin.setDate(fin.getDate() + 1);
+  fin.setUTCDate(fin.getUTCDate() + 1);
 
   return { inicio, fin };
 }
 
-async function calcularResumenCajaDia(fecha = new Date()) {
-  const { inicio, fin } = obtenerRangoDia(fecha);
+async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
+  const rango = obtenerRangoDiaCaja(fechaCaja);
+  if (!rango) throw new Error('fecha inválida, use YYYY-MM-DD');
+  const { inicio, fin } = rango;
   const ventas = await prisma.venta.findMany({
     where: {
       estado: EstadoVenta.COBRADA,
@@ -45,6 +67,7 @@ async function calcularResumenCajaDia(fecha = new Date()) {
   });
 
   const resumen = {
+    fechaCaja,
     fecha: inicio.toISOString(),
     EFECTIVO: 0,
     TRANSFERENCIA: 0,
@@ -552,27 +575,33 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
 }));
 
 app.get('/caja/resumen', asyncHandler(async (req, res) => {
-  const resumen = await calcularResumenCajaDia(new Date());
+  const fechaCaja = String(req.query.fecha || obtenerFechaCajaArgentina());
+  if (!parsearFechaCaja(fechaCaja)) {
+    return res.status(400).json({ error: 'fecha inválida, use YYYY-MM-DD' });
+  }
+  const resumen = await calcularResumenCajaDia(fechaCaja);
   res.json(resumen);
 }));
 
 app.post('/caja/cerrar', asyncHandler(async (req, res) => {
-  const ahora = new Date();
-  const { inicio } = obtenerRangoDia(ahora);
+  const fechaCaja = obtenerFechaCajaArgentina();
+  const rango = obtenerRangoDiaCaja(fechaCaja);
+  const inicio = rango.inicio;
 
   const existente = await prisma.cierreCajaDiario.findUnique({
-    where: { fecha: inicio }
+    where: { fechaCaja }
   });
 
   if (existente) {
     return res.status(400).json({ error: 'La caja del día ya fue cerrada' });
   }
 
-  const resumen = await calcularResumenCajaDia(ahora);
+  const resumen = await calcularResumenCajaDia(fechaCaja);
 
   const cierre = await prisma.cierreCajaDiario.create({
     data: {
       fecha: inicio,
+      fechaCaja,
       totalEfectivo: resumen.EFECTIVO,
       totalTransferencia: resumen.TRANSFERENCIA,
       totalTarjeta: resumen.TARJETA,
@@ -587,7 +616,7 @@ app.post('/caja/cerrar', asyncHandler(async (req, res) => {
 
 app.get('/caja/cierres', asyncHandler(async (req, res) => {
   const cierres = await prisma.cierreCajaDiario.findMany({
-    orderBy: { fecha: 'desc' }
+    orderBy: [{ fechaCaja: 'desc' }, { fecha: 'desc' }]
   });
 
   res.json(cierres);
