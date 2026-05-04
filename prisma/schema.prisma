@@ -23,6 +23,7 @@ model Producto {
   movimientosStock  MovimientoStock[]
   proveedores       ProductoProveedor[]
   detalleRemitos    DetalleRemitoProveedor[]
+  presupuestoItems  PresupuestoItem[]
 }
 
 model Proveedor {
@@ -97,7 +98,45 @@ model Persona {
   cuitDni         String?
   tipo            String
   ventas          Venta[]
+  presupuestos    Presupuesto[]
   cuentaCorriente CuentaCorriente?
+}
+
+model Presupuesto {
+  id                Int                 @id @default(autoincrement())
+  personaId          Int
+  persona            Persona             @relation(fields: [personaId], references: [id])
+  subtotal           Float               @default(0)
+  descuentoTipo      String?
+  descuentoValor     Float               @default(0)
+  total              Float               @default(0)
+  observaciones      String?
+  validez            String?
+  aliasTransferencia String?
+  datosBancarios     String?
+  estado             EstadoPresupuesto   @default(BORRADOR)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  items              PresupuestoItem[]
+}
+
+model PresupuestoItem {
+  id             Int         @id @default(autoincrement())
+  presupuestoId  Int
+  productoId     Int
+  cantidad       Int
+  precioUnitario Float
+  subtotal       Float
+  presupuesto    Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  producto       Producto    @relation(fields: [productoId], references: [id])
+}
+
+enum EstadoPresupuesto {
+  BORRADOR
+  ENVIADO
+  ACEPTADO
+  RECHAZADO
+  VENCIDO
 }
 
 model Venta {
