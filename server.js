@@ -501,7 +501,7 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
     return res.status(400).send('Solo se puede generar ticket para ventas cobradas');
   }
 
-  const negocio = 'Agroquímica San Bernardo';
+  const negocio = 'Agroquímica y Fumigaciones San Bernardo';
   const cliente = venta.persona?.nombre || 'Consumidor final';
   const fecha = new Date(venta.updatedAt || venta.createdAt).toLocaleString('es-AR');
   const medioPago = venta.medioPago || '-';
@@ -519,12 +519,12 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
     <meta charset="UTF-8" />
     <title>Ticket Venta #${venta.id}</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 20px; }
-      h1 { margin: 0 0 8px; font-size: 20px; }
+      body { font-family: Arial, sans-serif; margin: 16px; max-width: 420px; }
+      h1 { margin: 0 0 8px; font-size: 18px; }
       p { margin: 4px 0; }
       table { width: 100%; border-collapse: collapse; margin-top: 10px; }
       th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
-      .total { font-size: 18px; margin-top: 10px; }
+      .total { font-size: 16px; margin-top: 10px; }
       @media print { button { display: none; } }
     </style>
   </head>

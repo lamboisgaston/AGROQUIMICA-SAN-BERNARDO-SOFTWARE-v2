@@ -160,7 +160,7 @@ async function loadCaja() {
     : 'No hay ventas pendientes';
 
   const recientesHtml = ventasRecientesCobradas.length
-    ? ventasRecientesCobradas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <a href="/ventas/${v.id}/ticket" target="_blank" rel="noopener noreferrer">Ver ticket</a></div>`).join('')
+    ? ventasRecientesCobradas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <button class="btn-ver-ticket" data-id="${v.id}">Ver ticket</button></div>`).join('')
     : '<div class="item">Sin ventas cobradas recientes</div>';
 
   $('#pendientes').innerHTML += `<h3>Ventas cobradas recientes</h3>${recientesHtml}`;
@@ -189,15 +189,25 @@ async function loadCaja() {
         }
 
         alert('Venta cobrada');
-        setMsg(`✅ Venta #${data.id} cobrada. <a href="/ventas/${data.id}/ticket" target="_blank" rel="noopener noreferrer">Ver ticket</a>`);
-
-        // refrescar caja
-        location.reload();
+        setMsg(`✅ Venta #${data.id} cobrada. <button class="btn-ver-ticket-inline" data-id="${data.id}">Ver ticket</button>`);
+        await loadCaja();
+        const ticketBtn = document.querySelector('.btn-ver-ticket-inline');
+        if (ticketBtn) {
+          ticketBtn.addEventListener('click', () => {
+            window.open(`/ventas/${ticketBtn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
+          });
+        }
 
       } catch (err) {
         console.error(err);
         alert('Error de conexión');
       }
+    });
+  });
+
+  document.querySelectorAll('.btn-ver-ticket').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
     });
   });
 }
