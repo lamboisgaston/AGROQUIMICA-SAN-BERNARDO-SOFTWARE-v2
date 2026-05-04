@@ -6,6 +6,7 @@ let venta = null;
 let productos = [];
 let cuentaCorrienteMostrada = null;
 let fechaCajaSeleccionada = null;
+let fechaVentasCobradasSeleccionada = null;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -238,6 +239,20 @@ async function loadCaja() {
   });
 }
 
+async function loadVentasCobradas() {
+  const query = fechaVentasCobradasSeleccionada ? `?fecha=${encodeURIComponent(fechaVentasCobradasSeleccionada)}` : '';
+  const ventas = await api('/ventas/cobradas' + query);
+  $('#ventas-cobradas-lista').innerHTML = ventas.length
+    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${new Date(v.fechaCobro).toLocaleString('es-AR')} | ${v.cliente} | ${v.medioPago || '-'} | ${money(v.total)} <button class="btn-ver-ticket-cobrada" data-id="${v.id}">Ver ticket</button></div>`).join('')
+    : '<div class="item">Sin ventas cobradas para la fecha seleccionada</div>';
+
+  document.querySelectorAll('.btn-ver-ticket-cobrada').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
+    });
+  });
+}
+
 $('#btn-nueva').addEventListener('click', async () => {
   try {
     const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
@@ -414,13 +429,28 @@ $('#btn-cerrar-caja').addEventListener('click', async () => {
   }
 });
 
+$('#ventas-cobradas-fecha').addEventListener('change', (e) => {
+  fechaVentasCobradasSeleccionada = e.target.value || null;
+});
+
+$('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
+  try {
+    await loadVentasCobradas();
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
+
 (async function init() {
   setFechaCajaHoy();
+  fechaVentasCobradasSeleccionada = fechaCajaSeleccionada;
+  $('#ventas-cobradas-fecha').value = fechaVentasCobradasSeleccionada;
   productos = await api('/productos');
   renderProductos();
   renderCarrito();
   renderClienteActivo();
   await loadCaja();
+  await loadVentasCobradas();
   await loadResumenCaja();
   await loadCierresCaja();
   renderPanelCuentaCorriente(null);
