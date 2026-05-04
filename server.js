@@ -270,6 +270,19 @@ app.get('/proveedores/:id/productos', asyncHandler(async (req, res) => {
   res.json(productos);
 }));
 
+app.post('/proveedores/:id/productos/:productoId', asyncHandler(async (req, res) => {
+  const proveedorId = parsePositiveInt(req.params.id);
+  const productoId = parsePositiveInt(req.params.productoId);
+  if (!proveedorId || !productoId) return res.status(400).json({ error: 'ids inválidos' });
+  const [proveedor, producto] = await Promise.all([
+    prisma.proveedor.findUnique({ where: { id: proveedorId } }),
+    prisma.producto.findUnique({ where: { id: productoId } })
+  ]);
+  if (!proveedor || !producto) return res.status(404).json({ error: 'Proveedor o producto no encontrado' });
+  await prisma.productoProveedor.create({ data: { proveedorId, productoId } }).catch(() => null);
+  res.status(201).json({ ok: true });
+}));
+
 app.post('/remitos-proveedor', asyncHandler(async (req, res) => {
   const { proveedorId, numeroRemito, fecha, observaciones, detalles } = req.body || {};
   if (!proveedorId || !numeroRemito || !fecha || !Array.isArray(detalles) || !detalles.length) {
