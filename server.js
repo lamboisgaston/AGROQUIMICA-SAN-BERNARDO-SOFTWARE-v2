@@ -518,6 +518,52 @@ app.get('/ventas/cobradas-recientes', asyncHandler(async (req, res) => {
   res.json(ventas);
 }));
 
+app.get('/ventas/cobradas', asyncHandler(async (req, res) => {
+  const fecha = String(req.query.fecha || '').trim();
+  const fechaConsulta = fecha || obtenerFechaCajaArgentina();
+  const rango = obtenerRangoDiaCaja(fechaConsulta);
+  if (!rango) {
+    return res.status(400).json({ error: 'fecha inválida, use YYYY-MM-DD' });
+  }
+
+  const ventas = await prisma.venta.findMany({
+    where: {
+      estado: EstadoVenta.COBRADA,
+      updatedAt: { gte: rango.inicio, lt: rango.fin }
+    },
+    include: {
+      persona: { select: { nombre: true } },
+      items: {
+        select: {
+          id: true,
+          productoId: true,
+          cantidad: true,
+          precioUnitario: true,
+          subtotal: true,
+          producto: { select: { nombre: true } }
+        }
+      }
+    },
+    orderBy: { updatedAt: 'desc' }
+  });
+
+  res.json(ventas.map(v => ({
+    id: v.id,
+    fechaCobro: v.updatedAt,
+    cliente: v.persona?.nombre || 'Consumidor final',
+    total: v.total,
+    medioPago: v.medioPago,
+    items: v.items.map(item => ({
+      id: item.id,
+      productoId: item.productoId,
+      producto: item.producto?.nombre || 'Producto',
+      cantidad: item.cantidad,
+      precioUnitario: item.precioUnitario,
+      subtotal: item.subtotal
+    }))
+  })));
+}));
+
 app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
   if (!ventaId) return res.status(400).send('id de venta inválido');
