@@ -139,10 +139,35 @@
         <label for="prod-ganancia">% Ganancia</label>
         <input id="prod-ganancia" type="number" step="0.01" />
       </div>
+      <div class="campo-producto">
+        <label for="prod-proveedor">Proveedor</label>
+        <select id="prod-proveedor"><option value="">Sin proveedor</option></select>
+      </div>
       <p>Precio final en pesos: <strong id="prod-precio-final">$0.00</strong></p>
       <button id="btn-guardar-producto">Guardar producto</button>
       <button id="btn-nuevo-producto">Nuevo</button>
       <div id="productos-admin" class="lista"></div>
+    </section>
+
+    <section class="bloque">
+      <h2>10) Proveedores y stock</h2>
+      <h3>Crear proveedor</h3>
+      <input id="prov-nombre" placeholder="Nombre" />
+      <input id="prov-telefono" placeholder="Teléfono opcional" />
+      <input id="prov-cuit" placeholder="CUIT opcional" />
+      <input id="prov-observaciones" placeholder="Observaciones opcional" />
+      <button id="btn-crear-proveedor">Crear proveedor</button>
+      <div id="proveedores-lista" class="lista"></div>
+
+      <h3>Stock por producto</h3>
+      <label>Producto <select id="stock-producto"></select></label>
+      <button id="btn-ver-stock">Ver stock</button>
+      <p>Stock actual: <strong id="stock-actual">0</strong></p>
+      <label>Tipo <select id="stock-tipo"><option value="ENTRADA">ENTRADA</option><option value="AJUSTE">AJUSTE</option></select></label>
+      <label>Cantidad <input id="stock-cantidad" type="number" min="1" value="1" /></label>
+      <label>Motivo <input id="stock-motivo" placeholder="Motivo" /></label>
+      <button id="btn-registrar-stock">Registrar movimiento</button>
+      <div id="stock-movimientos" class="lista"></div>
     </section>
 
     <p id="msg"></p>

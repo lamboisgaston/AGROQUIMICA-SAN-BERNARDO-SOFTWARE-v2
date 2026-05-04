@@ -10,6 +10,7 @@ let cuentaCorrienteMostrada = null;
 let fechaCajaSeleccionada = null;
 let fechaVentasCobradasSeleccionada = null;
 let tipoCambioActual = 1;
+let proveedores = [];
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -322,8 +323,32 @@ function limpiarFormularioProducto() {
 function renderProductosAdmin() {
   const container = $('#productos-admin');
   container.innerHTML = productos.length
-    ? productos.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    ? productos.map(p => `<div class="item">${p.nombre} | ${p.categoria} | Prov: ${p.proveedor?.nombre || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
     : '<div class="item">Sin productos</div>';
+}
+function renderProveedores() {
+  $('#proveedores-lista').innerHTML = proveedores.length
+    ? proveedores.map(pr => `<div class="item">${pr.nombre} | ${pr.telefono || '-'} | ${pr.cuit || '-'} </div>`).join('')
+    : '<div class="item">Sin proveedores</div>';
+  const opt = ['<option value="">Sin proveedor</option>', ...proveedores.map(pr => `<option value="${pr.id}">${pr.nombre}</option>`)];
+  const sel = $('#prod-proveedor');
+  if (sel) sel.innerHTML = opt.join('');
+}
+function renderStockProductos() {
+  $('#stock-producto').innerHTML = productos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+}
+async function loadProveedores() {
+  proveedores = await api('/proveedores');
+  renderProveedores();
+}
+async function cargarStockProducto() {
+  const productoId = Number($('#stock-producto').value || 0);
+  if (!productoId) return;
+  const data = await api(`/productos/${productoId}/stock`);
+  $('#stock-actual').textContent = data.stockActual;
+  $('#stock-movimientos').innerHTML = (data.movimientos || []).length
+    ? data.movimientos.map(m => `<div class="item">${new Date(m.createdAt).toLocaleString('es-AR')} | ${m.tipo} | ${m.cantidad} | ${m.motivo}</div>`).join('')
+    : '<div class="item">Sin movimientos</div>';
 }
 
 async function loadTipoCambio() {
@@ -336,6 +361,7 @@ async function loadProductosAll() {
   productos = await api('/productos');
   renderProductos();
   renderProductosAdmin();
+  renderStockProductos();
 }
 
 $('#btn-nueva').addEventListener('click', async () => {
@@ -595,7 +621,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       costoBase: Number($('#prod-costo').value || 0),
       porcentajeUva: Number($('#prod-iva').value || 0),
       porcentajeFlete: Number($('#prod-flete').value || 0),
-      porcentajeGanancia: Number($('#prod-ganancia').value || 0)
+      porcentajeGanancia: Number($('#prod-ganancia').value || 0),
+      proveedorId: $('#prod-proveedor').value ? Number($('#prod-proveedor').value) : null
     };
     const id = $('#prod-id').value;
     if (id) await api(`/productos/${id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -621,7 +648,45 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-iva').value = p.porcentajeUva || 0;
   $('#prod-flete').value = p.porcentajeFlete || 0;
   $('#prod-ganancia').value = p.porcentajeGanancia || 0;
+  $('#prod-proveedor').value = p.proveedorId || '';
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);
+});
+
+$('#btn-crear-proveedor').addEventListener('click', async () => {
+  try {
+    await api('/proveedores', {
+      method: 'POST',
+      body: JSON.stringify({
+        nombre: $('#prov-nombre').value.trim(),
+        telefono: $('#prov-telefono').value.trim() || null,
+        cuit: $('#prov-cuit').value.trim() || null,
+        observaciones: $('#prov-observaciones').value.trim() || null
+      })
+    });
+    await loadProveedores();
+    setMsg('Proveedor creado');
+  } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-ver-stock').addEventListener('click', async () => {
+  try { await cargarStockProducto(); } catch (err) { setMsg(err.message); }
+});
+
+$('#btn-registrar-stock').addEventListener('click', async () => {
+  try {
+    const productoId = Number($('#stock-producto').value || 0);
+    await api(`/productos/${productoId}/stock`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tipo: $('#stock-tipo').value,
+        cantidad: Number($('#stock-cantidad').value || 0),
+        motivo: $('#stock-motivo').value.trim()
+      })
+    });
+    await loadProductosAll();
+    await cargarStockProducto();
+    setMsg('Movimiento de stock registrado');
+  } catch (err) { setMsg(err.message); }
 });
 
 (async function init() {
@@ -629,6 +694,7 @@ $('#productos-admin').addEventListener('click', (e) => {
   fechaVentasCobradasSeleccionada = fechaCajaSeleccionada;
   $('#ventas-cobradas-fecha').value = fechaVentasCobradasSeleccionada;
   await loadTipoCambio();
+  await loadProveedores();
   await loadProductosAll();
   renderCarrito();
   renderClienteActivo();
