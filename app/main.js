@@ -69,11 +69,13 @@ function mostrarErrorBusqueda(containerSelector, error) {
 
 async function buscarProductos(query) {
   const q = (query || '').trim();
-  console.log(`Buscando productos: ${q}`);
+  console.log('Buscando productos:', q);
   if (!q) return [];
-  const lista = await api('/productos?q=' + encodeURIComponent(q));
-  console.log('Resultados productos:', lista);
-  return (lista || []).slice(0, 8);
+  const res = await fetch(`/productos?q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error buscando productos');
+  console.log('Resultados productos:', data);
+  return (data || []).slice(0, 8);
 }
 
 async function buscarPersonas(query) {
@@ -114,9 +116,14 @@ async function renderProductos() {
 }
 
 async function agregarProductoAlCarrito(productoId) {
-  if (!ventaId) return setMsg('Debe crear una venta');
+  if (!ventaId) {
+    const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    ventaId = v.id;
+  }
   if (!productoId) return setMsg('Producto inválido');
   try {
+    const producto = resultadosProductosVisibles.find((p) => Number(p.id) === Number(productoId)) || productos.find((p) => Number(p.id) === Number(productoId));
+    console.log('Producto agregado al carrito:', producto || { id: productoId });
     await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId, cantidad: 1 }) });
     await refreshVenta();
     await loadCaja();
@@ -770,12 +777,27 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
 });
 
 $('#btn-nuevo-producto').addEventListener('click', limpiarFormularioProducto);
-$('#admin-buscar-producto').addEventListener('input', (e) => { filtroProductosAdmin = e.target.value.trim().toLowerCase(); renderProductosAdmin(); });
+$('#admin-buscar-producto').addEventListener('input', async (e) => {
+  const q = e.target.value.trim();
+  if (!q) {
+    filtroProductosAdmin = '';
+    return renderProductosAdmin();
+  }
+  try {
+    const lista = await buscarProductos(q);
+    $('#productos-admin').innerHTML = lista.length
+      ? lista.map((p) => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado || p.precioFinalPesos || 0)} | Stock ${p.stock ?? 0} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+      : '<div class="item">Sin resultados</div>';
+  } catch (error) {
+    mostrarErrorBusqueda('#productos-admin', error);
+  }
+});
 $('#productos-admin').addEventListener('click', (e) => {
   const id = e.target.dataset.editarProducto;
   if (!id) return;
   const p = productos.find(x => String(x.id) === String(id));
   if (!p) return;
+  console.log('Producto cargado para edición:', p);
   $('#prod-id').value = p.id;
   $('#prod-nombre').value = p.nombre;
   $('#prod-categoria').value = p.categoria;
@@ -820,7 +842,7 @@ $('#pres-productos').addEventListener('click', (e) => {
     if (it) it.cantidad += 1;
     else if (prod) {
       const nuevo = { productoId: id, nombre: prod.nombre, precioUnitario: Number(prod.precioPesosCalculado || prod.precioFinalPesos || 0), cantidad: 1, descuentoTipo: 'NINGUNO', descuentoValor: 0, subtotal: Number(prod.precioPesosCalculado || prod.precioFinalPesos || 0) };
-      console.log('Producto agregado al presupuesto:', nuevo);
+      console.log('Producto agregado al presupuesto:', prod);
       presupuestoItems.push(nuevo);
     }
   }
@@ -964,6 +986,7 @@ $('#remito-resultados-productos').addEventListener('click', async (e) => {
     const existente = remitoDetalles.find(d => d.productoId === producto.id);
     if (existente) existente.cantidad += 1;
     else remitoDetalles.push({ productoId: producto.id, productoNombre: producto.nombre, cantidad: 1, stockActual: Number(producto.stock || 0) });
+    console.log('Producto agregado al remito:', producto);
     renderRemitoItems();
     return;
   }
