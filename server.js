@@ -164,25 +164,30 @@ function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
   };
 }
 
-function aplicarPorcentajeAcumulado(base, porcentaje) {
-  return base * (1 + (Number(porcentaje || 0) / 100));
+function numeroSeguro(valor, fallback = 0) {
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function calcularPrecioFinalPesos(producto, tipoCambioActual) {
+function aplicarPorcentajeAcumulado(base, porcentaje) {
+  return numeroSeguro(base) * (1 + (numeroSeguro(porcentaje) / 100));
+}
+
+function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
   const monedaCosto = producto.monedaCosto || (producto.precioUsd != null ? 'USD' : 'ARS');
   const costoBaseFuente = producto.costoBase ?? producto.precioUsd ?? 0;
   const costoBasePesos = monedaCosto === 'USD'
-    ? Number(costoBaseFuente) * Number(tipoCambioActual || 1)
-    : Number(costoBaseFuente);
+    ? numeroSeguro(costoBaseFuente) * numeroSeguro(tipoCambioActual, 1)
+    : numeroSeguro(costoBaseFuente);
 
   const ivaPorcentaje = producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
   const fletePorcentaje = producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
   const gananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
 
-  const baseConUva = aplicarPorcentajeAcumulado(costoBasePesos, ivaPorcentaje);
-  const baseConFlete = aplicarPorcentajeAcumulado(baseConUva, fletePorcentaje);
+  const baseConIva = aplicarPorcentajeAcumulado(costoBasePesos, ivaPorcentaje);
+  const baseConFlete = aplicarPorcentajeAcumulado(baseConIva, fletePorcentaje);
   const precioFinal = aplicarPorcentajeAcumulado(baseConFlete, gananciaPorcentaje);
-  return Number(precioFinal.toFixed(2));
+  return Number(numeroSeguro(precioFinal).toFixed(2));
 }
 
 function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
@@ -205,16 +210,20 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
   return productoNormalizado;
 }
 
-app.get('/productos', asyncHandler(async (req, res) => {
-  const tipoCambioActual = await obtenerTipoCambioActual();
-  const q = String(req.query.q || '').trim();
-  const productos = await prisma.producto.findMany({
-    where: q ? { nombre: { contains: q } } : undefined,
-    include: { proveedores: { include: { proveedor: true } } },
-    orderBy: { nombre: 'asc' }
-  });
-  res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
-}));
+app.get('/productos', async (req, res) => {
+  try {
+    const tipoCambioActual = await obtenerTipoCambioActual();
+    const q = String(req.query.q || '').trim();
+    const productos = await prisma.producto.findMany({
+      where: q ? { nombre: { contains: q } } : undefined,
+      include: { proveedores: { include: { proveedor: true } } },
+      orderBy: { nombre: 'asc' }
+    });
+    return res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 
 app.post('/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
