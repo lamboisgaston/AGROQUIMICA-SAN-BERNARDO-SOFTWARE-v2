@@ -864,10 +864,10 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     renderProductosAdmin();
     limpiarFormularioProducto();
     setModoProducto('AGREGAR');
-    setMsg('✅ Producto guardado', 'success');
+    setMsg('Producto guardado', 'success');
   } catch (err) {
     console.error('[producto-guardado][frontend] error', err);
-    setMsg(`❌ No se pudo guardar el producto: ${err.message}`, 'error');
+    setMsg(err.message, 'error');
   } finally {
     btnGuardar.disabled = false;
   }
