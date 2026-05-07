@@ -50,11 +50,17 @@ function calcularPrecioProductoForm() {
   const iva = Number($('#prod-iva').value || 0);
   const flete = Number($('#prod-flete').value || 0);
   const ganancia = Number($('#prod-ganancia').value || 0);
-  const basePesos = moneda === 'USD' ? (costoBase * tipoCambioActual) : costoBase;
-  const costoTotal = basePesos + iva + flete;
+  const costoCompraPesos = moneda === 'USD' ? (costoBase * tipoCambioActual) : costoBase;
+  const costoTotal = costoCompraPesos + iva + flete;
   const precioVenta = costoTotal * (1 + (ganancia / 100));
   return {
-    costoTotal,
+    costoBase,
+    moneda,
+    costoCompraPesos,
+    iva,
+    flete,
+    ganancia,
+    costoTotalPesos: costoTotal,
     precioVenta
   };
 }
@@ -377,7 +383,6 @@ function limpiarFormularioProducto() {
   $('#prod-categoria-nueva').value = '';
   $('#prod-marca').value = '';
   $('#prod-unidad').value = '';
-  $('#prod-precio').value = '0';
   $('#prod-stock').value = '0';
   $('#prod-moneda').value = 'ARS';
   $('#prod-costo').value = '0';
@@ -385,8 +390,18 @@ function limpiarFormularioProducto() {
   $('#prod-flete').value = '0';
   $('#prod-ganancia').value = '0';
   Array.from($('#prod-proveedor').options || []).forEach(o => { o.selected = false; });
-  $('#prod-costo-total').textContent = money(0);
-  $('#prod-precio-final').textContent = money(0);
+  renderResumenPreciosProducto();
+}
+function renderResumenPreciosProducto() {
+  const c = calcularPrecioProductoForm();
+  $('#prod-costo-original').textContent = money(c.costoBase);
+  $('#prod-moneda-resumen').textContent = c.moneda;
+  $('#prod-costo-convertido').textContent = money(c.costoCompraPesos);
+  $('#prod-iva-resumen').textContent = money(c.iva);
+  $('#prod-flete-resumen').textContent = money(c.flete);
+  $('#prod-costo-total').textContent = money(c.costoTotalPesos);
+  $('#prod-margen-resumen').textContent = `${Number(c.ganancia || 0).toFixed(2)}%`;
+  $('#prod-precio-final').textContent = money(c.precioVenta);
 }
 
 function renderCategoriasProducto(selected = '') {
@@ -409,7 +424,7 @@ function renderProductosAdmin() {
   const f = filtroProductosAdmin.toLowerCase();
   const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
-    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.marca || '-'} | ${p.unidad || '-'} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.marca || '-'} | ${p.unidad || '-'} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCompra || p.monedaCosto} ${p.costoCompra ?? p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
@@ -776,10 +791,7 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
 });
 ['#prod-costo', '#prod-iva', '#prod-flete', '#prod-ganancia', '#prod-moneda'].forEach(sel => {
   $(sel).addEventListener('input', () => {
-    const calculo = calcularPrecioProductoForm();
-    $('#prod-costo-total').textContent = money(calculo.costoTotal);
-    $('#prod-precio-final').textContent = money(calculo.precioVenta);
-    $('#prod-precio').value = Number(calculo.precioVenta.toFixed(2));
+    renderResumenPreciosProducto();
   });
 });
 
@@ -800,13 +812,12 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       categoria: $('#prod-categoria').value,
       marca: $('#prod-marca').value,
       unidad: $('#prod-unidad').value,
-      precioVenta: Number($('#prod-precio').value || 0),
       stock: Number($('#prod-stock').value || 0),
-      monedaCosto: $('#prod-moneda').value,
-      costoBase: Number($('#prod-costo').value || 0),
+      monedaCompra: $('#prod-moneda').value,
+      costoCompra: Number($('#prod-costo').value || 0),
       ivaMonto: Number($('#prod-iva').value || 0),
       fleteMonto: Number($('#prod-flete').value || 0),
-      porcentajeGanancia: Number($('#prod-ganancia').value || 0),
+      margenGananciaPorcentaje: Number($('#prod-ganancia').value || 0),
       proveedorIds: Array.from($('#prod-proveedor').selectedOptions || []).map(o => Number(o.value)).filter(Boolean)
     };
     const id = $('#prod-id').value;
@@ -855,20 +866,15 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-categoria').value = p.categoria;
   $('#prod-marca').value = p.marca || '';
   $('#prod-unidad').value = p.unidad || '';
-  $('#prod-precio').value = p.precioVenta || p.precioFinalPesos || 0;
   $('#prod-stock').value = p.stock;
-  $('#prod-moneda').value = p.monedaCosto || 'ARS';
-  $('#prod-costo').value = p.costoBase || 0;
-  $('#prod-iva').value = p.porcentajeUva || 0;
-  $('#prod-flete').value = p.porcentajeFlete || 0;
-  $('#prod-ganancia').value = p.porcentajeGanancia || 0;
+  $('#prod-moneda').value = p.monedaCompra || p.monedaCosto || 'ARS';
+  $('#prod-costo').value = p.costoCompra || p.costoBase || 0;
+  $('#prod-iva').value = p.ivaMonto || p.porcentajeUva || 0;
+  $('#prod-flete').value = p.fleteMonto || p.porcentajeFlete || 0;
+  $('#prod-ganancia').value = p.margenGananciaPorcentaje || p.porcentajeGanancia || 0;
   const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
-  const costoBase = Number(p.monedaCosto === 'USD' ? (p.costoBase || 0) * tipoCambioActual : (p.costoBase || 0));
-  const ivaMonto = Number(p.porcentajeUva || 0);
-  const fleteMonto = Number(p.porcentajeFlete || 0);
-  $('#prod-costo-total').textContent = money(costoBase + ivaMonto + fleteMonto);
-  $('#prod-precio-final').textContent = money(p.precioFinalPesos);
+  renderResumenPreciosProducto();
   setModoProducto('EDITAR');
 });
 async function buscarClientePresupuesto() {

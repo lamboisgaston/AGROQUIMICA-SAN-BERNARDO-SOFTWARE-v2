@@ -152,11 +152,23 @@ async function obtenerTipoCambioActual() {
 
 function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
   const precioFinalPesos = calcularPrecioFinalPesos(producto, tipoCambioActual);
+  const monedaCompra = producto.monedaCosto || 'ARS';
+  const costoCompra = producto.costoBase ?? 0;
+  const costoCompraPesos = monedaCompra === 'USD' ? numeroSeguro(costoCompra) * numeroSeguro(tipoCambioActual, 1) : numeroSeguro(costoCompra);
+  const ivaMonto = producto.ivaMonto ?? producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
+  const fleteMonto = producto.fleteMonto ?? producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
+  const margenGananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
   return {
     ...producto,
-    ivaPorcentaje: producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0,
-    fletePorcentaje: producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0,
-    gananciaPorcentaje: producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0,
+    monedaCompra,
+    costoCompra,
+    costoCompraPesos,
+    ivaMonto,
+    fleteMonto,
+    margenGananciaPorcentaje,
+    ivaPorcentaje: ivaMonto,
+    fletePorcentaje: fleteMonto,
+    gananciaPorcentaje: margenGananciaPorcentaje,
     createdAt: producto.createdAt || null,
     updatedAt: producto.updatedAt || null,
     precioFinalPesos,
@@ -186,10 +198,11 @@ function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
 }
 
 function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
-  const monedaCosto = payload.monedaCosto === 'ARS' || payload.monedaCosto === 'USD'
-    ? payload.monedaCosto
+  const monedaCompraPayload = payload.monedaCompra ?? payload.monedaCosto;
+  const monedaCosto = monedaCompraPayload === 'ARS' || monedaCompraPayload === 'USD'
+    ? monedaCompraPayload
     : (payload.precioUsd != null ? 'USD' : 'ARS');
-  const costoBase = Number(payload.costoBase ?? payload.precioUsd ?? 0);
+  const costoBase = Number(payload.costoCompra ?? payload.costoBase ?? payload.precioUsd ?? 0);
   const productoNormalizado = {
     nombre: String(payload.nombre || '').trim(),
     categoria: String(payload.categoria || '').trim(),
@@ -201,7 +214,7 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     precioVenta: 0,
     porcentajeUva: Number(payload.ivaMonto ?? payload.ivaPorcentaje ?? payload.porcentajeUva ?? 0),
     porcentajeFlete: Number(payload.fleteMonto ?? payload.fletePorcentaje ?? payload.porcentajeFlete ?? 0),
-    porcentajeGanancia: Number(payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
+    porcentajeGanancia: Number(payload.margenGananciaPorcentaje ?? payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
     precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
   };
   productoNormalizado.precioFinalPesos = Number(calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual));

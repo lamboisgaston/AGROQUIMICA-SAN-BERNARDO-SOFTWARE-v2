@@ -107,7 +107,7 @@
       <h2>9) Productos y precios</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <button id="btn-modo-agregar-producto">Agregar producto</button>
-        <button id="btn-modo-editar-producto">Editar producto</button>
+        <button id="btn-modo-editar-producto">Buscar producto</button>
       </div>
       <p>Tipo de cambio USD: <input id="tipo-cambio" type="number" min="0.01" step="0.01" /> <button id="btn-guardar-tipo-cambio">Guardar</button></p>
       <div id="panel-editar-productos">
@@ -148,10 +148,6 @@
         <input id="prod-costo" type="number" step="0.01" min="0" />
       </div>
       <div class="campo-producto">
-        <label for="prod-precio">Precio de venta</label>
-        <input id="prod-precio" type="number" step="0.01" min="0" readonly />
-      </div>
-      <div class="campo-producto">
         <label for="prod-iva">IVA (monto)</label>
         <input id="prod-iva" type="number" step="0.01" min="0" />
       </div>
@@ -167,8 +163,14 @@
         <label for="prod-proveedor">Proveedores (Ctrl/Cmd + click para múltiple)</label>
         <select id="prod-proveedor" multiple size="4"></select>
       </div>
-      <p>Costo total: <strong id="prod-costo-total">$0.00</strong></p>
-      <p>Precio de venta calculado: <strong id="prod-precio-final">$0.00</strong></p>
+      <p>Costo compra original: <strong id="prod-costo-original">$0.00</strong></p>
+      <p>Moneda de compra: <strong id="prod-moneda-resumen">ARS</strong></p>
+      <p>Costo convertido a pesos: <strong id="prod-costo-convertido">$0.00</strong></p>
+      <p>IVA: <strong id="prod-iva-resumen">$0.00</strong></p>
+      <p>Flete: <strong id="prod-flete-resumen">$0.00</strong></p>
+      <p>Costo total en pesos: <strong id="prod-costo-total">$0.00</strong></p>
+      <p>Margen: <strong id="prod-margen-resumen">0%</strong></p>
+      <p>Precio de venta final en pesos: <strong id="prod-precio-final">$0.00</strong></p>
       <button id="btn-guardar-producto">Guardar producto</button>
       <button id="btn-nuevo-producto">Nuevo</button>
     </section>
