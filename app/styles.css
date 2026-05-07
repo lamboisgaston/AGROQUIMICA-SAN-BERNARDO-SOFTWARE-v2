@@ -20,3 +20,8 @@ th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 .campo-producto { margin: 6px 0; }
 .campo-producto label { display:block; font-weight:600; margin-bottom:4px; }
 .campo-producto input, .campo-producto select { width: 100%; max-width: 420px; }
+
+#msg { padding: 8px 10px; border-radius: 6px; font-weight: 600; }
+.msg-info { background: #dbeafe; color: #1e3a8a; }
+.msg-success { background: #dcfce7; color: #166534; }
+.msg-error { background: #fee2e2; color: #b91c1c; }

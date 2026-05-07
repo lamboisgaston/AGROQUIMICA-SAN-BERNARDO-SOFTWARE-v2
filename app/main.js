@@ -38,7 +38,11 @@ async function api(url, options = {}) {
   return data;
 }
 
-function setMsg(text) { $('#msg').innerHTML = text; }
+function setMsg(text, type = 'info') {
+  const msg = $('#msg');
+  msg.textContent = String(text || '');
+  msg.className = `msg msg-${type}`;
+}
 function normalizarMonedaProducto(valor) {
   const v = String(valor || '').trim().toUpperCase();
   if (v === 'USD' || v === 'DOLAR' || v === 'DÓLAR' || v === 'DOLARES' || v === 'DÓLARES') return 'USD';
@@ -813,14 +817,15 @@ $('#btn-guardar-tipo-cambio').addEventListener('click', async () => {
 });
 
 $('#btn-guardar-producto').addEventListener('click', async () => {
+  const btnGuardar = $('#btn-guardar-producto');
   try {
     const nombre = $('#prod-nombre').value.trim();
     const categoriaSeleccionada = $('#prod-categoria').value.trim();
     const categoriaNueva = $('#prod-categoria-nueva').value.trim();
     const categoria = categoriaSeleccionada || categoriaNueva;
 
-    if (!nombre) return setMsg('El nombre del producto es obligatorio');
-    if (!categoria) return setMsg('La categoría del producto es obligatoria');
+    if (!nombre) return setMsg('El nombre del producto es obligatorio', 'error');
+    if (!categoria) return setMsg('La categoría del producto es obligatoria', 'error');
 
     const body = {
       nombre,
@@ -838,8 +843,15 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     };
 
     const id = $('#prod-id').value;
-    if (id) await api(`/productos/${id}`, { method: 'PUT', body: JSON.stringify(body) });
-    else await api('/productos', { method: 'POST', body: JSON.stringify(body) });
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/productos/${id}` : '/productos';
+    console.log('[producto-guardado][frontend] iniciando', { method, url, body, id: id || null });
+
+    btnGuardar.disabled = true;
+    setMsg('Guardando...', 'info');
+
+    const productoGuardado = await api(url, { method, body: JSON.stringify(body) });
+    console.log('[producto-guardado][frontend] respuesta ok', productoGuardado);
 
     if (categoriaNueva && !categoriasProducto.includes(categoriaNueva)) {
       categoriasProducto.push(categoriaNueva);
@@ -849,10 +861,12 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     await loadProductosAll();
     limpiarFormularioProducto();
     setModoProducto('AGREGAR');
-    setMsg('Producto guardado');
+    setMsg('✅ Producto guardado', 'success');
   } catch (err) {
-    console.error('Error guardando producto:', err);
-    setMsg(`No se pudo guardar el producto: ${err.message}`);
+    console.error('[producto-guardado][frontend] error', err);
+    setMsg(`❌ No se pudo guardar el producto: ${err.message}`, 'error');
+  } finally {
+    btnGuardar.disabled = false;
   }
 });
 
