@@ -23,16 +23,19 @@ let productosPresupuestoVisibles = [];
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
 
+  const rawText = await response.text();
   let data = null;
   try {
-    data = await response.json();
+    data = rawText ? JSON.parse(rawText) : null;
   } catch (_) {
-    data = null;
+    data = rawText || null;
   }
 
   if (!response.ok) {
-    const errorMessage = data?.error || data?.message || `Error ${response.status}`;
-    throw new Error(errorMessage);
+    const errorMessage = (typeof data === 'object' && data)
+      ? (data.error || data.message)
+      : (String(data || '').trim());
+    throw new Error(errorMessage || `Error ${response.status}`);
   }
 
   return data;
@@ -859,15 +862,20 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     }
 
     await loadProductosAll();
-    filtroProductosAdmin = (productoGuardado?.nombre || '').toLowerCase();
-    $('#admin-buscar-producto').value = productoGuardado?.nombre || '';
+    filtroProductosAdmin = '';
+    $('#admin-buscar-producto').value = '';
     renderProductosAdmin();
+
+    const productoEnLista = (productos || []).find((p) => Number(p.id) === Number(productoGuardado?.id));
+    if (productoEnLista) {
+      console.log('[producto-guardado][frontend] producto visible tras refresco', productoEnLista);
+    }
     limpiarFormularioProducto();
     setModoProducto('AGREGAR');
     setMsg('Producto guardado', 'success');
   } catch (err) {
     console.error('[producto-guardado][frontend] error', err);
-    setMsg(err.message, 'error');
+    setMsg(`Error al guardar producto: ${err.message}`, 'error');
   } finally {
     btnGuardar.disabled = false;
   }
