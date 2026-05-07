@@ -39,3 +39,11 @@ Backend con Express + Prisma + SQLite.
   - `PUT /config/tipo-cambio` con body `{ "tipoCambioActual": 1234.56 }`
 - `GET /productos` devuelve además `precioPesosCalculado` (`precioUsd * tipoCambioActual`).
 - En mostrador, al agregar items a una venta se congela el precio en pesos calculado al momento de la carga del item.
+
+
+## Importación de productos desde Excel
+
+- Comando único: `npm run import:productos`
+- Archivo por defecto: `precios.xlsx` en la raíz del repo.
+- También se puede pasar ruta: `python3 scripts/import_productos.py /ruta/al/precios.xlsx`
+- La importación hace **upsert lógico** sobre la tabla `Producto` (misma base para importados y manuales), usando la clave: `nombre + categoria + marca + unidad` normalizada.
