@@ -297,7 +297,10 @@ app.post('/productos', asyncHandler(async (req, res) => {
   try {
     console.log('[producto-guardado][backend] POST /productos payload', req.body);
     const errorValidacion = validarPayloadProducto(req.body);
-    if (errorValidacion) return res.status(400).json({ error: errorValidacion });
+    if (errorValidacion) {
+      console.warn('[producto-guardado][backend] POST /productos validacion', { error: errorValidacion, payload: req.body });
+      return res.status(400).json({ error: errorValidacion });
+    }
     const tipoCambioActual = await obtenerTipoCambioActual();
     const data = normalizarPayloadProducto(req.body, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
@@ -330,7 +333,10 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
     if (!id) return res.status(400).json({ error: 'id inválido' });
     const errorValidacion = validarPayloadProducto(req.body);
-    if (errorValidacion) return res.status(400).json({ error: errorValidacion });
+    if (errorValidacion) {
+      console.warn('[producto-guardado][backend] PUT /productos/:id validacion', { error: errorValidacion, payload: req.body });
+      return res.status(400).json({ error: errorValidacion });
+    }
     const tipoCambioActual = await obtenerTipoCambioActual();
     const existente = await prisma.producto.findUnique({ where: { id } });
     if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
