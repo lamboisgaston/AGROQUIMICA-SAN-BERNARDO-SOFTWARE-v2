@@ -808,26 +808,46 @@ $('#btn-guardar-tipo-cambio').addEventListener('click', async () => {
 
 $('#btn-guardar-producto').addEventListener('click', async () => {
   try {
+    const nombre = $('#prod-nombre').value.trim();
+    const categoriaSeleccionada = $('#prod-categoria').value.trim();
+    const categoriaNueva = $('#prod-categoria-nueva').value.trim();
+    const categoria = categoriaSeleccionada || categoriaNueva;
+
+    if (!nombre) return setMsg('El nombre del producto es obligatorio');
+    if (!categoria) return setMsg('La categoría del producto es obligatoria');
+
     const body = {
-      nombre: $('#prod-nombre').value,
-      categoria: $('#prod-categoria').value,
-      marca: $('#prod-marca').value,
-      unidad: $('#prod-unidad').value,
+      nombre,
+      categoria,
+      marca: $('#prod-marca').value.trim(),
+      unidad: $('#prod-unidad').value.trim(),
       stock: Number($('#prod-stock').value || 0),
       monedaCompra: $('#prod-moneda').value,
+      costoCompraOriginal: Number($('#prod-costo').value || 0),
       costoCompra: Number($('#prod-costo').value || 0),
       ivaPorcentaje: Number($('#prod-iva').value || 0),
       fletePorcentaje: Number($('#prod-flete').value || 0),
       margenGananciaPorcentaje: Number($('#prod-ganancia').value || 0),
       proveedorIds: Array.from($('#prod-proveedor').selectedOptions || []).map(o => Number(o.value)).filter(Boolean)
     };
+
     const id = $('#prod-id').value;
     if (id) await api(`/productos/${id}`, { method: 'PUT', body: JSON.stringify(body) });
     else await api('/productos', { method: 'POST', body: JSON.stringify(body) });
+
+    if (categoriaNueva && !categoriasProducto.includes(categoriaNueva)) {
+      categoriasProducto.push(categoriaNueva);
+      categoriasProducto = categoriasProducto.sort((a, b) => a.localeCompare(b));
+    }
+
     await loadProductosAll();
     limpiarFormularioProducto();
+    setModoProducto('AGREGAR');
     setMsg('Producto guardado');
-  } catch (err) { setMsg(err.message); }
+  } catch (err) {
+    console.error('Error guardando producto:', err);
+    setMsg(`No se pudo guardar el producto: ${err.message}`);
+  }
 });
 
 $('#btn-nuevo-producto').addEventListener('click', limpiarFormularioProducto);

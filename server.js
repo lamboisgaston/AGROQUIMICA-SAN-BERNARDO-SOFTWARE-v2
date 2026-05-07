@@ -161,7 +161,9 @@ function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
   return {
     ...producto,
     monedaCompra,
+    costoCompraOriginal: costoCompra,
     costoCompra,
+    costoBasePesos: costoCompraPesos,
     costoCompraPesos,
     ivaPorcentaje,
     fletePorcentaje,
@@ -207,7 +209,7 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     throw new Error('monedaCompra debe ser ARS o USD');
   }
   const monedaCosto = monedaCompraPayload;
-  const costoBase = Number(payload.costoCompra ?? payload.costoBase ?? payload.precioUsd ?? 0);
+  const costoBase = Number(payload.costoCompraOriginal ?? payload.costoCompra ?? payload.costoBase ?? payload.precioUsd ?? 0);
   const productoNormalizado = {
     nombre: String(payload.nombre || '').trim(),
     categoria: String(payload.categoria || '').trim(),
@@ -256,9 +258,10 @@ app.post('/productos', asyncHandler(async (req, res) => {
   if (!data.nombre || !data.categoria) {
     return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
   }
-  if (!proveedorIds.length) return res.status(400).json({ error: 'Debe asociar al menos un proveedor' });
   const producto = await prisma.producto.create({ data });
-  await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
+  if (proveedorIds.length) {
+    await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
+  }
   const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } } } });
   res.status(201).json(mapearProductoConPrecioPesos(productoConProveedores, tipoCambioActual));
 }));
@@ -284,11 +287,14 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
   if (!data.nombre || !data.categoria) {
     return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
   }
-  if (!proveedorIds.length) return res.status(400).json({ error: 'Debe asociar al menos un proveedor' });
   await prisma.$transaction(async tx => {
     await tx.producto.update({ where: { id }, data });
-    await tx.productoProveedor.deleteMany({ where: { productoId: id } });
-    await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })), skipDuplicates: true });
+    if (Array.isArray(req.body?.proveedorIds)) {
+      await tx.productoProveedor.deleteMany({ where: { productoId: id } });
+      if (proveedorIds.length) {
+        await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })), skipDuplicates: true });
+      }
+    }
   });
   const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
