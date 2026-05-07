@@ -151,7 +151,7 @@ async function obtenerTipoCambioActual() {
 }
 
 function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
-  const precioFinalPesos = calcularPrecioFinalPesos(producto, tipoCambioActual);
+  const calculo = calcularPrecioFinalPesos(producto, tipoCambioActual);
   const monedaCompra = producto.monedaCosto || 'ARS';
   const costoCompra = producto.costoBase ?? 0;
   const costoCompraPesos = monedaCompra === 'USD' ? numeroSeguro(costoCompra) * numeroSeguro(tipoCambioActual, 1) : numeroSeguro(costoCompra);
@@ -171,8 +171,10 @@ function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
     gananciaPorcentaje: margenGananciaPorcentaje,
     createdAt: producto.createdAt || null,
     updatedAt: producto.updatedAt || null,
-    precioFinalPesos,
-    precioPesosCalculado: precioFinalPesos
+    costoTotalPesos: calculo.costoTotalPesos,
+    precioVentaPesos: calculo.precioVentaPesos,
+    precioFinalPesos: calculo.precioVentaPesos,
+    precioPesosCalculado: calculo.precioVentaPesos
   };
 }
 
@@ -184,7 +186,7 @@ function numeroSeguro(valor, fallback = 0) {
 function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
   const monedaCosto = producto.monedaCosto || (producto.precioUsd != null ? 'USD' : 'ARS');
   const costoBaseFuente = producto.costoBase ?? producto.precioUsd ?? 0;
-  const costoBasePesos = monedaCosto === 'USD'
+  const costoCompraPesos = monedaCosto === 'USD'
     ? numeroSeguro(costoBaseFuente) * numeroSeguro(tipoCambioActual, 1)
     : numeroSeguro(costoBaseFuente);
 
@@ -192,16 +194,21 @@ function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
   const fleteMonto = producto.fleteMonto ?? producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
   const gananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
 
-  const costoTotal = costoBasePesos + numeroSeguro(ivaMonto) + numeroSeguro(fleteMonto);
-  const precioFinal = costoTotal * (1 + (numeroSeguro(gananciaPorcentaje) / 100));
-  return Number(numeroSeguro(precioFinal).toFixed(2));
+  const costoTotalPesos = costoCompraPesos + numeroSeguro(ivaMonto) + numeroSeguro(fleteMonto);
+  const precioVentaPesos = costoTotalPesos * (1 + (numeroSeguro(gananciaPorcentaje) / 100));
+  return {
+    costoCompraPesos: Number(numeroSeguro(costoCompraPesos).toFixed(2)),
+    costoTotalPesos: Number(numeroSeguro(costoTotalPesos).toFixed(2)),
+    precioVentaPesos: Number(numeroSeguro(precioVentaPesos).toFixed(2))
+  };
 }
 
 function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
   const monedaCompraPayload = payload.monedaCompra ?? payload.monedaCosto;
-  const monedaCosto = monedaCompraPayload === 'ARS' || monedaCompraPayload === 'USD'
-    ? monedaCompraPayload
-    : (payload.precioUsd != null ? 'USD' : 'ARS');
+  if (monedaCompraPayload !== 'ARS' && monedaCompraPayload !== 'USD') {
+    throw new Error('monedaCompra debe ser ARS o USD');
+  }
+  const monedaCosto = monedaCompraPayload;
   const costoBase = Number(payload.costoCompra ?? payload.costoBase ?? payload.precioUsd ?? 0);
   const productoNormalizado = {
     nombre: String(payload.nombre || '').trim(),
@@ -217,8 +224,9 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     porcentajeGanancia: Number(payload.margenGananciaPorcentaje ?? payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
     precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
   };
-  productoNormalizado.precioFinalPesos = Number(calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual));
-  productoNormalizado.precioVenta = productoNormalizado.precioFinalPesos;
+  const calculo = calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual);
+  productoNormalizado.precioFinalPesos = calculo.precioVentaPesos;
+  productoNormalizado.precioVenta = calculo.precioVentaPesos;
   return productoNormalizado;
 }
 
@@ -516,7 +524,7 @@ async function guardarPresupuesto(req, res, id = null) {
     if (!productoId || !cantidad) return res.status(400).json({ error: 'productoId y cantidad son obligatorios' });
     const producto = await prisma.producto.findUnique({ where: { id: productoId } });
     if (!producto) return res.status(404).json({ error: `Producto ${productoId} no encontrado` });
-    const precioUnitario = calcularPrecioFinalPesos(producto, tipoCambioActual);
+    const precioUnitario = calcularPrecioFinalPesos(producto, tipoCambioActual).precioVentaPesos;
     itemsCalculados.push({ productoId, cantidad, precioUnitario, subtotal: Number((precioUnitario * cantidad).toFixed(2)) });
   }
   const totales = calcularTotalesConDescuento(itemsCalculados, descuentoTipo || null, descuentoValor || 0);
@@ -668,7 +676,7 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
   const producto = await prisma.producto.findUnique({ where: { id: productoIdParsed } });
   if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
   const tipoCambioActual = await obtenerTipoCambioActual();
-  const precioPesosCalculado = calcularPrecioFinalPesos(producto, tipoCambioActual);
+  const precioPesosCalculado = calcularPrecioFinalPesos(producto, tipoCambioActual).precioVentaPesos;
 
   const existente = await prisma.ventaItem.findUnique({
     where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } }

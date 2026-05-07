@@ -45,23 +45,23 @@ function calcularSubtotalRemito(item) {
   return pct(pct(pct(basePesos, item.ivaPorcentaje), item.fletePorcentaje), item.gananciaPorcentaje) * Number(item.cantidad || 0);
 }
 function calcularPrecioProductoForm() {
-  const moneda = $('#prod-moneda').value;
-  const costoBase = Number($('#prod-costo').value || 0);
-  const iva = Number($('#prod-iva').value || 0);
-  const flete = Number($('#prod-flete').value || 0);
-  const ganancia = Number($('#prod-ganancia').value || 0);
-  const costoCompraPesos = moneda === 'USD' ? (costoBase * tipoCambioActual) : costoBase;
-  const costoTotal = costoCompraPesos + iva + flete;
-  const precioVenta = costoTotal * (1 + (ganancia / 100));
+  const monedaCompra = $('#prod-moneda').value;
+  const costoCompra = Number($('#prod-costo').value || 0);
+  const ivaMonto = Number($('#prod-iva').value || 0);
+  const fleteMonto = Number($('#prod-flete').value || 0);
+  const margenGananciaPorcentaje = Number($('#prod-ganancia').value || 0);
+  const costoCompraPesos = monedaCompra === 'USD' ? (costoCompra * tipoCambioActual) : costoCompra;
+  const costoTotalPesos = costoCompraPesos + ivaMonto + fleteMonto;
+  const precioVentaPesos = costoTotalPesos * (1 + (margenGananciaPorcentaje / 100));
   return {
-    costoBase,
-    moneda,
+    costoCompra,
+    monedaCompra,
     costoCompraPesos,
-    iva,
-    flete,
-    ganancia,
-    costoTotalPesos: costoTotal,
-    precioVenta
+    ivaMonto,
+    fleteMonto,
+    margenGananciaPorcentaje,
+    costoTotalPesos,
+    precioVentaPesos
   };
 }
 
@@ -394,14 +394,14 @@ function limpiarFormularioProducto() {
 }
 function renderResumenPreciosProducto() {
   const c = calcularPrecioProductoForm();
-  $('#prod-costo-original').textContent = money(c.costoBase);
-  $('#prod-moneda-resumen').textContent = c.moneda;
+  $('#prod-costo-original').textContent = money(c.costoCompra);
+  $('#prod-moneda-resumen').textContent = c.monedaCompra;
   $('#prod-costo-convertido').textContent = money(c.costoCompraPesos);
-  $('#prod-iva-resumen').textContent = money(c.iva);
-  $('#prod-flete-resumen').textContent = money(c.flete);
+  $('#prod-iva-resumen').textContent = money(c.ivaMonto);
+  $('#prod-flete-resumen').textContent = money(c.fleteMonto);
   $('#prod-costo-total').textContent = money(c.costoTotalPesos);
-  $('#prod-margen-resumen').textContent = `${Number(c.ganancia || 0).toFixed(2)}%`;
-  $('#prod-precio-final').textContent = money(c.precioVenta);
+  $('#prod-margen-resumen').textContent = `${Number(c.margenGananciaPorcentaje || 0).toFixed(2)}%`;
+  $('#prod-precio-final').textContent = money(c.precioVentaPesos);
 }
 
 function renderCategoriasProducto(selected = '') {
@@ -424,7 +424,7 @@ function renderProductosAdmin() {
   const f = filtroProductosAdmin.toLowerCase();
   const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
-    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.marca || '-'} | ${p.unidad || '-'} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCompra || p.monedaCosto} ${p.costoCompra ?? p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.marca || '-'} | ${p.unidad || '-'} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | Compra ${p.monedaCompra || p.monedaCosto} ${money(p.costoCompra ?? p.costoBase)} | Convertido ${money(p.costoCompraPesos)} | Final ${money(p.precioVentaPesos || p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
