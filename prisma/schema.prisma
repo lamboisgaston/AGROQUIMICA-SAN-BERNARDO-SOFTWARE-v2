@@ -11,9 +11,12 @@ model Producto {
   id                Int        @id @default(autoincrement())
   nombre            String
   categoria         String
+  marca             String     @default("")
+  unidad            String     @default("")
   stock             Int        @default(0)
   monedaCosto       String     @default("USD")
   costoBase         Float      @default(0)
+  precioVenta       Float      @default(0)
   porcentajeUva     Float      @default(0)
   porcentajeFlete   Float      @default(0)
   porcentajeGanancia Float     @default(0)
