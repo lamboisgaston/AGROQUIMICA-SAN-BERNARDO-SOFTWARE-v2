@@ -13,6 +13,8 @@ let tipoCambioActual = 1;
 let proveedores = [];
 let remitoDetalles = [];
 let filtroProductosAdmin = '';
+let modoProducto = 'AGREGAR';
+let categoriasProducto = [];
 let presupuestoClienteId = null;
 let presupuestoItems = [];
 let filtroProductosPresupuesto = '';
@@ -367,6 +369,10 @@ function limpiarFormularioProducto() {
   $('#prod-id').value = '';
   $('#prod-nombre').value = '';
   $('#prod-categoria').value = '';
+  $('#prod-categoria-nueva').value = '';
+  $('#prod-marca').value = '';
+  $('#prod-unidad').value = '';
+  $('#prod-precio').value = '0';
   $('#prod-stock').value = '0';
   $('#prod-moneda').value = 'ARS';
   $('#prod-costo').value = '0';
@@ -377,11 +383,27 @@ function limpiarFormularioProducto() {
   $('#prod-precio-final').textContent = money(0);
 }
 
+function renderCategoriasProducto(selected = '') {
+  const sel = $('#prod-categoria');
+  if (!sel) return;
+  const opciones = categoriasProducto.map(c => `<option value="${c}">${c}</option>`).join('');
+  sel.innerHTML = `<option value="">Seleccione categoría</option>${opciones}`;
+  if (selected) sel.value = selected;
+}
+
+function setModoProducto(nuevoModo) {
+  modoProducto = nuevoModo;
+  const panelEditar = $('#panel-editar-productos');
+  if (panelEditar) panelEditar.style.display = modoProducto === 'EDITAR' ? 'block' : 'none';
+  if (modoProducto === 'AGREGAR') limpiarFormularioProducto();
+}
+
 function renderProductosAdmin() {
   const container = $('#productos-admin');
-  const lista = productos.filter(p => !filtroProductosAdmin || p.nombre.toLowerCase().includes(filtroProductosAdmin));
+  const f = filtroProductosAdmin.toLowerCase();
+  const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
-    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.marca || '-'} | ${p.unidad || '-'} | Prov: ${(p.proveedores || []).map(pp => pp.proveedor?.nombre).filter(Boolean).join(', ') || '-'} | ${p.monedaCosto} ${p.costoBase} | Final ${money(p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
@@ -461,10 +483,16 @@ async function loadTipoCambio() {
   $('#tipo-cambio').value = tipoCambioActual;
 }
 
+async function loadCategoriasProducto() {
+  categoriasProducto = await api('/productos/categorias');
+  renderCategoriasProducto();
+}
+
 async function loadProductosAll() {
   productos = await api('/productos');
   renderProductos();
   renderProductosAdmin();
+  await loadCategoriasProducto();
   renderStockProductos();
   renderBuscadorRemitoProductos();
 }
@@ -759,6 +787,9 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     const body = {
       nombre: $('#prod-nombre').value,
       categoria: $('#prod-categoria').value,
+      marca: $('#prod-marca').value,
+      unidad: $('#prod-unidad').value,
+      precioVenta: Number($('#prod-precio').value || 0),
       stock: Number($('#prod-stock').value || 0),
       monedaCosto: $('#prod-moneda').value,
       costoBase: Number($('#prod-costo').value || 0),
@@ -777,6 +808,16 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
 });
 
 $('#btn-nuevo-producto').addEventListener('click', limpiarFormularioProducto);
+$('#btn-modo-agregar-producto').addEventListener('click', () => setModoProducto('AGREGAR'));
+$('#btn-modo-editar-producto').addEventListener('click', () => setModoProducto('EDITAR'));
+$('#btn-crear-categoria').addEventListener('click', () => {
+  const nueva = ($('#prod-categoria-nueva').value || '').trim();
+  if (!nueva) return;
+  if (!categoriasProducto.includes(nueva)) categoriasProducto.push(nueva);
+  categoriasProducto = categoriasProducto.sort((a,b)=>a.localeCompare(b));
+  renderCategoriasProducto(nueva);
+  $('#prod-categoria-nueva').value = '';
+});
 $('#admin-buscar-producto').addEventListener('input', async (e) => {
   const q = e.target.value.trim();
   if (!q) {
@@ -801,6 +842,9 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-id').value = p.id;
   $('#prod-nombre').value = p.nombre;
   $('#prod-categoria').value = p.categoria;
+  $('#prod-marca').value = p.marca || '';
+  $('#prod-unidad').value = p.unidad || '';
+  $('#prod-precio').value = p.precioVenta || p.precioFinalPesos || 0;
   $('#prod-stock').value = p.stock;
   $('#prod-moneda').value = p.monedaCosto || 'ARS';
   $('#prod-costo').value = p.costoBase || 0;
@@ -810,6 +854,7 @@ $('#productos-admin').addEventListener('click', (e) => {
   const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);
+  setModoProducto('EDITAR');
 });
 async function buscarClientePresupuesto() {
   const q = $('#pres-buscar-cliente').value.trim();
@@ -1037,6 +1082,7 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadTipoCambio();
   await loadProveedores();
   await loadProductosAll();
+  setModoProducto('AGREGAR');
   renderPresupuestoProductos();
   await loadPresupuestos();
   renderCarrito();
