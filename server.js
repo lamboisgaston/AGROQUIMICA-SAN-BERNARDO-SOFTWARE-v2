@@ -155,19 +155,17 @@ function mapearProductoConPrecioPesos(producto, tipoCambioActual) {
   const monedaCompra = producto.monedaCosto || 'ARS';
   const costoCompra = producto.costoBase ?? 0;
   const costoCompraPesos = monedaCompra === 'USD' ? numeroSeguro(costoCompra) * numeroSeguro(tipoCambioActual, 1) : numeroSeguro(costoCompra);
-  const ivaMonto = producto.ivaMonto ?? producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
-  const fleteMonto = producto.fleteMonto ?? producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
+  const ivaPorcentaje = producto.ivaPorcentaje ?? producto.porcentajeUva ?? producto.ivaMonto ?? 0;
+  const fletePorcentaje = producto.fletePorcentaje ?? producto.porcentajeFlete ?? producto.fleteMonto ?? 0;
   const margenGananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
   return {
     ...producto,
     monedaCompra,
     costoCompra,
     costoCompraPesos,
-    ivaMonto,
-    fleteMonto,
+    ivaPorcentaje,
+    fletePorcentaje,
     margenGananciaPorcentaje,
-    ivaPorcentaje: ivaMonto,
-    fletePorcentaje: fleteMonto,
     gananciaPorcentaje: margenGananciaPorcentaje,
     createdAt: producto.createdAt || null,
     updatedAt: producto.updatedAt || null,
@@ -190,15 +188,15 @@ function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
     ? numeroSeguro(costoBaseFuente) * numeroSeguro(tipoCambioActual, 1)
     : numeroSeguro(costoBaseFuente);
 
-  const ivaMonto = producto.ivaMonto ?? producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
-  const fleteMonto = producto.fleteMonto ?? producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
+  const ivaPorcentaje = producto.ivaPorcentaje ?? producto.porcentajeUva ?? producto.ivaMonto ?? 0;
+  const fletePorcentaje = producto.fletePorcentaje ?? producto.porcentajeFlete ?? producto.fleteMonto ?? 0;
   const gananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
-
-  const costoTotalPesos = costoCompraPesos + numeroSeguro(ivaMonto) + numeroSeguro(fleteMonto);
-  const precioVentaPesos = costoTotalPesos * (1 + (numeroSeguro(gananciaPorcentaje) / 100));
+  const costoConIva = costoCompraPesos * (1 + (numeroSeguro(ivaPorcentaje) / 100));
+  const costoConFlete = costoConIva * (1 + (numeroSeguro(fletePorcentaje) / 100));
+  const precioVentaPesos = costoConFlete * (1 + (numeroSeguro(gananciaPorcentaje) / 100));
   return {
     costoCompraPesos: Number(numeroSeguro(costoCompraPesos).toFixed(2)),
-    costoTotalPesos: Number(numeroSeguro(costoTotalPesos).toFixed(2)),
+    costoTotalPesos: Number(numeroSeguro(costoConFlete).toFixed(2)),
     precioVentaPesos: Number(numeroSeguro(precioVentaPesos).toFixed(2))
   };
 }
@@ -219,8 +217,8 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     monedaCosto,
     costoBase,
     precioVenta: 0,
-    porcentajeUva: Number(payload.ivaMonto ?? payload.ivaPorcentaje ?? payload.porcentajeUva ?? 0),
-    porcentajeFlete: Number(payload.fleteMonto ?? payload.fletePorcentaje ?? payload.porcentajeFlete ?? 0),
+    porcentajeUva: Number(payload.ivaPorcentaje ?? payload.ivaMonto ?? payload.porcentajeUva ?? 0),
+    porcentajeFlete: Number(payload.fletePorcentaje ?? payload.fleteMonto ?? payload.porcentajeFlete ?? 0),
     porcentajeGanancia: Number(payload.margenGananciaPorcentaje ?? payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
     precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
   };

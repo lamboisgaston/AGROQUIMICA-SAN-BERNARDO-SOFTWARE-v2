@@ -47,18 +47,19 @@ function calcularSubtotalRemito(item) {
 function calcularPrecioProductoForm() {
   const monedaCompra = $('#prod-moneda').value;
   const costoCompra = Number($('#prod-costo').value || 0);
-  const ivaMonto = Number($('#prod-iva').value || 0);
-  const fleteMonto = Number($('#prod-flete').value || 0);
+  const ivaPorcentaje = Number($('#prod-iva').value || 0);
+  const fletePorcentaje = Number($('#prod-flete').value || 0);
   const margenGananciaPorcentaje = Number($('#prod-ganancia').value || 0);
   const costoCompraPesos = monedaCompra === 'USD' ? (costoCompra * tipoCambioActual) : costoCompra;
-  const costoTotalPesos = costoCompraPesos + ivaMonto + fleteMonto;
+  const costoConIva = costoCompraPesos * (1 + (ivaPorcentaje / 100));
+  const costoTotalPesos = costoConIva * (1 + (fletePorcentaje / 100));
   const precioVentaPesos = costoTotalPesos * (1 + (margenGananciaPorcentaje / 100));
   return {
     costoCompra,
     monedaCompra,
     costoCompraPesos,
-    ivaMonto,
-    fleteMonto,
+    ivaPorcentaje,
+    fletePorcentaje,
     margenGananciaPorcentaje,
     costoTotalPesos,
     precioVentaPesos
@@ -397,8 +398,8 @@ function renderResumenPreciosProducto() {
   $('#prod-costo-original').textContent = money(c.costoCompra);
   $('#prod-moneda-resumen').textContent = c.monedaCompra;
   $('#prod-costo-convertido').textContent = money(c.costoCompraPesos);
-  $('#prod-iva-resumen').textContent = money(c.ivaMonto);
-  $('#prod-flete-resumen').textContent = money(c.fleteMonto);
+  $('#prod-iva-resumen').textContent = `${Number(c.ivaPorcentaje || 0).toFixed(2)}%`;
+  $('#prod-flete-resumen').textContent = `${Number(c.fletePorcentaje || 0).toFixed(2)}%`;
   $('#prod-costo-total').textContent = money(c.costoTotalPesos);
   $('#prod-margen-resumen').textContent = `${Number(c.margenGananciaPorcentaje || 0).toFixed(2)}%`;
   $('#prod-precio-final').textContent = money(c.precioVentaPesos);
@@ -815,8 +816,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       stock: Number($('#prod-stock').value || 0),
       monedaCompra: $('#prod-moneda').value,
       costoCompra: Number($('#prod-costo').value || 0),
-      ivaMonto: Number($('#prod-iva').value || 0),
-      fleteMonto: Number($('#prod-flete').value || 0),
+      ivaPorcentaje: Number($('#prod-iva').value || 0),
+      fletePorcentaje: Number($('#prod-flete').value || 0),
       margenGananciaPorcentaje: Number($('#prod-ganancia').value || 0),
       proveedorIds: Array.from($('#prod-proveedor').selectedOptions || []).map(o => Number(o.value)).filter(Boolean)
     };
@@ -869,8 +870,8 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-stock').value = p.stock;
   $('#prod-moneda').value = p.monedaCompra || p.monedaCosto || 'ARS';
   $('#prod-costo').value = p.costoCompra || p.costoBase || 0;
-  $('#prod-iva').value = p.ivaMonto || p.porcentajeUva || 0;
-  $('#prod-flete').value = p.fleteMonto || p.porcentajeFlete || 0;
+  $('#prod-iva').value = p.ivaPorcentaje || p.porcentajeUva || p.ivaMonto || 0;
+  $('#prod-flete').value = p.fletePorcentaje || p.porcentajeFlete || p.fleteMonto || 0;
   $('#prod-ganancia').value = p.margenGananciaPorcentaje || p.porcentajeGanancia || 0;
   const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
