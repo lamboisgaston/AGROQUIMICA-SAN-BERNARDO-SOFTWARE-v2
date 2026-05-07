@@ -149,25 +149,26 @@
       </div>
       <div class="campo-producto">
         <label for="prod-precio">Precio de venta</label>
-        <input id="prod-precio" type="number" step="0.01" min="0" />
+        <input id="prod-precio" type="number" step="0.01" min="0" readonly />
       </div>
       <div class="campo-producto">
-        <label for="prod-iva">% IVA</label>
-        <input id="prod-iva" type="number" step="0.01" />
+        <label for="prod-iva">IVA (monto)</label>
+        <input id="prod-iva" type="number" step="0.01" min="0" />
       </div>
       <div class="campo-producto">
-        <label for="prod-flete">% Flete</label>
-        <input id="prod-flete" type="number" step="0.01" />
+        <label for="prod-flete">Flete (monto)</label>
+        <input id="prod-flete" type="number" step="0.01" min="0" />
       </div>
       <div class="campo-producto">
-        <label for="prod-ganancia">% Ganancia</label>
+        <label for="prod-ganancia">Margen ganancia (%)</label>
         <input id="prod-ganancia" type="number" step="0.01" />
       </div>
       <div class="campo-producto">
         <label for="prod-proveedor">Proveedores (Ctrl/Cmd + click para múltiple)</label>
         <select id="prod-proveedor" multiple size="4"></select>
       </div>
-      <p>Precio final en pesos: <strong id="prod-precio-final">$0.00</strong></p>
+      <p>Costo total: <strong id="prod-costo-total">$0.00</strong></p>
+      <p>Precio de venta calculado: <strong id="prod-precio-final">$0.00</strong></p>
       <button id="btn-guardar-producto">Guardar producto</button>
       <button id="btn-nuevo-producto">Nuevo</button>
     </section>

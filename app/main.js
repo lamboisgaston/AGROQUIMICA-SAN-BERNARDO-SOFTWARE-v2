@@ -51,7 +51,12 @@ function calcularPrecioProductoForm() {
   const flete = Number($('#prod-flete').value || 0);
   const ganancia = Number($('#prod-ganancia').value || 0);
   const basePesos = moneda === 'USD' ? (costoBase * tipoCambioActual) : costoBase;
-  return pct(pct(pct(basePesos, iva), flete), ganancia);
+  const costoTotal = basePesos + iva + flete;
+  const precioVenta = costoTotal * (1 + (ganancia / 100));
+  return {
+    costoTotal,
+    precioVenta
+  };
 }
 
 function logFlujo(paso, payload) {
@@ -380,6 +385,7 @@ function limpiarFormularioProducto() {
   $('#prod-flete').value = '0';
   $('#prod-ganancia').value = '0';
   Array.from($('#prod-proveedor').options || []).forEach(o => { o.selected = false; });
+  $('#prod-costo-total').textContent = money(0);
   $('#prod-precio-final').textContent = money(0);
 }
 
@@ -769,7 +775,12 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
   }
 });
 ['#prod-costo', '#prod-iva', '#prod-flete', '#prod-ganancia', '#prod-moneda'].forEach(sel => {
-  $(sel).addEventListener('input', () => { $('#prod-precio-final').textContent = money(calcularPrecioProductoForm()); });
+  $(sel).addEventListener('input', () => {
+    const calculo = calcularPrecioProductoForm();
+    $('#prod-costo-total').textContent = money(calculo.costoTotal);
+    $('#prod-precio-final').textContent = money(calculo.precioVenta);
+    $('#prod-precio').value = Number(calculo.precioVenta.toFixed(2));
+  });
 });
 
 $('#btn-guardar-tipo-cambio').addEventListener('click', async () => {
@@ -793,8 +804,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       stock: Number($('#prod-stock').value || 0),
       monedaCosto: $('#prod-moneda').value,
       costoBase: Number($('#prod-costo').value || 0),
-      porcentajeUva: Number($('#prod-iva').value || 0),
-      porcentajeFlete: Number($('#prod-flete').value || 0),
+      ivaMonto: Number($('#prod-iva').value || 0),
+      fleteMonto: Number($('#prod-flete').value || 0),
       porcentajeGanancia: Number($('#prod-ganancia').value || 0),
       proveedorIds: Array.from($('#prod-proveedor').selectedOptions || []).map(o => Number(o.value)).filter(Boolean)
     };
@@ -853,6 +864,10 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-ganancia').value = p.porcentajeGanancia || 0;
   const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
+  const costoBase = Number(p.monedaCosto === 'USD' ? (p.costoBase || 0) * tipoCambioActual : (p.costoBase || 0));
+  const ivaMonto = Number(p.porcentajeUva || 0);
+  const fleteMonto = Number(p.porcentajeFlete || 0);
+  $('#prod-costo-total').textContent = money(costoBase + ivaMonto + fleteMonto);
   $('#prod-precio-final').textContent = money(p.precioFinalPesos);
   setModoProducto('EDITAR');
 });

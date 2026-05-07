@@ -169,10 +169,6 @@ function numeroSeguro(valor, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function aplicarPorcentajeAcumulado(base, porcentaje) {
-  return numeroSeguro(base) * (1 + (numeroSeguro(porcentaje) / 100));
-}
-
 function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
   const monedaCosto = producto.monedaCosto || (producto.precioUsd != null ? 'USD' : 'ARS');
   const costoBaseFuente = producto.costoBase ?? producto.precioUsd ?? 0;
@@ -180,13 +176,12 @@ function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
     ? numeroSeguro(costoBaseFuente) * numeroSeguro(tipoCambioActual, 1)
     : numeroSeguro(costoBaseFuente);
 
-  const ivaPorcentaje = producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
-  const fletePorcentaje = producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
+  const ivaMonto = producto.ivaMonto ?? producto.ivaPorcentaje ?? producto.porcentajeUva ?? 0;
+  const fleteMonto = producto.fleteMonto ?? producto.fletePorcentaje ?? producto.porcentajeFlete ?? 0;
   const gananciaPorcentaje = producto.gananciaPorcentaje ?? producto.porcentajeGanancia ?? 0;
 
-  const baseConIva = aplicarPorcentajeAcumulado(costoBasePesos, ivaPorcentaje);
-  const baseConFlete = aplicarPorcentajeAcumulado(baseConIva, fletePorcentaje);
-  const precioFinal = aplicarPorcentajeAcumulado(baseConFlete, gananciaPorcentaje);
+  const costoTotal = costoBasePesos + numeroSeguro(ivaMonto) + numeroSeguro(fleteMonto);
+  const precioFinal = costoTotal * (1 + (numeroSeguro(gananciaPorcentaje) / 100));
   return Number(numeroSeguro(precioFinal).toFixed(2));
 }
 
@@ -203,13 +198,14 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     stock: Number.isInteger(Number(payload.stock)) ? Number(payload.stock) : 0,
     monedaCosto,
     costoBase,
-    precioVenta: Number(payload.precioVenta ?? payload.precioFinalPesos ?? 0),
-    porcentajeUva: Number(payload.ivaPorcentaje ?? payload.porcentajeUva ?? 0),
-    porcentajeFlete: Number(payload.fletePorcentaje ?? payload.porcentajeFlete ?? 0),
+    precioVenta: 0,
+    porcentajeUva: Number(payload.ivaMonto ?? payload.ivaPorcentaje ?? payload.porcentajeUva ?? 0),
+    porcentajeFlete: Number(payload.fleteMonto ?? payload.fletePorcentaje ?? payload.porcentajeFlete ?? 0),
     porcentajeGanancia: Number(payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
     precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
   };
-  productoNormalizado.precioFinalPesos = Number(productoNormalizado.precioVenta || calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual));
+  productoNormalizado.precioFinalPesos = Number(calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual));
+  productoNormalizado.precioVenta = productoNormalizado.precioFinalPesos;
   return productoNormalizado;
 }
 
