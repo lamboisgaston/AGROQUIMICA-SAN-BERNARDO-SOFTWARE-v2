@@ -8,7 +8,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "seed": "node prisma/seed.js",
-    "start": "npx prisma migrate deploy && node server.js"
+    "start": "npx prisma migrate deploy && node server.js",
+    "import:productos": "node scripts/import.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
