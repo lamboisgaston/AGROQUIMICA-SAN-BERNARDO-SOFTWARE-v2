@@ -235,6 +235,24 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
   return productoNormalizado;
 }
 
+function validarPayloadProducto(payload = {}) {
+  const obligatorios = [
+    ['nombre', payload.nombre],
+    ['categoria', payload.categoria],
+    ['monedaCompra', payload.monedaCompra ?? payload.monedaCosto],
+    ['costoCompraOriginal', payload.costoCompraOriginal ?? payload.costoCompra ?? payload.costoBase],
+    ['stock', payload.stock]
+  ];
+  const faltantes = obligatorios
+    .filter(([_, valor]) => valor === undefined || valor === null || String(valor).trim() === '')
+    .map(([campo]) => campo);
+
+  if (faltantes.length) {
+    return `Faltan campos obligatorios: ${faltantes.join(', ')}`;
+  }
+  return null;
+}
+
 app.get('/productos', async (req, res) => {
   try {
     const tipoCambioActual = await obtenerTipoCambioActual();
@@ -256,22 +274,45 @@ app.get('/productos', async (req, res) => {
   }
 });
 
-app.post('/productos', asyncHandler(async (req, res) => {
-  console.log('[producto-guardado][backend] POST /productos payload', req.body);
+app.get('/productos/buscar', asyncHandler(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.json([]);
   const tipoCambioActual = await obtenerTipoCambioActual();
-  const data = normalizarPayloadProducto(req.body, tipoCambioActual);
-  console.log('[producto-guardado][backend] POST /productos normalizado', data);
-  const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
-  if (!data.nombre || !data.categoria) {
-    return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
+  const productos = await prisma.producto.findMany({
+    where: {
+      OR: [
+        { nombre: { contains: q } },
+        { categoria: { contains: q } },
+        { marca: { contains: q } }
+      ]
+    },
+    include: { proveedores: { include: { proveedor: true } } },
+    orderBy: { nombre: 'asc' },
+    take: 20
+  });
+  res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
+}));
+
+app.post('/productos', asyncHandler(async (req, res) => {
+  try {
+    console.log('[producto-guardado][backend] POST /productos payload', req.body);
+    const errorValidacion = validarPayloadProducto(req.body);
+    if (errorValidacion) return res.status(400).json({ error: errorValidacion });
+    const tipoCambioActual = await obtenerTipoCambioActual();
+    const data = normalizarPayloadProducto(req.body, tipoCambioActual);
+    console.log('[producto-guardado][backend] POST /productos normalizado', data);
+    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
+    const producto = await prisma.producto.create({ data });
+    console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
+    if (proveedorIds.length) {
+      await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
+    }
+    const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } } } });
+    res.status(201).json(mapearProductoConPrecioPesos(productoConProveedores, tipoCambioActual));
+  } catch (error) {
+    console.error('[producto-guardado][backend] POST /productos error', { message: error.message, stack: error.stack, payload: req.body });
+    throw error;
   }
-  const producto = await prisma.producto.create({ data });
-  console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
-  if (proveedorIds.length) {
-    await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
-  }
-  const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } } } });
-  res.status(201).json(mapearProductoConPrecioPesos(productoConProveedores, tipoCambioActual));
 }));
 
 app.get('/productos/categorias', asyncHandler(async (_req, res) => {
@@ -284,31 +325,35 @@ app.get('/productos/categorias', asyncHandler(async (_req, res) => {
 }));
 
 app.put('/productos/:id', asyncHandler(async (req, res) => {
-  const id = parsePositiveInt(req.params.id);
-  console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
-  if (!id) return res.status(400).json({ error: 'id inválido' });
-  const tipoCambioActual = await obtenerTipoCambioActual();
-  const existente = await prisma.producto.findUnique({ where: { id } });
-  if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
+  try {
+    const id = parsePositiveInt(req.params.id);
+    console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
+    if (!id) return res.status(400).json({ error: 'id inválido' });
+    const errorValidacion = validarPayloadProducto(req.body);
+    if (errorValidacion) return res.status(400).json({ error: errorValidacion });
+    const tipoCambioActual = await obtenerTipoCambioActual();
+    const existente = await prisma.producto.findUnique({ where: { id } });
+    if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
 
-  const data = normalizarPayloadProducto({ ...existente, ...req.body }, tipoCambioActual);
-  console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
-  const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
-  if (!data.nombre || !data.categoria) {
-    return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
-  }
-  await prisma.$transaction(async tx => {
-    await tx.producto.update({ where: { id }, data });
-    if (Array.isArray(req.body?.proveedorIds)) {
-      await tx.productoProveedor.deleteMany({ where: { productoId: id } });
-      if (proveedorIds.length) {
-        await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })), skipDuplicates: true });
+    const data = normalizarPayloadProducto({ ...existente, ...req.body }, tipoCambioActual);
+    console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
+    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
+    await prisma.$transaction(async tx => {
+      await tx.producto.update({ where: { id }, data });
+      if (Array.isArray(req.body?.proveedorIds)) {
+        await tx.productoProveedor.deleteMany({ where: { productoId: id } });
+        if (proveedorIds.length) {
+          await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })), skipDuplicates: true });
+        }
       }
-    }
-  });
-  const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
-  console.log('[producto-guardado][backend] PUT /productos/:id actualizado', { id: producto?.id, nombre: producto?.nombre });
-  res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
+    });
+    const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
+    console.log('[producto-guardado][backend] PUT /productos/:id actualizado', { id: producto?.id, nombre: producto?.nombre });
+    res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
+  } catch (error) {
+    console.error('[producto-guardado][backend] PUT /productos/:id error', { message: error.message, stack: error.stack, payload: req.body });
+    throw error;
+  }
 }));
 
 app.get('/proveedores', asyncHandler(async (req, res) => {

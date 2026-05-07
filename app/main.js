@@ -95,7 +95,7 @@ async function buscarProductos(query) {
   const q = (query || '').trim();
   console.log('Buscando productos:', q);
   if (!q) return [];
-  const res = await fetch(`/productos?q=${encodeURIComponent(q)}`);
+  const res = await fetch(`/productos/buscar?q=${encodeURIComponent(q)}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error buscando productos');
   console.log('Resultados productos:', data);
@@ -859,6 +859,9 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     }
 
     await loadProductosAll();
+    filtroProductosAdmin = (productoGuardado?.nombre || '').toLowerCase();
+    $('#admin-buscar-producto').value = productoGuardado?.nombre || '';
+    renderProductosAdmin();
     limpiarFormularioProducto();
     setModoProducto('AGREGAR');
     setMsg('✅ Producto guardado', 'success');
