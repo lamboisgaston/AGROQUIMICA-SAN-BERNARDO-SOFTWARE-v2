@@ -257,13 +257,16 @@ app.get('/productos', async (req, res) => {
 });
 
 app.post('/productos', asyncHandler(async (req, res) => {
+  console.log('[producto-guardado][backend] POST /productos payload', req.body);
   const tipoCambioActual = await obtenerTipoCambioActual();
   const data = normalizarPayloadProducto(req.body, tipoCambioActual);
+  console.log('[producto-guardado][backend] POST /productos normalizado', data);
   const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
   if (!data.nombre || !data.categoria) {
     return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
   }
   const producto = await prisma.producto.create({ data });
+  console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
   if (proveedorIds.length) {
     await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
   }
@@ -282,12 +285,14 @@ app.get('/productos/categorias', asyncHandler(async (_req, res) => {
 
 app.put('/productos/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
+  console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
   if (!id) return res.status(400).json({ error: 'id inválido' });
   const tipoCambioActual = await obtenerTipoCambioActual();
   const existente = await prisma.producto.findUnique({ where: { id } });
   if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
 
   const data = normalizarPayloadProducto({ ...existente, ...req.body }, tipoCambioActual);
+  console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
   const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
   if (!data.nombre || !data.categoria) {
     return res.status(400).json({ error: 'nombre y categoría son obligatorios' });
@@ -302,6 +307,7 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     }
   });
   const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
+  console.log('[producto-guardado][backend] PUT /productos/:id actualizado', { id: producto?.id, nombre: producto?.nombre });
   res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
 }));
 
@@ -1219,7 +1225,7 @@ app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req,
 }));
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error('[backend-error]', { method: req.method, path: req.path, message: err.message, stack: err.stack });
   if (res.headersSent) return next(err);
   res.status(500).json({ error: 'Error interno del servidor' });
 });
