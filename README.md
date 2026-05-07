@@ -2,6 +2,14 @@
 
 Backend con Express + Prisma + SQLite.
 
+## Arranque rápido
+
+1. `npm install`
+2. `npm run dev`
+
+El módulo de productos usa una única fuente de verdad: la tabla `Producto` de la base de datos.
+Los productos se crean, editan y buscan manualmente desde la interfaz del sistema.
+
 ## Módulo de ventas mostrador
 
 ### Flujo
@@ -29,21 +37,11 @@ Backend con Express + Prisma + SQLite.
 - Registrar pago de cuenta corriente:
   - `POST /cuenta-corriente/personas/:personaId/pagos` con body `{ "monto": 1000, "descripcion": "Pago parcial" }`
 
-
 ## Precios en USD y tipo de cambio
 
-- `Producto` guarda `precioUsd`.
+- `Producto` guarda moneda de compra (`ARS` o `USD`) y costo base.
 - Configuración global de cotización: `tipoCambioActual`.
 - Endpoints:
   - `GET /config/tipo-cambio`
   - `PUT /config/tipo-cambio` con body `{ "tipoCambioActual": 1234.56 }`
-- `GET /productos` devuelve además `precioPesosCalculado` (`precioUsd * tipoCambioActual`).
-- En mostrador, al agregar items a una venta se congela el precio en pesos calculado al momento de la carga del item.
-
-
-## Importación de productos desde Excel
-
-- Comando único: `npm run import:productos`
-- Archivo por defecto: `precios.xlsx` en la raíz del repo.
-- También se puede pasar ruta: `python3 scripts/import_productos.py /ruta/al/precios.xlsx`
-- La importación hace **upsert lógico** sobre la tabla `Producto` (misma base para importados y manuales), usando la clave: `nombre + categoria + marca + unidad` normalizada.
+- El precio final se calcula en pesos aplicando: tipo de cambio (si corresponde), IVA, flete y margen de ganancia.
