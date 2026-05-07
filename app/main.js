@@ -39,6 +39,12 @@ async function api(url, options = {}) {
 }
 
 function setMsg(text) { $('#msg').innerHTML = text; }
+function normalizarMonedaProducto(valor) {
+  const v = String(valor || '').trim().toUpperCase();
+  if (v === 'USD' || v === 'DOLAR' || v === 'DÓLAR' || v === 'DOLARES' || v === 'DÓLARES') return 'USD';
+  if (v === 'ARS' || v === 'PESOS' || v === 'PESO') return 'ARS';
+  return 'ARS';
+}
 function pct(base, p) { return Number(base) * (1 + (Number(p || 0) / 100)); }
 function calcularSubtotalRemito(item) {
   const basePesos = item.monedaCosto === 'USD' ? Number(item.costoCompra || 0) * tipoCambioActual : Number(item.costoCompra || 0);
@@ -822,7 +828,7 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       marca: $('#prod-marca').value.trim(),
       unidad: $('#prod-unidad').value.trim(),
       stock: Number($('#prod-stock').value || 0),
-      monedaCompra: $('#prod-moneda').value,
+      monedaCompra: normalizarMonedaProducto($('#prod-moneda').value),
       costoCompraOriginal: Number($('#prod-costo').value || 0),
       costoCompra: Number($('#prod-costo').value || 0),
       ivaPorcentaje: Number($('#prod-iva').value || 0),
@@ -888,7 +894,7 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-marca').value = p.marca || '';
   $('#prod-unidad').value = p.unidad || '';
   $('#prod-stock').value = p.stock;
-  $('#prod-moneda').value = p.monedaCompra || p.monedaCosto || 'ARS';
+  $('#prod-moneda').value = normalizarMonedaProducto(p.monedaCompra || p.monedaCosto || 'ARS');
   $('#prod-costo').value = p.costoCompra || p.costoBase || 0;
   $('#prod-iva').value = p.ivaPorcentaje || p.porcentajeUva || p.ivaMonto || 0;
   $('#prod-flete').value = p.fletePorcentaje || p.porcentajeFlete || p.fleteMonto || 0;

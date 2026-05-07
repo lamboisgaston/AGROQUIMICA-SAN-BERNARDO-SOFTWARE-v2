@@ -204,7 +204,12 @@ function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
 }
 
 function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
-  const monedaCompraPayload = payload.monedaCompra ?? payload.monedaCosto;
+  const monedaBruta = String(payload.monedaCompra ?? payload.monedaCosto ?? '').trim().toUpperCase();
+  const monedaCompraPayload = ['USD', 'DOLAR', 'DÓLAR', 'DOLARES', 'DÓLARES'].includes(monedaBruta)
+    ? 'USD'
+    : ['ARS', 'PESO', 'PESOS'].includes(monedaBruta)
+      ? 'ARS'
+      : monedaBruta;
   if (monedaCompraPayload !== 'ARS' && monedaCompraPayload !== 'USD') {
     throw new Error('monedaCompra debe ser ARS o USD');
   }
