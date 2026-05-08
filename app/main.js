@@ -530,19 +530,38 @@ function renderPresupuestoProductos() {
     return { ...it, subtotal: Math.max(0, base - desc) };
   });
   const subtotal = presupuestoItems.reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
-  const descuentoGeneral = Math.max(0, Number($('#pres-descuento')?.value || 0));
-  const total = Math.max(0, subtotal - descuentoGeneral);
+  const descuentoPorcentaje = Math.max(0, Number($('#pres-descuento')?.value || 0));
+  const importeDescontado = subtotal * (descuentoPorcentaje / 100);
+  const ajusteRedondeo = Number($('#pres-ajuste-redondeo')?.value || 0);
+  const total = Math.max(0, subtotal - importeDescontado + ajusteRedondeo);
+  const descuentoBloque = $('#pres-descuento-bloque');
+  const descuentoInput = $('#pres-descuento');
+  const msgDescuento = $('#pres-descuento-msg');
+  const condicion = $('#pres-condicion-pago-prevista')?.value || '';
+  const descuentoHabilitado = presupuestoItems.length > 0 && (presupuestoTipoDestinatario === 'EXISTENTE');
+  if (descuentoBloque) descuentoBloque.style.display = presupuestoItems.length ? 'block' : 'none';
+  if (descuentoInput) descuentoInput.disabled = !descuentoHabilitado;
+  if (msgDescuento) msgDescuento.textContent = (!presupuestoItems.length || descuentoHabilitado)
+    ? ''
+    : 'Para aplicar descuento debe seleccionar o dar de alta un cliente.';
+  if (!descuentoHabilitado && descuentoInput) descuentoInput.value = '0';
+  if (presupuestoTipoDestinatario !== 'EXISTENTE') presupuestoClienteId = null;
+  const condicionRequerida = (descuentoPorcentaje > 0 || ajusteRedondeo !== 0);
+  $('#pres-condicion-pago-prevista').required = condicionRequerida;
+  $('#pres-subtotal').textContent = money(subtotal);
+  $('#pres-resumen-descuento-pct').textContent = `${descuentoPorcentaje.toFixed(2)}%`;
+  $('#pres-importe-descuento').textContent = money(importeDescontado);
+  $('#pres-resumen-ajuste').textContent = money(ajusteRedondeo);
   $('#pres-total').textContent = money(total);
+  $('#pres-resumen-condicion').textContent = condicionRequerida ? (condicion || 'Obligatoria') : 'No requerida';
 
   const resultados = lista.map(p => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado || p.precioFinalPesos)} | Stock ${p.stock} <button data-pres-agregar="${p.id}">Agregar</button></div>`).join('');
   const tabla = presupuestoItems.length
-    ? `<table style="width:100%;margin-top:8px;"><thead><tr><th>Producto</th><th>Precio unitario</th><th>Cantidad</th><th>Desc %</th><th>Desc $</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>${
+    ? `<table style="width:100%;margin-top:8px;"><thead><tr><th>Producto</th><th>Precio unitario</th><th>Cantidad</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>${
       presupuestoItems.map(it => `<tr>
         <td>${it.nombre}</td>
         <td>${money(it.precioUnitario)}</td>
         <td><button data-pres-menos="${it.productoId}">-</button> ${it.cantidad} <button data-pres-mas="${it.productoId}">+</button></td>
-        <td><input type="number" min="0" step="0.01" data-pres-desc-pct="${it.productoId}" value="${it.descuentoTipo === 'PORCENTAJE' ? it.descuentoValor : 0}" /></td>
-        <td><input type="number" min="0" step="0.01" data-pres-desc-monto="${it.productoId}" value="${it.descuentoTipo === 'MONTO' ? it.descuentoValor : 0}" /></td>
         <td>${money(it.subtotal)}</td>
         <td><button data-pres-quitar="${it.productoId}">Quitar</button></td>
       </tr>`).join('')
@@ -1177,23 +1196,6 @@ $('#pres-productos').addEventListener('click', (e) => {
   console.log('Items presupuesto:', presupuestoItems);
   renderPresupuestoProductos();
 });
-$('#pres-productos').addEventListener('input', (e) => {
-  const pctInput = e.target.closest('input[data-pres-desc-pct]');
-  const montoInput = e.target.closest('input[data-pres-desc-monto]');
-  const id = Number(pctInput?.dataset.presDescPct || montoInput?.dataset.presDescMonto || 0);
-  if (!id) return;
-  const it = presupuestoItems.find(x => x.productoId === id);
-  if (!it) return;
-  if (pctInput) {
-    it.descuentoTipo = Number(pctInput.value || 0) > 0 ? 'PORCENTAJE' : 'NINGUNO';
-    it.descuentoValor = Math.max(0, Number(pctInput.value || 0));
-  }
-  if (montoInput) {
-    it.descuentoTipo = Number(montoInput.value || 0) > 0 ? 'MONTO' : 'NINGUNO';
-    it.descuentoValor = Math.max(0, Number(montoInput.value || 0));
-  }
-  renderPresupuestoProductos();
-});
 async function buscarProductoPresupuesto() {
   const query = $('#pres-buscar-producto').value.trim();
   filtroProductosPresupuesto = query.toLowerCase();
@@ -1207,6 +1209,19 @@ async function buscarProductoPresupuesto() {
 $('#pres-btn-buscar-producto').addEventListener('click', buscarProductoPresupuesto);
 $('#pres-buscar-producto').addEventListener('input', buscarProductoPresupuesto);
 $('#pres-descuento').addEventListener('input', renderPresupuestoProductos);
+$('#pres-ajuste-redondeo').addEventListener('input', renderPresupuestoProductos);
+$('#pres-condicion-pago-prevista').addEventListener('change', renderPresupuestoProductos);
+function aplicarRedondeoPresupuesto(base) {
+  const subtotal = presupuestoItems.reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
+  const descuentoPorcentaje = Math.max(0, Number($('#pres-descuento')?.value || 0));
+  const parcial = Math.max(0, subtotal - (subtotal * (descuentoPorcentaje / 100)));
+  const objetivo = Math.round(parcial / base) * base;
+  $('#pres-ajuste-redondeo').value = (objetivo - parcial).toFixed(2);
+  renderPresupuestoProductos();
+}
+$('#pres-redondear-100').addEventListener('click', () => aplicarRedondeoPresupuesto(100));
+$('#pres-redondear-500').addEventListener('click', () => aplicarRedondeoPresupuesto(500));
+$('#pres-redondear-1000').addEventListener('click', () => aplicarRedondeoPresupuesto(1000));
 $('#pres-tipo-destinatario').addEventListener('change', (e) => {
   presupuestoTipoDestinatario = e.target.value;
 });
@@ -1218,7 +1233,12 @@ $('#pres-guardar').addEventListener('click', async () => {
     if (presupuestoTipoDestinatario === 'EXISTENTE' && !presupuestoClienteId) throw new Error('Debe seleccionar una persona/empresa');
     if (presupuestoTipoDestinatario === 'LIBRE' && !presupuestoNombreLibre) throw new Error('Debe ingresar nombre manual para presupuesto libre');
     if (!presupuestoItems.length) throw new Error('Debe agregar al menos un producto');
-    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
+    const descuentoValor = Math.max(0, Number($('#pres-descuento').value || 0));
+    const ajusteRedondeo = Number($('#pres-ajuste-redondeo').value || 0);
+    const condicionPagoPrevista = $('#pres-condicion-pago-prevista').value || null;
+    if (descuentoValor > 0 && presupuestoTipoDestinatario !== 'EXISTENTE') throw new Error('Para aplicar descuento debe seleccionar o dar de alta un cliente.');
+    if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
+    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
     $('#pres-dar-alta-persona').dataset.presupuestoId = creado.id;
     presupuestoItems = [];
     presupuestoClienteId = null;

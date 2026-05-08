@@ -652,7 +652,7 @@ app.get('/presupuestos/:id', asyncHandler(async (req, res) => {
 }));
 
 async function guardarPresupuesto(req, res, id = null) {
-  const { clienteId, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
+  const { clienteId, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
   const tipo = Object.values(TipoDestinatarioPresupuesto).includes(tipoDestinatario) ? tipoDestinatario : TipoDestinatarioPresupuesto.EXISTENTE;
   const personaId = parsePositiveInt(clienteId);
   const nombreLibreLimpio = String(nombreLibre || '').trim();
@@ -670,6 +670,15 @@ async function guardarPresupuesto(req, res, id = null) {
   }
 
   if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe incluir productos' });
+  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && tipo !== TipoDestinatarioPresupuesto.EXISTENTE) {
+    return res.status(400).json({ error: 'Para aplicar descuento debe seleccionar o dar de alta un cliente.' });
+  }
+  if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
+    return res.status(400).json({ error: 'condicionPagoPrevista inválida' });
+  }
+  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !condicionPagoPrevista) {
+    return res.status(400).json({ error: 'Si hay descuento o ajuste de redondeo, condicionPagoPrevista es obligatoria' });
+  }
 
   const tipoCambioActual = await obtenerTipoCambioActual();
   const itemsCalculados = [];
@@ -682,7 +691,7 @@ async function guardarPresupuesto(req, res, id = null) {
     const precioUnitario = calcularPrecioFinalPesos(producto, tipoCambioActual).precioVentaPesos;
     itemsCalculados.push({ productoId, cantidad, precioUnitario, subtotal: Number((precioUnitario * cantidad).toFixed(2)) });
   }
-  const totales = calcularTotalesConDescuento(itemsCalculados, descuentoTipo || null, descuentoValor || 0);
+  const totales = calcularTotalesConDescuento(itemsCalculados, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
   const payload = {
     personaId: tipo === TipoDestinatarioPresupuesto.EXISTENTE ? personaId : null,
     nombreLibre: tipo === TipoDestinatarioPresupuesto.LIBRE ? nombreLibreLimpio : (tipo === TipoDestinatarioPresupuesto.A_QUIEN_CORRESPONDA ? 'A quien corresponda' : null),
@@ -690,6 +699,8 @@ async function guardarPresupuesto(req, res, id = null) {
     subtotal: totales.subtotal,
     descuentoTipo: totales.descuentoTipo,
     descuentoValor: totales.descuentoValor,
+    ajusteRedondeo: totales.ajusteRedondeo,
+    condicionPagoPrevista: condicionPagoPrevista || null,
     total: totales.total,
     observaciones: observaciones || null,
     validez: validez || null,
