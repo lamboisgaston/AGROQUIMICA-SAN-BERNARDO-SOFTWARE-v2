@@ -1002,7 +1002,7 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 
 app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
-  const { descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista } = req.body || {};
+  const { personaId, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, totalFinal } = req.body || {};
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
   const venta = await prisma.venta.findUnique({
@@ -1034,7 +1034,14 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Si hay descuento o ajuste de redondeo, condicionPagoPrevista es obligatoria' });
   }
 
+  if (personaId !== undefined && (personaId || null) !== (venta.personaId || null)) {
+    return res.status(400).json({ error: 'personaId no coincide con la venta activa' });
+  }
+
   const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
+  if (totalFinal !== undefined && Math.abs(Number(totalFinal) - Number(totales.total)) > 0.01) {
+    return res.status(400).json({ error: 'totalFinal no coincide con el total calculado' });
+  }
 
   await prisma.$transaction(async tx => {
     for (const item of venta.items) {
@@ -1088,13 +1095,14 @@ app.post('/caja/cobrar/:id', async (req, res) => {
     const ventaId = parsePositiveInt(req.params.id);
     if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
-    const { formaPago, medioPago } = req.body || {};
+    const { formaPago, medioPago, estadoCobro } = req.body || {};
     console.log('Venta a cobrar:', ventaId);
     console.log('Forma de pago:', formaPago);
 
-    const pago = formaPago || medioPago;
-    if (!pago) {
-      return res.status(400).json({ error: 'formaPago inválida' });
+    const estadoCobroNormalizado = estadoCobro || 'PAGADO';
+    const estadosValidos = ['PAGADO', 'EN_ESPERA_DE_PAGO', 'CUENTA_CORRIENTE', 'CANCELADO'];
+    if (!estadosValidos.includes(estadoCobroNormalizado)) {
+      return res.status(400).json({ error: 'estadoCobro inválido' });
     }
 
     const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
@@ -1102,6 +1110,23 @@ app.post('/caja/cobrar/:id', async (req, res) => {
     if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
     if (venta.estado !== EstadoVenta.PENDIENTE_CAJA) {
       return res.status(400).json({ error: 'La venta no está pendiente de caja' });
+    }
+
+    if (estadoCobroNormalizado === 'EN_ESPERA_DE_PAGO') {
+      return res.status(200).json({ ...venta, estadoCobro: estadoCobroNormalizado, mensaje: 'Venta marcada en espera de pago' });
+    }
+
+    if (estadoCobroNormalizado === 'CANCELADO') {
+      const ventaCancelada = await prisma.venta.update({
+        where: { id: ventaId },
+        data: { estado: EstadoVenta.BORRADOR, medioPago: null }
+      });
+      return res.status(200).json({ ...ventaCancelada, estadoCobro: estadoCobroNormalizado });
+    }
+
+    const pago = estadoCobroNormalizado === 'CUENTA_CORRIENTE' ? 'CUENTA_CORRIENTE' : (formaPago || medioPago);
+    if (!pago) {
+      return res.status(400).json({ error: 'formaPago inválida' });
     }
 
     if (pago === 'CUENTA_CORRIENTE') {

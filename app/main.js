@@ -374,17 +374,29 @@ async function loadCierresCaja() {
   });
 }
 
-function getMediosPagoOptions(ventaCaja) {
+function getMediosPagoOptions(ventaCaja, medioSeleccionado = '') {
   const mediosBase = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
   if (ventaCaja?.personaId) mediosBase.push('CUENTA_CORRIENTE');
-  return mediosBase.map(m => `<option value="${m}">${m}</option>`).join('');
+  return mediosBase.map(m => `<option value="${m}" ${medioSeleccionado === m ? 'selected' : ''}>${m}</option>`).join('');
+}
+
+function getEstadoCobroOptions() {
+  return ['PAGADO', 'EN_ESPERA_DE_PAGO', 'CUENTA_CORRIENTE', 'CANCELADO']
+    .map(e => `<option value="${e}">${e}</option>`).join('');
 }
 
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
   const ventasRecientesCobradas = await api('/ventas/cobradas-recientes');
   $('#pendientes').innerHTML = ventas.length
-    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | Previsto: ${v.condicionPagoPrevista || '-'} | ${money(v.total)} <select id="pago-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}">Cobrar</button></div>`).join('')
+    ? ventas.map(v => {
+      const tieneCondicionFijada = (Number(v.descuentoValor || 0) > 0 || Number(v.ajusteRedondeo || 0) !== 0) && !!v.condicionPagoPrevista;
+      const medioPrefijado = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CUENTA_CORRIENTE'].includes(v.condicionPagoPrevista) ? v.condicionPagoPrevista : '';
+      const bloqueMedio = tieneCondicionFijada
+        ? `<strong>Condición prevista: ${v.condicionPagoPrevista}</strong>`
+        : `<label>Condición/medio: <select id="pago-${v.id}">${getMediosPagoOptions(v, medioPrefijado)}</select></label>`;
+      return `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} | ${bloqueMedio} | <label>Estado cobro: <select id="estado-cobro-${v.id}">${getEstadoCobroOptions()}</select></label>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}" data-condicion-prevista="${v.condicionPagoPrevista || ''}" data-condicion-fijada="${tieneCondicionFijada ? '1' : '0'}">Confirmar</button></div>`;
+    }).join('')
     : 'No hay ventas pendientes';
 
   const recientesHtml = ventasRecientesCobradas.length
@@ -397,15 +409,18 @@ async function loadCaja() {
     btn.addEventListener('click', async () => {
       const ventaId = btn.dataset.id;
       const select = document.querySelector(`#pago-${ventaId}`);
-      const formaPago = select.value;
+      const estadoCobro = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'PAGADO';
+      const condicionFijada = btn.dataset.condicionFijada === '1';
+      const prevista = btn.dataset.condicionPrevista || '';
+      const formaPago = condicionFijada ? prevista : (select?.value || '');
 
-      console.log('Cobrando venta:', ventaId, formaPago);
+      console.log('Cobrando venta:', ventaId, { formaPago, estadoCobro, condicionFijada, prevista });
 
       try {
         const res = await fetch(`/caja/cobrar/${ventaId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ formaPago })
+          body: JSON.stringify({ formaPago, estadoCobro })
         });
 
         const data = await res.json();
@@ -884,10 +899,14 @@ $('#btn-cerrar').addEventListener('click', async () => {
     const descuentoTipo = 'PORCENTAJE';
     const ajusteRedondeo = Number($('#ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#condicion-pago-prevista').value || null;
+    if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !venta?.personaId) {
+      return setMsg('Si hay descuento o ajuste de redondeo, debe seleccionar un cliente');
+    }
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) {
       return setMsg('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
     }
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista }) });
+    const totalFinal = Math.max(0, Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0)) - (Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0)) * (descuentoValor / 100)) + ajusteRedondeo);
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ personaId: venta?.personaId || null, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, totalFinal }) });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
