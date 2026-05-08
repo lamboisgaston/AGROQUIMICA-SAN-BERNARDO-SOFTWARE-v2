@@ -9,24 +9,42 @@
   <body>
     <h1>Mostrador</h1>
 
-    <nav class="menu-principal">
+    <section id="home-dashboard" class="dashboard-home">
+      <h2>Seleccioná un módulo</h2>
+      <p class="dashboard-subtitle">Ingresá al área de trabajo que necesitás.</p>
+      <div class="dashboard-grid">
+        <article class="dashboard-card"><h3>Clientes</h3><p>Alta, búsqueda y gestión de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
+        <article class="dashboard-card"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
+        <article class="dashboard-card"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
+        <article class="dashboard-card"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
+        <article class="dashboard-card"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
+        <article class="dashboard-card"><h3>Cuenta corriente</h3><p>Saldo y pagos de clientes.</p><button data-abrir-modulo="cuenta-corriente">Entrar</button></article>
+        <article class="dashboard-card"><h3>Proveedores</h3><p>Alta y detalle de proveedores.</p><button data-abrir-modulo="proveedores">Entrar</button></article>
+        <article class="dashboard-card"><h3>Stock</h3><p>Movimientos, control y ajuste.</p><button data-abrir-modulo="stock">Entrar</button></article>
+        <article class="dashboard-card"><h3>Remitos</h3><p>Carga de remitos y entrada de mercadería.</p><button data-abrir-modulo="remitos">Entrar</button></article>
+        <article class="dashboard-card"><h3>Reportes</h3><p>Ventas cobradas y calendario de caja.</p><button data-abrir-modulo="reportes">Entrar</button></article>
+      </div>
+    </section>
+
+    <nav class="menu-principal app-shell hidden">
+      <button id="btn-volver-inicio" type="button">Volver al inicio</button>
       <a href="#productos-panel">Productos</a>
       <a href="#proveedores-panel">Proveedores</a>
       <a href="#stock-panel">Stock</a>
     </nav>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="ventas">
       <button id="btn-nueva">Nueva venta</button>
       <strong id="venta-activa">Sin venta activa</strong>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="ventas">
       <h2>1) Buscador de productos</h2>
       <input id="buscar-producto" placeholder="Escriba para buscar producto" />
       <div id="resultados-productos" class="lista"></div>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="ventas">
       <h2>2) Carrito (siempre visible)</h2>
       <table>
         <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
@@ -44,7 +62,7 @@
       <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="clientes">
       <h2>3) Cliente</h2>
       <input id="buscar-cliente" placeholder="Buscar por nombre / teléfono / CUIT/DNI" />
       <button id="btn-buscar-cliente">Buscar cliente</button>
@@ -61,17 +79,17 @@
       <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="ventas">
       <h2>4) Cerrar venta</h2>
       <button id="btn-cerrar">Cerrar venta</button>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="caja">
       <h2>5) Caja</h2>
       <div id="pendientes">Cargando...</div>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="cuenta-corriente">
       <h2>6) Cuenta corriente</h2>
       <input id="cc-buscar-cliente" placeholder="Buscar cliente por nombre / teléfono / cuit" />
       <button id="btn-cc-buscar">Buscar</button>
@@ -86,14 +104,14 @@
       </div>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="reportes">
       <h2>7) Ventas cobradas</h2>
       <label>Fecha <input id="ventas-cobradas-fecha" type="date" /></label>
       <button id="btn-ventas-cobradas-buscar">Buscar</button>
       <div id="ventas-cobradas-lista" class="lista">Sin resultados</div>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="reportes">
       <h2>8) Calendario de caja</h2>
       <p><strong id="caja-dia">Fecha consultada: -</strong></p>
       <p>Estado: <strong id="caja-estado">-</strong></p>
@@ -109,7 +127,7 @@
       <div id="cierres-caja" class="lista">Sin cierres</div>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="productos">
       <h2 id="productos-panel">9) Productos y precios</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <button id="btn-modo-agregar-producto">Agregar producto</button>
@@ -181,7 +199,7 @@
       <button id="btn-nuevo-producto">Nuevo</button>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="presupuestos">
       <h2>11) Presupuestos</h2>
       <h3>Destinatario</h3>
       <label>Tipo
@@ -227,7 +245,7 @@
       <div id="pres-lista" class="lista"></div>
     </section>
 
-    <section class="bloque">
+    <section class="bloque app-shell" data-modulo="proveedores stock remitos">
       <h2 id="proveedores-panel">10) Proveedores</h2>
       <button id="btn-nuevo-proveedor">Nuevo proveedor</button>
       <h3>Crear proveedor</h3>
