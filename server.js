@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto } = require('@prisma/client');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -515,16 +515,19 @@ app.get('/personas', asyncHandler(async (req, res) => {
 }));
 
 app.post('/personas', asyncHandler(async (req, res) => {
-  const { nombre, telefono, cuitDni, tipo } = req.body || {};
-  if (!nombre || !String(nombre).trim()) {
+  const { nombre, telefono, cuitDni, tipo, razonSocial, cuit, mail, telefonoPrincipal, telefonoEmergencia } = req.body || {};
+  const nombreFinal = String(razonSocial || nombre || '').trim();
+  if (!nombreFinal) {
     return res.status(400).json({ error: 'nombre es obligatorio' });
   }
 
+  const telefonoFinal = String(telefonoPrincipal || telefono || telefonoEmergencia || '').trim();
+
   const persona = await prisma.persona.create({
     data: {
-      nombre: String(nombre).trim(),
-      telefono: telefono ? String(telefono).trim() : null,
-      cuitDni: cuitDni || null,
+      nombre: nombreFinal,
+      telefono: telefonoFinal || null,
+      cuitDni: cuit || cuitDni || null,
       tipo: tipo || 'CLIENTE'
     }
   });
@@ -574,13 +577,24 @@ app.get('/presupuestos/:id', asyncHandler(async (req, res) => {
 }));
 
 async function guardarPresupuesto(req, res, id = null) {
-  const { clienteId, items, descuentoTipo, descuentoValor, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
+  const { clienteId, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
+  const tipo = Object.values(TipoDestinatarioPresupuesto).includes(tipoDestinatario) ? tipoDestinatario : TipoDestinatarioPresupuesto.EXISTENTE;
   const personaId = parsePositiveInt(clienteId);
-  if (!personaId) return res.status(400).json({ error: 'clienteId es obligatorio' });
+  const nombreLibreLimpio = String(nombreLibre || '').trim();
+
+  let persona = null;
+  if (tipo === TipoDestinatarioPresupuesto.EXISTENTE) {
+    if (!personaId) return res.status(400).json({ error: 'clienteId es obligatorio para destinatario existente' });
+    persona = await prisma.persona.findUnique({ where: { id: personaId } });
+    const errorCliente = validarClienteParaPresupuesto(persona);
+    if (errorCliente) return res.status(400).json({ error: errorCliente });
+  }
+
+  if (tipo === TipoDestinatarioPresupuesto.LIBRE && !nombreLibreLimpio) {
+    return res.status(400).json({ error: 'nombreLibre es obligatorio para presupuesto libre' });
+  }
+
   if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe incluir productos' });
-  const persona = await prisma.persona.findUnique({ where: { id: personaId } });
-  const errorCliente = validarClienteParaPresupuesto(persona);
-  if (errorCliente) return res.status(400).json({ error: errorCliente });
 
   const tipoCambioActual = await obtenerTipoCambioActual();
   const itemsCalculados = [];
@@ -595,7 +609,9 @@ async function guardarPresupuesto(req, res, id = null) {
   }
   const totales = calcularTotalesConDescuento(itemsCalculados, descuentoTipo || null, descuentoValor || 0);
   const payload = {
-    personaId,
+    personaId: tipo === TipoDestinatarioPresupuesto.EXISTENTE ? personaId : null,
+    nombreLibre: tipo === TipoDestinatarioPresupuesto.LIBRE ? nombreLibreLimpio : (tipo === TipoDestinatarioPresupuesto.A_QUIEN_CORRESPONDA ? 'A quien corresponda' : null),
+    tipoDestinatario: tipo,
     subtotal: totales.subtotal,
     descuentoTipo: totales.descuentoTipo,
     descuentoValor: totales.descuentoValor,
@@ -634,6 +650,42 @@ app.post('/presupuestos/:id/aceptar', asyncHandler(async (req, res) => {
   });
   res.json({ ok: true, ventaId: venta.id });
 }));
+
+app.post('/presupuestos/:id/dar-alta-persona', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+
+  const presupuesto = await prisma.presupuesto.findUnique({ where: { id } });
+  if (!presupuesto) return res.status(404).json({ error: 'Presupuesto no encontrado' });
+
+  const campos = ['razonSocial', 'cuit', 'mail', 'telefonoPrincipal', 'telefonoEmergencia'];
+  const faltantes = campos.filter((campo) => !String(req.body?.[campo] || '').trim());
+  if (faltantes.length) {
+    return res.status(400).json({ error: `Faltan campos obligatorios: ${faltantes.join(', ')}` });
+  }
+
+  const persona = await prisma.persona.create({
+    data: {
+      nombre: String(req.body.razonSocial).trim(),
+      cuitDni: String(req.body.cuit).trim(),
+      telefono: String(req.body.telefonoPrincipal).trim(),
+      tipo: 'CLIENTE'
+    }
+  });
+
+  const actualizado = await prisma.presupuesto.update({
+    where: { id },
+    data: {
+      personaId: persona.id,
+      tipoDestinatario: TipoDestinatarioPresupuesto.EXISTENTE,
+      nombreLibre: null
+    },
+    include: { persona: true, items: { include: { producto: true } } }
+  });
+
+  res.json({ presupuesto: actualizado, persona, contacto: { mail: String(req.body.mail).trim(), telefonoEmergencia: String(req.body.telefonoEmergencia).trim() } });
+}));
+
 app.post('/presupuestos/:id/rechazar', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
@@ -679,7 +731,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
       </div>
     </div>
     <div class="box">
-      <strong>Cliente:</strong> ${escapeHtml(p.persona?.nombre || '-')}<br/>
+      <strong>Cliente:</strong> ${escapeHtml(p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'))}<br/>
       <strong>Teléfono:</strong> ${escapeHtml(p.persona?.telefono || '-')}<br/>
       <strong>CUIT/DNI:</strong> ${escapeHtml(p.persona?.cuitDni || '-')}
     </div>
