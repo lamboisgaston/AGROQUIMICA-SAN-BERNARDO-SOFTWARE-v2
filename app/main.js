@@ -374,12 +374,6 @@ async function loadCierresCaja() {
   });
 }
 
-function getMediosPagoOptions(ventaCaja, medioSeleccionado = '') {
-  const mediosBase = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
-  if (ventaCaja?.personaId) mediosBase.push('CUENTA_CORRIENTE');
-  return mediosBase.map(m => `<option value="${m}" ${medioSeleccionado === m ? 'selected' : ''}>${m}</option>`).join('');
-}
-
 function getEstadoCobroOptions() {
   return ['PAGADO', 'EN_ESPERA_DE_PAGO', 'CUENTA_CORRIENTE', 'CANCELADO']
     .map(e => `<option value="${e}">${e}</option>`).join('');
@@ -390,12 +384,11 @@ async function loadCaja() {
   const ventasRecientesCobradas = await api('/ventas/cobradas-recientes');
   $('#pendientes').innerHTML = ventas.length
     ? ventas.map(v => {
-      const tieneCondicionFijada = (Number(v.descuentoValor || 0) > 0 || Number(v.ajusteRedondeo || 0) !== 0) && !!v.condicionPagoPrevista;
-      const medioPrefijado = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CUENTA_CORRIENTE'].includes(v.condicionPagoPrevista) ? v.condicionPagoPrevista : '';
-      const bloqueMedio = tieneCondicionFijada
-        ? `<strong>Condición prevista: ${v.condicionPagoPrevista}</strong>`
-        : `<label>Condición/medio: <select id="pago-${v.id}">${getMediosPagoOptions(v, medioPrefijado)}</select></label>`;
-      return `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} | ${bloqueMedio} | <label>Estado cobro: <select id="estado-cobro-${v.id}">${getEstadoCobroOptions()}</select></label>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}" data-condicion-prevista="${v.condicionPagoPrevista || ''}" data-condicion-fijada="${tieneCondicionFijada ? '1' : '0'}">Confirmar</button></div>`;
+      const tieneCondicionPrevista = Boolean(v.condicionPagoPrevista);
+      const bloquePrevisto = tieneCondicionPrevista
+        ? `<strong>Previsto: ${v.condicionPagoPrevista}</strong>`
+        : '<strong>Previsto: -</strong>';
+      return `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${bloquePrevisto} | Total: ${money(v.total)} | <label>Estado cobro real: <select id="estado-cobro-${v.id}">${getEstadoCobroOptions()}</select></label>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}" data-condicion-prevista="${v.condicionPagoPrevista || ''}">Confirmar en caja</button></div>`;
     }).join('')
     : 'No hay ventas pendientes';
 
@@ -408,13 +401,11 @@ async function loadCaja() {
   document.querySelectorAll('.btn-cobrar').forEach(btn => {
     btn.addEventListener('click', async () => {
       const ventaId = btn.dataset.id;
-      const select = document.querySelector(`#pago-${ventaId}`);
       const estadoCobro = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'PAGADO';
-      const condicionFijada = btn.dataset.condicionFijada === '1';
       const prevista = btn.dataset.condicionPrevista || '';
-      const formaPago = condicionFijada ? prevista : (select?.value || '');
+      const formaPago = prevista || '';
 
-      console.log('Cobrando venta:', ventaId, { formaPago, estadoCobro, condicionFijada, prevista });
+      console.log('Confirmando venta en caja:', ventaId, { formaPago, estadoCobro, prevista });
 
       try {
         const res = await fetch(`/caja/cobrar/${ventaId}`, {
@@ -431,8 +422,8 @@ async function loadCaja() {
           return;
         }
 
-        alert('Venta cobrada');
-        setMsg(`✅ Venta #${data.id} cobrada. <button class="btn-ver-ticket-inline" data-id="${data.id}">Ver ticket</button>`);
+        alert('Venta confirmada en caja');
+        setMsg(`✅ Venta #${data.id} confirmada en caja. <button class=\"btn-ver-ticket-inline\" data-id=\"${data.id}\">Ver ticket</button>`);
         await loadCaja();
         const ticketBtn = document.querySelector('.btn-ver-ticket-inline');
         if (ticketBtn) {
