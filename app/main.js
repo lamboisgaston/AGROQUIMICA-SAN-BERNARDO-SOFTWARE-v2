@@ -90,6 +90,19 @@ function logFlujo(paso, payload) {
 }
 
 
+
+function labelCliente(p) {
+  const tipo = String(p.tipoCliente || 'PERSONAL').toUpperCase();
+  return `${tipo} | ${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'}`;
+}
+function actualizarFormularioTipoCliente() {
+  const tipo = $('#nuevo-tipo-cliente')?.value || 'PERSONAL';
+  $('#nuevo-nombre').placeholder = tipo === 'EMPRESA' ? 'Razón social (obligatorio)' : 'Nombre (obligatorio)';
+  $('#nuevo-cuit').placeholder = tipo === 'EMPRESA' ? 'CUIT (obligatorio)' : 'CUIT opcional';
+  $('#nuevo-telefono').placeholder = 'Teléfono (obligatorio)';
+  $('#nuevo-mail').placeholder = tipo === 'EMPRESA' ? 'Mail (obligatorio)' : 'Mail opcional';
+}
+
 function mostrarErrorBusqueda(containerSelector, error) {
   const container = $(containerSelector);
   if (!container) return;
@@ -713,7 +726,7 @@ async function buscarClienteMostrador() {
   try {
     const personas = await buscarPersonas(q);
     $('#resultados-clientes').innerHTML = personas.length
-      ? personas.slice(0, 8).map(p => `<div class="item">${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+      ? personas.slice(0, 8).map(p => `<div class="item">${labelCliente(p)} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
       : '<div class="item">Sin resultados <button id="btn-crear-desde-busqueda">Crear cliente</button></div>';
   } catch (error) { mostrarErrorBusqueda('#resultados-clientes', error); }
 }
@@ -742,13 +755,16 @@ $('#resultados-clientes').addEventListener('click', async (e) => {
 });
 $('#btn-crear-cliente').addEventListener('click', async () => {
   if (!ventaId) return;
+  const tipoCliente = $('#nuevo-tipo-cliente').value;
   const nombre = $('#nuevo-nombre').value.trim();
-  if (!nombre) return setMsg('Nombre obligatorio');
   const telefono = $('#nuevo-telefono').value.trim();
   const cuitDni = $('#nuevo-cuit').value.trim();
   const mail = $('#nuevo-mail').value.trim();
+  if (!nombre || !telefono) return setMsg('Para PERSONAL: nombre y teléfono obligatorios');
+  if (tipoCliente === 'EMPRESA' && (!cuitDni || !mail)) return setMsg('Para EMPRESA: razón social, CUIT, teléfono y mail obligatorios');
   try {
-    const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuitDni, mail, tipo: 'CLIENTE' }) });
+    const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, razonSocial: nombre, telefono, cuitDni, cuit: cuitDni, mail, tipo: 'CLIENTE', tipoCliente }) });
+    if (persona.advertenciaDuplicado) setMsg(persona.advertenciaDuplicado, 'warning');
     console.log('Seleccionado cliente:', persona.id);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
     await refreshVenta();
@@ -756,6 +772,8 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
   } catch (err) { setMsg(err.message); }
 });
 $('#btn-alta-rapida').addEventListener('click', () => { document.querySelector('[data-modulo="clientes"]')?.scrollIntoView({ behavior: 'smooth' }); $('#nuevo-nombre').focus(); });
+$('#nuevo-tipo-cliente')?.addEventListener('change', actualizarFormularioTipoCliente);
+actualizarFormularioTipoCliente();
 
 $('#btn-cerrar').addEventListener('click', async () => {
   console.log('[cerrar-venta] inicio', { ventaId, venta });

@@ -76,15 +76,20 @@
 
     <section class="bloque app-shell" data-modulo="clientes">
       <h2>3) Cliente</h2>
-      <input id="buscar-cliente" placeholder="Buscar por nombre / teléfono / CUIT/DNI" />
+      <input id="buscar-cliente" placeholder="Buscar por nombre / teléfono / razón social / CUIT" />
       <button id="btn-buscar-cliente">Buscar cliente</button>
       <div id="resultados-clientes" class="lista"></div>
 
       <h3>Crear rápido</h3>
-      <input id="nuevo-nombre" placeholder="Nombre obligatorio" />
-      <input id="nuevo-telefono" placeholder="Teléfono opcional" />
-      <input id="nuevo-cuit" placeholder="CUIT/DNI opcional" />
-      <input id="nuevo-mail" placeholder="Mail opcional" />
+      <label>¿Qué tipo de cliente desea crear?</label>
+      <select id="nuevo-tipo-cliente">
+        <option value="PERSONAL">Personal</option>
+        <option value="EMPRESA">Empresa</option>
+      </select>
+      <input id="nuevo-nombre" placeholder="Nombre / Razón social" />
+      <input id="nuevo-cuit" placeholder="CUIT" />
+      <input id="nuevo-telefono" placeholder="Teléfono" />
+      <input id="nuevo-mail" placeholder="Mail" />
       <button id="btn-crear-cliente">Crear cliente</button>
 
       <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
