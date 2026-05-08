@@ -1014,86 +1014,94 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
   res.json(ventaActualizada);
 }));
 
-app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
-  console.log('[mostrador/cerrar] req.body', req.body);
-  const ventaId = parsePositiveInt(req.params.id);
-  const { personaId, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, totalFinal } = req.body || {};
-  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
+app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
+  console.log('BODY CERRAR VENTA', req.body);
 
-  const venta = await prisma.venta.findUnique({
-    where: { id: ventaId },
-    include: { persona: true, items: true }
-  });
+  try {
+    const ventaId = parsePositiveInt(req.params.id);
+    const { personaId, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, totalFinal } = req.body || {};
+    if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
-  if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
-  if (venta.estado !== EstadoVenta.BORRADOR) {
-    return res.status(400).json({ error: 'La venta ya no está en BORRADOR' });
-  }
-  if (venta.items.length === 0) {
-    return res.status(400).json({ error: 'No se puede cerrar una venta sin productos' });
-  }
+    const venta = await prisma.venta.findUnique({
+      where: { id: ventaId },
+      include: { persona: true, items: true }
+    });
 
-  if (descuentoTipo && !['PORCENTAJE', 'MONTO'].includes(descuentoTipo)) {
-    return res.status(400).json({ error: 'descuentoTipo inválido' });
-  }
-
-  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !venta.personaId) {
-    return res.status(400).json({ error: 'Para aplicar descuento primero debe seleccionar o dar de alta un cliente.' });
-  }
-
-  if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
-    return res.status(400).json({ error: 'condicionPagoPrevista inválida' });
-  }
-
-  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !condicionPagoPrevista) {
-    return res.status(400).json({ error: 'Si hay descuento o ajuste de redondeo, condicionPagoPrevista es obligatoria' });
-  }
-
-  if (personaId !== undefined && (personaId || null) !== (venta.personaId || null)) {
-    return res.status(400).json({ error: 'personaId no coincide con la venta activa' });
-  }
-
-  const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
-  if (totalFinal !== undefined && Math.abs(Number(totalFinal) - Number(totales.total)) > 0.01) {
-    return res.status(400).json({ error: 'totalFinal no coincide con el total calculado' });
-  }
-
-  await prisma.$transaction(async tx => {
-    for (const item of venta.items) {
-      const producto = await tx.producto.findUnique({ where: { id: item.productoId } });
-      if (!producto) {
-        throw new Error(`Producto inexistente ${item.productoId}`);
-      }
-      await tx.producto.update({
-        where: { id: item.productoId },
-        data: { stock: { decrement: item.cantidad } }
-      });
-      await tx.movimientoStock.create({
-        data: { productoId: item.productoId, tipo: TipoMovimientoStock.SALIDA, cantidad: item.cantidad, motivo: `Venta #${ventaId}` }
-      });
+    if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
+    if (venta.estado !== EstadoVenta.BORRADOR) {
+      return res.status(400).json({ error: 'La venta ya no está en BORRADOR' });
+    }
+    if (venta.items.length === 0) {
+      return res.status(400).json({ error: 'No se puede cerrar una venta sin productos' });
     }
 
-    await tx.venta.update({
-      where: { id: ventaId },
-      data: {
-        estado: EstadoVenta.PENDIENTE_CAJA,
-        subtotal: totales.subtotal,
-        descuentoTipo: totales.descuentoTipo,
-        descuentoValor: totales.descuentoValor,
-        ajusteRedondeo: totales.ajusteRedondeo,
-        total: totales.total,
-        condicionPagoPrevista: condicionPagoPrevista || null
+    if (descuentoTipo && !['PORCENTAJE', 'MONTO'].includes(descuentoTipo)) {
+      return res.status(400).json({ error: 'descuentoTipo inválido' });
+    }
+
+    if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !venta.personaId) {
+      return res.status(400).json({ error: 'Para aplicar descuento primero debe seleccionar o dar de alta un cliente.' });
+    }
+
+    if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
+      return res.status(400).json({ error: 'condicionPagoPrevista inválida' });
+    }
+
+    if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !condicionPagoPrevista) {
+      return res.status(400).json({ error: 'Si hay descuento o ajuste de redondeo, condicionPagoPrevista es obligatoria' });
+    }
+
+    if (personaId !== undefined && (personaId || null) !== (venta.personaId || null)) {
+      return res.status(400).json({ error: 'personaId no coincide con la venta activa' });
+    }
+
+    const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
+    if (totalFinal !== undefined && Math.abs(Number(totalFinal) - Number(totales.total)) > 0.01) {
+      return res.status(400).json({ error: 'totalFinal no coincide con el total calculado' });
+    }
+
+    await prisma.$transaction(async tx => {
+      for (const item of venta.items) {
+        const producto = await tx.producto.findUnique({ where: { id: item.productoId } });
+        if (!producto) {
+          throw new Error(`Producto inexistente ${item.productoId}`);
+        }
+        await tx.producto.update({
+          where: { id: item.productoId },
+          data: { stock: { decrement: item.cantidad } }
+        });
+        await tx.movimientoStock.create({
+          data: { productoId: item.productoId, tipo: TipoMovimientoStock.SALIDA, cantidad: item.cantidad, motivo: `Venta #${ventaId}` }
+        });
       }
+
+      await tx.venta.update({
+        where: { id: ventaId },
+        data: {
+          estado: EstadoVenta.PENDIENTE_CAJA,
+          subtotal: totales.subtotal,
+          descuentoTipo: totales.descuentoTipo,
+          descuentoValor: totales.descuentoValor,
+          ajusteRedondeo: totales.ajusteRedondeo,
+          total: totales.total,
+          condicionPagoPrevista: condicionPagoPrevista || null
+        }
+      });
     });
-  });
 
-  const ventaCerrada = await prisma.venta.findUnique({
-    where: { id: ventaId },
-    include: { persona: true, items: { include: { producto: true } } }
-  });
+    const ventaCerrada = await prisma.venta.findUnique({
+      where: { id: ventaId },
+      include: { persona: true, items: { include: { producto: true } } }
+    });
 
-  res.json(ventaCerrada);
-}));
+    res.json(ventaCerrada);
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
 
 app.get('/caja/ventas', asyncHandler(async (req, res) => {
   const ventas = await prisma.venta.findMany({
