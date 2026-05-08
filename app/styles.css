@@ -49,7 +49,11 @@ th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 
 .mostrador-ux .input-grande { font-size: 20px; padding: 12px; width: 100%; }
 .btn-grande { font-size: 18px; padding: 10px 16px; }
+.cliente-buscador-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.cliente-buscador-row input { flex:1; min-width: 260px; }
+#alta-rapida-panel { margin-top:8px; border:1px solid #dbeafe; border-radius:8px; padding:8px; background:#f8fbff; }
 @media (max-width: 900px) {
   .bloque table { display:block; overflow:auto; }
   .bloque button { min-height: 40px; }
+  .cliente-buscador-row input { min-width: 100%; }
 }

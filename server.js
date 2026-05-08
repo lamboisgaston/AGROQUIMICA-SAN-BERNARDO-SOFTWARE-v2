@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista } = require('@prisma/client');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -993,7 +993,7 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 
 app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
-  const { descuentoTipo, descuentoValor, ajusteRedondeo } = req.body || {};
+  const { descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista } = req.body || {};
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
   const venta = await prisma.venta.findUnique({
@@ -1013,8 +1013,16 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'descuentoTipo inválido' });
   }
 
-  if (Number(descuentoValor || 0) > 0 && !venta.personaId) {
-    return res.status(400).json({ error: 'Para aplicar descuento, primero debe dar de alta al cliente.' });
+  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !venta.personaId) {
+    return res.status(400).json({ error: 'Para aplicar descuento primero debe seleccionar o dar de alta un cliente.' });
+  }
+
+  if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
+    return res.status(400).json({ error: 'condicionPagoPrevista inválida' });
+  }
+
+  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !condicionPagoPrevista) {
+    return res.status(400).json({ error: 'Si hay descuento o ajuste de redondeo, condicionPagoPrevista es obligatoria' });
   }
 
   const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
@@ -1042,7 +1050,8 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
         descuentoTipo: totales.descuentoTipo,
         descuentoValor: totales.descuentoValor,
         ajusteRedondeo: totales.ajusteRedondeo,
-        total: totales.total
+        total: totales.total,
+        condicionPagoPrevista: condicionPagoPrevista || null
       }
     });
   });
