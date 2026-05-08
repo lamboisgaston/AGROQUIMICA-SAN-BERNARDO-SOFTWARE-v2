@@ -9,6 +9,12 @@
   <body>
     <h1>Mostrador</h1>
 
+    <nav class="menu-principal">
+      <a href="#productos-panel">Productos</a>
+      <a href="#proveedores-panel">Proveedores</a>
+      <a href="#stock-panel">Stock</a>
+    </nav>
+
     <section class="bloque">
       <button id="btn-nueva">Nueva venta</button>
       <strong id="venta-activa">Sin venta activa</strong>
@@ -104,7 +110,7 @@
     </section>
 
     <section class="bloque">
-      <h2>9) Productos y precios</h2>
+      <h2 id="productos-panel">9) Productos y precios</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <button id="btn-modo-agregar-producto">Agregar producto</button>
         <button id="btn-modo-editar-producto">Buscar producto</button>
@@ -222,7 +228,8 @@
     </section>
 
     <section class="bloque">
-      <h2>10) Proveedores y stock</h2>
+      <h2 id="proveedores-panel">10) Proveedores</h2>
+      <button id="btn-nuevo-proveedor">Nuevo proveedor</button>
       <h3>Crear proveedor</h3>
       <input id="prov-razon-social" placeholder="Razón social" />
       <input id="prov-telefono" placeholder="Teléfono opcional" />
@@ -233,6 +240,27 @@
       <input id="prov-observaciones" placeholder="Observaciones opcional" />
       <button id="btn-crear-proveedor">Crear proveedor</button>
       <div id="proveedores-lista" class="lista"></div>
+
+      <h3>Detalle del proveedor</h3>
+      <label>Proveedor <select id="proveedor-detalle-select"></select></label>
+      <button id="btn-ver-proveedor">Ver detalle</button>
+      <div id="proveedor-detalle" class="lista"></div>
+
+      <h3>Productos asociados</h3>
+      <div id="proveedor-productos" class="lista"></div>
+      <label>Asociar producto existente <select id="proveedor-asociar-producto"></select></label>
+      <button id="btn-asociar-producto-proveedor">Asociar producto</button>
+
+      <h2 id="stock-panel">11) Stock</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="btn-stock-sin-proveedor">Productos sin proveedor</button>
+        <button id="btn-stock-bajo">Stock bajo</button>
+        <button id="btn-stock-todos">Todos</button>
+      </div>
+      <table>
+        <thead><tr><th>Producto</th><th>Categoría</th><th>Unidad</th><th>Cantidad actual</th><th>Stock mínimo</th><th>Estado</th><th>Proveedores</th></tr></thead>
+        <tbody id="stock-tabla"></tbody>
+      </table>
 
       <h3>Stock por producto</h3>
       <label>Producto <select id="stock-producto"></select></label>

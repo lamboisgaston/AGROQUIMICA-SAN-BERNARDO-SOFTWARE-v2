@@ -485,8 +485,41 @@ function renderProveedores() {
   const opt = proveedores.map(pr => `<option value="${pr.id}">${pr.razonSocial}</option>`);
   const sel = $('#prod-proveedor');
   if (sel) sel.innerHTML = opt.join('');
+  const detalleSel = $('#proveedor-detalle-select');
+  if (detalleSel) detalleSel.innerHTML = '<option value="">Seleccione proveedor</option>' + opt.join('');
   const remSel = $('#remito-proveedor');
   if (remSel) renderProveedoresRemito();
+}
+function estadoStockClase(estado) {
+  if (estado === 'SIN_STOCK') return 'estado-sin-stock';
+  if (estado === 'BAJO_STOCK') return 'estado-bajo-stock';
+  return 'estado-stock-normal';
+}
+function renderStockTabla(items = []) {
+  const tbody = $('#stock-tabla');
+  if (!tbody) return;
+  tbody.innerHTML = items.length
+    ? items.map((s) => `<tr>
+      <td>${s.productoNombre || '-'}</td><td>${s.categoria || '-'}</td><td>${s.unidad || '-'}</td>
+      <td>${s.cantidadActual ?? 0}</td><td>${s.stockMinimo ?? 0}</td>
+      <td><span class="estado-stock ${estadoStockClase(s.estado)}">${s.estado || 'STOCK_NORMAL'}</span></td>
+      <td>${(s.proveedores || []).join(', ') || '-'}</td></tr>`).join('')
+    : '<tr><td colspan="7">Sin resultados</td></tr>';
+}
+async function loadStockResumen(url = '/stock') {
+  const data = await api(url);
+  renderStockTabla(data || []);
+}
+async function verDetalleProveedor() {
+  const id = Number($('#proveedor-detalle-select')?.value || 0);
+  if (!id) return setMsg('Seleccione proveedor');
+  const [proveedor, productosAsociados] = await Promise.all([api(`/proveedores/${id}`), api(`/proveedores/${id}/productos`)]);
+  $('#proveedor-detalle').innerHTML = `<div class="item"><b>${proveedor.razonSocial}</b> | CUIT: ${proveedor.cuit || '-'} | Tel: ${proveedor.telefono || '-'} | Mail: ${proveedor.mail || '-'} | Dirección: ${proveedor.direccion || '-'} | Contacto: ${proveedor.contactoComercial || '-'} | Obs: ${proveedor.observaciones || '-'}</div>`;
+  $('#proveedor-productos').innerHTML = productosAsociados.length
+    ? productosAsociados.map((p) => `<div class="item">${p.nombre} <button data-desasociar-producto="${p.id}">Desasociar</button></div>`).join('')
+    : '<div class="item">Sin productos asociados</div>';
+  const asociados = new Set(productosAsociados.map((p) => p.id));
+  $('#proveedor-asociar-producto').innerHTML = '<option value="">Seleccione producto</option>' + productos.filter((p) => !asociados.has(p.id)).map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
 }
 async function renderProveedoresRemito() {
   const remSel = $('#remito-proveedor');
@@ -531,6 +564,8 @@ async function loadProductosAll() {
   renderProductosAdmin();
   await loadCategoriasProducto();
   renderStockProductos();
+  const asociarSel = $('#proveedor-asociar-producto');
+  if (asociarSel && !asociarSel.innerHTML) asociarSel.innerHTML = '<option value="">Seleccione producto</option>' + productos.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
   renderBuscadorRemitoProductos();
 }
 
@@ -1088,6 +1123,38 @@ $('#btn-crear-proveedor').addEventListener('click', async () => {
     setMsg('Proveedor creado');
   } catch (err) { setMsg(err.message); }
 });
+$('#btn-nuevo-proveedor').addEventListener('click', () => {
+  $('#prov-razon-social')?.focus();
+});
+$('#btn-ver-proveedor').addEventListener('click', async () => {
+  try { await verDetalleProveedor(); } catch (err) { setMsg(err.message); }
+});
+$('#btn-asociar-producto-proveedor').addEventListener('click', async () => {
+  try {
+    const proveedorId = Number($('#proveedor-detalle-select').value || 0);
+    const productoId = Number($('#proveedor-asociar-producto').value || 0);
+    if (!proveedorId || !productoId) return setMsg('Seleccione proveedor y producto');
+    await api(`/proveedores/${proveedorId}/productos/${productoId}`, { method: 'POST', body: '{}' });
+    await loadProductosAll();
+    await verDetalleProveedor();
+    setMsg('Producto asociado al proveedor');
+  } catch (err) { setMsg(err.message); }
+});
+$('#proveedor-productos').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-desasociar-producto]');
+  if (!b) return;
+  try {
+    const proveedorId = Number($('#proveedor-detalle-select').value || 0);
+    const productoId = Number(b.dataset.desasociarProducto || 0);
+    await api(`/proveedores/${proveedorId}/productos/${productoId}`, { method: 'DELETE' });
+    await loadProductosAll();
+    await verDetalleProveedor();
+    setMsg('Producto desasociado');
+  } catch (err) { setMsg(err.message); }
+});
+$('#btn-stock-todos').addEventListener('click', async () => { try { await loadStockResumen('/stock'); } catch (err) { setMsg(err.message); } });
+$('#btn-stock-bajo').addEventListener('click', async () => { try { await loadStockResumen('/stock/bajo'); } catch (err) { setMsg(err.message); } });
+$('#btn-stock-sin-proveedor').addEventListener('click', async () => { try { await loadStockResumen('/stock/sin-proveedor'); } catch (err) { setMsg(err.message); } });
 
 $('#btn-ver-stock').addEventListener('click', async () => {
   try { await cargarStockProducto(); } catch (err) { setMsg(err.message); }
@@ -1188,6 +1255,7 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadTipoCambio();
   await loadProveedores();
   await loadProductosAll();
+  await loadStockResumen('/stock');
   setModoProducto('AGREGAR');
   renderPresupuestoProductos();
   await loadPresupuestos();
