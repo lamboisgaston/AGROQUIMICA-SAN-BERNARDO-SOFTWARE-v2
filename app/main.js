@@ -936,7 +936,16 @@ $('#btn-cerrar').addEventListener('click', async () => {
       return setMsg('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
     }
     const totalFinal = Math.max(0, Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0)) - (Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0)) * (descuentoValor / 100)) + ajusteRedondeo);
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ personaId: venta?.personaId || null, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, totalFinal }) });
+    const payload = {
+      personaId: venta?.personaId || null,
+      descuentoTipo,
+      descuentoValor,
+      ajusteRedondeo,
+      condicionPagoPrevista,
+      totalFinal
+    };
+    console.log('Payload venta:', payload);
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify(payload) });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
@@ -954,7 +963,10 @@ $('#btn-cerrar').addEventListener('click', async () => {
     setMsg(`✅ Venta #${ventaCerrada.id} creada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
-    setMsg(`Error al cerrar venta (backend): ${err.message}`);
+    const detalle = (typeof err?.body === 'object' && err?.body)
+      ? JSON.stringify(err.body)
+      : String(err?.body || '');
+    setMsg(`Error al cerrar venta (backend): ${err.message}${detalle ? ` | detalle: ${detalle}` : ''}`);
   }
 });
 
