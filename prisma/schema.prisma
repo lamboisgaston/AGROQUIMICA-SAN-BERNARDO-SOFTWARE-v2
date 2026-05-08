@@ -107,8 +107,10 @@ model Persona {
 
 model Presupuesto {
   id                Int                 @id @default(autoincrement())
-  personaId          Int
-  persona            Persona             @relation(fields: [personaId], references: [id])
+  personaId          Int?
+  persona            Persona?            @relation(fields: [personaId], references: [id])
+  nombreLibre        String?
+  tipoDestinatario   TipoDestinatarioPresupuesto @default(EXISTENTE)
   subtotal           Float               @default(0)
   descuentoTipo      String?
   descuentoValor     Float               @default(0)
@@ -121,6 +123,12 @@ model Presupuesto {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   items              PresupuestoItem[]
+}
+
+enum TipoDestinatarioPresupuesto {
+  EXISTENTE
+  LIBRE
+  A_QUIEN_CORRESPONDA
 }
 
 model PresupuestoItem {

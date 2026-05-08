@@ -16,6 +16,8 @@ let filtroProductosAdmin = '';
 let modoProducto = 'AGREGAR';
 let categoriasProducto = [];
 let presupuestoClienteId = null;
+let presupuestoTipoDestinatario = 'EXISTENTE';
+let presupuestoNombreLibre = '';
 let presupuestoItems = [];
 let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
@@ -474,7 +476,7 @@ function renderPresupuestoProductos() {
 }
 async function loadPresupuestos() {
   const lista = await api('/presupuestos');
-  $('#pres-lista').innerHTML = lista.map(p => `<div class="item">#${p.id} | ${p.persona?.nombre} | ${p.estado} | ${money(p.total)} <button data-pres-imprimir="${p.id}">Imprimir</button> <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`).join('');
+  $('#pres-lista').innerHTML = lista.map(p => `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <button data-pres-imprimir="${p.id}">Imprimir</button> <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`).join('');
 }
 function renderProveedores() {
   $('#proveedores-lista').innerHTML = proveedores.length
@@ -999,17 +1001,45 @@ async function buscarProductoPresupuesto() {
 $('#pres-btn-buscar-producto').addEventListener('click', buscarProductoPresupuesto);
 $('#pres-buscar-producto').addEventListener('input', buscarProductoPresupuesto);
 $('#pres-descuento').addEventListener('input', renderPresupuestoProductos);
+$('#pres-tipo-destinatario').addEventListener('change', (e) => {
+  presupuestoTipoDestinatario = e.target.value;
+});
+$('#pres-nombre-libre').addEventListener('input', (e) => {
+  presupuestoNombreLibre = e.target.value.trim();
+});
 $('#pres-guardar').addEventListener('click', async () => {
   try {
-    if (!presupuestoClienteId) throw new Error('Debe seleccionar un cliente para presupuestar');
+    if (presupuestoTipoDestinatario === 'EXISTENTE' && !presupuestoClienteId) throw new Error('Debe seleccionar una persona/empresa');
+    if (presupuestoTipoDestinatario === 'LIBRE' && !presupuestoNombreLibre) throw new Error('Debe ingresar nombre manual para presupuesto libre');
     if (!presupuestoItems.length) throw new Error('Debe agregar al menos un producto');
-    await api('/presupuestos', { method: 'POST', body: JSON.stringify({ clienteId: presupuestoClienteId, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
+    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'MONTO', descuentoValor: Number($('#pres-descuento').value || 0), observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
+    $('#pres-dar-alta-persona').dataset.presupuestoId = creado.id;
     presupuestoItems = [];
     presupuestoClienteId = null;
+    presupuestoNombreLibre = '';
     $('#pres-cliente-activo').textContent = 'Ninguno';
+    $('#pres-nombre-libre').value = '';
     renderPresupuestoProductos();
     await loadPresupuestos();
     setMsg('Presupuesto guardado');
+  } catch (err) { setMsg(err.message); }
+});
+$('#pres-dar-alta-persona').addEventListener('click', async () => {
+  try {
+    const presupuestoId = Number($('#pres-dar-alta-persona').dataset.presupuestoId || 0);
+    if (!presupuestoId) throw new Error('Primero guarde un presupuesto para poder dar de alta');
+    await api(`/presupuestos/${presupuestoId}/dar-alta-persona`, {
+      method: 'POST',
+      body: JSON.stringify({
+        razonSocial: $('#pres-alta-razon-social').value.trim(),
+        cuit: $('#pres-alta-cuit').value.trim(),
+        mail: $('#pres-alta-mail').value.trim(),
+        telefonoPrincipal: $('#pres-alta-telefono-principal').value.trim(),
+        telefonoEmergencia: $('#pres-alta-telefono-emergencia').value.trim()
+      })
+    });
+    setMsg('Persona/empresa dada de alta y vinculada al presupuesto');
+    await loadPresupuestos();
   } catch (err) { setMsg(err.message); }
 });
 $('#pres-btn-crear-cliente').addEventListener('click', async () => {

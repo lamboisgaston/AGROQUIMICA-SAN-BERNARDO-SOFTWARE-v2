@@ -177,9 +177,17 @@
 
     <section class="bloque">
       <h2>11) Presupuestos</h2>
-      <h3>Cliente</h3>
+      <h3>Destinatario</h3>
+      <label>Tipo
+        <select id="pres-tipo-destinatario">
+          <option value="EXISTENTE">Buscar persona/empresa existente</option>
+          <option value="LIBRE">Crear presupuesto libre</option>
+          <option value="A_QUIEN_CORRESPONDA">A quien corresponda</option>
+        </select>
+      </label>
       <input id="pres-buscar-cliente" placeholder="Buscar por nombre, teléfono o CUIT/DNI" />
       <button id="pres-btn-buscar-cliente">Buscar cliente</button>
+      <input id="pres-nombre-libre" placeholder="Nombre manual para presupuesto libre" />
       <div id="pres-clientes" class="lista"></div>
       <details>
         <summary>Cliente no encontrado: crear cliente</summary>
@@ -189,6 +197,15 @@
         <button id="pres-btn-crear-cliente">Crear y seleccionar</button>
       </details>
       <p>Cliente presupuesto: <strong id="pres-cliente-activo">Ninguno</strong></p>
+      <details>
+        <summary>Dar de alta como persona/empresa</summary>
+        <input id="pres-alta-razon-social" placeholder="razonSocial *" />
+        <input id="pres-alta-cuit" placeholder="cuit *" />
+        <input id="pres-alta-mail" placeholder="mail *" />
+        <input id="pres-alta-telefono-principal" placeholder="telefonoPrincipal *" />
+        <input id="pres-alta-telefono-emergencia" placeholder="telefonoEmergencia *" />
+        <button id="pres-dar-alta-persona">Dar de alta como persona/empresa</button>
+      </details>
       <h3>Datos comerciales</h3>
       <input id="pres-observaciones" placeholder="Observaciones" />
       <input id="pres-validez" placeholder="Validez del presupuesto (ej: 7 días)" />
