@@ -1040,7 +1040,9 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
       return res.status(400).json({ error: 'Para aplicar descuento debe seleccionar un cliente real.' });
     }
 
-    if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
+    const condicionesPagoValidas = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CUENTA_CORRIENTE', 'OTRO'];
+
+    if (condicionPagoPrevista !== null && condicionPagoPrevista !== undefined && !condicionesPagoValidas.includes(condicionPagoPrevista)) {
       return res.status(400).json({ error: 'condicionPagoPrevista inválida' });
     }
 
