@@ -204,7 +204,7 @@ async function agregarProductoAlCarrito(productoId) {
     renderProductos();
     $('#buscar-producto').focus();
   } catch (err) {
-    setMsg(err.message);
+    setMsg(`Error al agregar producto: ${err.message}`);
   }
 }
 
@@ -241,7 +241,7 @@ function renderCarrito() {
   $('#condicion-pago-prevista').required = requiereCondicion;
   $('#resumen-condicion-pago').textContent = requiereCondicion ? ($('#condicion-pago-prevista').value || 'Pendiente de definir') : 'No aplica';
   const alertas = items.filter(i => (Number(i.producto.stock || 0) - Number(i.cantidad || 0)) < 0);
-  $('#stock-alertas').innerHTML = alertas.map(i => `<div class="item">Atención: este producto quedará con stock negativo. ${i.producto.nombre}</div>`).join('');
+  $('#stock-alertas').innerHTML = alertas.map(i => `<div class="item">⚠️ Atención: este producto quedará con stock negativo. ${i.producto.nombre}</div>`).join('');
 }
 
 
@@ -782,8 +782,12 @@ $('#buscar-cliente').addEventListener('input', buscarClienteMostrador);
 
 $('#resultados-clientes').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-persona]');
-  if (!b || !ventaId) return;
+  if (!b) return;
   try {
+    if (!ventaId) {
+      const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+      ventaId = v.id;
+    }
     console.log('Seleccionado cliente:', b.dataset.persona);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: Number(b.dataset.persona) }) });
     await refreshVenta();
@@ -815,11 +819,13 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
   try {
     const persona = await crearClientePayload({ tipoCliente, nombre, telefono, cuitDni, mail });
     if (persona.advertenciaDuplicado) setMsg(persona.advertenciaDuplicado, 'warning');
-    if (ventaId) {
-      console.log('Seleccionado cliente:', persona.id);
-      await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
-      await refreshVenta();
+    if (!ventaId) {
+      const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+      ventaId = v.id;
     }
+    console.log('Seleccionado cliente:', persona.id);
+    await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
+    await refreshVenta();
     const panelAlta = $('#alta-rapida-panel');
     if (panelAlta) panelAlta.open = false;
     await buscarClienteMostrador();
@@ -830,6 +836,19 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
   } finally {
     btnCrear.disabled = false;
     btnCrear.textContent = labelOriginal;
+  }
+});
+$('#btn-consumidor-final')?.addEventListener('click', async () => {
+  try {
+    if (!ventaId) {
+      const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+      ventaId = v.id;
+    }
+    await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: null }) });
+    await refreshVenta();
+    setMsg('Venta configurada sin cliente (consumidor final)');
+  } catch (err) {
+    setMsg(`Error al seleccionar consumidor final: ${err.message}`);
   }
 });
 $('#btn-alta-rapida').addEventListener('click', () => {
@@ -883,10 +902,10 @@ $('#btn-cerrar').addEventListener('click', async () => {
     $('#descuento-tipo').value = 'PORCENTAJE';
     $('#ajuste-redondeo').value = '0';
     $('#condicion-pago-prevista').value = '';
-    setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
+    setMsg(`✅ Venta #${ventaCerrada.id} creada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
-    setMsg(err.message);
+    setMsg(`Error al cerrar venta (backend): ${err.message}`);
   }
 });
 

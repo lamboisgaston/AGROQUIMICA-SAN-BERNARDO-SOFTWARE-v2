@@ -962,6 +962,15 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
   }
 
   let persona;
+  if (personaId === null) {
+    const venta = await prisma.venta.update({
+      where: { id: ventaId },
+      data: { personaId: null },
+      include: { persona: true }
+    });
+    return res.json(venta);
+  }
+
   if (personaId) {
     const personaIdParsed = parsePositiveInt(personaId);
     if (!personaIdParsed) return res.status(400).json({ error: 'personaId inválido' });
