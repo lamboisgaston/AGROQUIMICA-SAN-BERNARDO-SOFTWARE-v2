@@ -220,9 +220,26 @@ function renderCarrito() {
   const ajusteRedondeo = Number($('#ajuste-redondeo')?.value || 0);
   const final = Math.max(0, subtotal - descuentoAplicado + ajusteRedondeo);
   $('#subtotal').textContent = money(subtotal);
+  $('#resumen-descuento-pct').textContent = `${descuento.toFixed(2)}%`;
   $('#importe-descuento').textContent = money(descuentoAplicado);
   $('#monto-ajuste').textContent = money(ajusteRedondeo);
   $('#total-final').textContent = money(final);
+  const clienteNombre = venta?.persona?.nombre || 'Consumidor final';
+  $('#carrito-cliente').textContent = clienteNombre;
+  const tieneCliente = Boolean(venta?.personaId);
+  const bloqueo = !tieneCliente;
+  $('#descuento').disabled = bloqueo;
+  $('#ajuste-redondeo').disabled = bloqueo;
+  $('#descuento-tipo').disabled = bloqueo;
+  document.querySelectorAll('.btn-redondeo').forEach((btn) => { btn.disabled = bloqueo; });
+  $('#msg-descuento-cliente').classList.toggle('hidden', !bloqueo);
+  if (bloqueo) {
+    $('#descuento').value = '0';
+    $('#ajuste-redondeo').value = '0';
+  }
+  const requiereCondicion = descuento > 0 || Number($('#ajuste-redondeo')?.value || 0) !== 0;
+  $('#condicion-pago-prevista').required = requiereCondicion;
+  $('#resumen-condicion-pago').textContent = requiereCondicion ? ($('#condicion-pago-prevista').value || 'Pendiente de definir') : 'No aplica';
   const alertas = items.filter(i => (Number(i.producto.stock || 0) - Number(i.cantidad || 0)) < 0);
   $('#stock-alertas').innerHTML = alertas.map(i => `<div class="item">Atención: este producto quedará con stock negativo. ${i.producto.nombre}</div>`).join('');
 }
@@ -367,7 +384,7 @@ async function loadCaja() {
   const ventas = await api('/caja/ventas');
   const ventasRecientesCobradas = await api('/ventas/cobradas-recientes');
   $('#pendientes').innerHTML = ventas.length
-    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <select id="pago-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}">Cobrar</button></div>`).join('')
+    ? ventas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | Previsto: ${v.condicionPagoPrevista || '-'} | ${money(v.total)} <select id="pago-${v.id}">${getMediosPagoOptions(v)}</select>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}">Cobrar</button></div>`).join('')
     : 'No hay ventas pendientes';
 
   const recientesHtml = ventasRecientesCobradas.length
@@ -755,7 +772,7 @@ async function buscarClienteMostrador() {
   try {
     const personas = await buscarPersonas(q);
     $('#resultados-clientes').innerHTML = personas.length
-      ? personas.slice(0, 8).map(p => `<div class="item">${labelCliente(p)} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+      ? personas.slice(0, 8).map(p => `<div class="item"><strong>${p.nombre}</strong> | ${p.telefono || '-'} | ${(p.tipoCliente || 'PERSONAL').toUpperCase()} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
       : '<div class="item">Sin resultados <button id="btn-crear-desde-busqueda">Crear cliente</button></div>';
   } catch (error) { mostrarErrorBusqueda('#resultados-clientes', error); }
 }
@@ -803,9 +820,11 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
       await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
       await refreshVenta();
     }
+    const panelAlta = $('#alta-rapida-panel');
+    if (panelAlta) panelAlta.open = false;
     await buscarClienteMostrador();
     limpiarFormularioNuevoCliente();
-    setMsg('Cliente creado correctamente');
+    setMsg('Cliente creado y seleccionado');
   } catch (err) {
     setMsg(`Error al crear cliente: ${err.message}`);
   } finally {
@@ -813,7 +832,11 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
     btnCrear.textContent = labelOriginal;
   }
 });
-$('#btn-alta-rapida').addEventListener('click', () => { document.querySelector('[data-modulo="clientes"]')?.scrollIntoView({ behavior: 'smooth' }); $('#nuevo-nombre').focus(); });
+$('#btn-alta-rapida').addEventListener('click', () => {
+  const panelAlta = $('#alta-rapida-panel');
+  if (panelAlta) panelAlta.open = true;
+  $('#nuevo-nombre').focus();
+});
 $('#nuevo-tipo-cliente')?.addEventListener('change', actualizarFormularioTipoCliente);
 actualizarFormularioTipoCliente();
 
@@ -841,7 +864,11 @@ $('#btn-cerrar').addEventListener('click', async () => {
     const descuentoValor = Math.max(0, Number($('#descuento').value || 0));
     const descuentoTipo = 'PORCENTAJE';
     const ajusteRedondeo = Number($('#ajuste-redondeo').value || 0);
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor, ajusteRedondeo }) });
+    const condicionPagoPrevista = $('#condicion-pago-prevista').value || null;
+    if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) {
+      return setMsg('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
+    }
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista }) });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
@@ -855,6 +882,7 @@ $('#btn-cerrar').addEventListener('click', async () => {
     $('#descuento').value = '0';
     $('#descuento-tipo').value = 'PORCENTAJE';
     $('#ajuste-redondeo').value = '0';
+    $('#condicion-pago-prevista').value = '';
     setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
