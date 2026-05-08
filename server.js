@@ -1015,6 +1015,7 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 }));
 
 app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
+  console.log('[mostrador/cerrar] req.body', req.body);
   const ventaId = parsePositiveInt(req.params.id);
   const { personaId, descuentoTipo, descuentoValor, ajusteRedondeo, condicionPagoPrevista, totalFinal } = req.body || {};
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
@@ -1464,7 +1465,7 @@ app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req,
 app.use((err, req, res, next) => {
   console.error('[backend-error]', { method: req.method, path: req.path, message: err.message, stack: err.stack });
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: 'Error interno del servidor' });
+  res.status(500).json({ error: err.message || 'Error interno del servidor', stack: err.stack, path: req.path, method: req.method });
 });
 
 app.get('/app', (req, res) => {
