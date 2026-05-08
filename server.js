@@ -1015,7 +1015,8 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 }));
 
 app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
-  console.log('BODY CERRAR VENTA', req.body);
+  console.log('CERRAR VENTA BODY', req.body);
+  console.log('CERRAR VENTA ID', req.params.id);
 
   try {
     const ventaId = parsePositiveInt(req.params.id);
@@ -1039,19 +1040,24 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
       return res.status(400).json({ error: 'descuentoTipo inválido' });
     }
 
-    if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !venta.personaId) {
-      return res.status(400).json({ error: 'Para aplicar descuento primero debe seleccionar o dar de alta un cliente.' });
+    const personaIdValido = Number.isInteger(Number(venta.personaId)) && Number(venta.personaId) > 0;
+    const hayDescuento = Number(descuentoValor || 0) > 0;
+
+    if (hayDescuento && !personaIdValido) {
+      return res.status(400).json({ error: 'Para aplicar descuento debe seleccionar un cliente real.' });
     }
 
     if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
       return res.status(400).json({ error: 'condicionPagoPrevista inválida' });
     }
 
-    if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && !condicionPagoPrevista) {
-      return res.status(400).json({ error: 'Si hay descuento o ajuste de redondeo, condicionPagoPrevista es obligatoria' });
+    if (hayDescuento && !condicionPagoPrevista) {
+      return res.status(400).json({ error: 'Si hay descuento, condicionPagoPrevista es obligatoria' });
     }
 
-    if (personaId !== undefined && (personaId || null) !== (venta.personaId || null)) {
+    const personaIdBody = personaId === undefined || personaId === null || Number(personaId) === 0 ? null : Number(personaId);
+    const personaIdVenta = venta.personaId ? Number(venta.personaId) : null;
+    if (personaIdBody !== null && personaIdBody !== personaIdVenta) {
       return res.status(400).json({ error: 'personaId no coincide con la venta activa' });
     }
 
