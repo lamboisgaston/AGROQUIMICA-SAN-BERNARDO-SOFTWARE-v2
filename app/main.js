@@ -103,6 +103,35 @@ function actualizarFormularioTipoCliente() {
   $('#nuevo-mail').placeholder = tipo === 'EMPRESA' ? 'Mail (obligatorio)' : 'Mail opcional';
 }
 
+
+function limpiarFormularioNuevoCliente() {
+  $('#nuevo-nombre').value = '';
+  $('#nuevo-cuit').value = '';
+  $('#nuevo-telefono').value = '';
+  $('#nuevo-mail').value = '';
+}
+
+function validarDatosCliente({ tipoCliente, nombre, telefono, cuitDni, mail }) {
+  if (!nombre || !telefono) return 'Para PERSONAL: nombre y teléfono obligatorios';
+  if (tipoCliente === 'EMPRESA' && (!cuitDni || !mail)) return 'Para EMPRESA: razón social, CUIT, teléfono y mail obligatorios';
+  return null;
+}
+
+async function crearClientePayload({ tipoCliente, nombre, telefono, cuitDni, mail }) {
+  return api('/personas', {
+    method: 'POST',
+    body: JSON.stringify({
+      nombre,
+      razonSocial: nombre,
+      telefono,
+      cuitDni,
+      cuit: cuitDni,
+      mail,
+      tipo: 'CLIENTE',
+      tipoCliente
+    })
+  });
+}
 function mostrarErrorBusqueda(containerSelector, error) {
   const container = $(containerSelector);
   if (!container) return;
@@ -754,22 +783,35 @@ $('#resultados-clientes').addEventListener('click', async (e) => {
   }
 });
 $('#btn-crear-cliente').addEventListener('click', async () => {
-  if (!ventaId) return;
+  const btnCrear = $('#btn-crear-cliente');
   const tipoCliente = $('#nuevo-tipo-cliente').value;
   const nombre = $('#nuevo-nombre').value.trim();
   const telefono = $('#nuevo-telefono').value.trim();
   const cuitDni = $('#nuevo-cuit').value.trim();
   const mail = $('#nuevo-mail').value.trim();
-  if (!nombre || !telefono) return setMsg('Para PERSONAL: nombre y teléfono obligatorios');
-  if (tipoCliente === 'EMPRESA' && (!cuitDni || !mail)) return setMsg('Para EMPRESA: razón social, CUIT, teléfono y mail obligatorios');
+  const errorValidacion = validarDatosCliente({ tipoCliente, nombre, telefono, cuitDni, mail });
+  if (errorValidacion) return setMsg(errorValidacion, 'warning');
+  const labelOriginal = btnCrear.textContent;
+  btnCrear.disabled = true;
+  btnCrear.textContent = 'Creando...';
+  setMsg('Guardando cliente...', 'info');
   try {
-    const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, razonSocial: nombre, telefono, cuitDni, cuit: cuitDni, mail, tipo: 'CLIENTE', tipoCliente }) });
+    const persona = await crearClientePayload({ tipoCliente, nombre, telefono, cuitDni, mail });
     if (persona.advertenciaDuplicado) setMsg(persona.advertenciaDuplicado, 'warning');
-    console.log('Seleccionado cliente:', persona.id);
-    await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
-    await refreshVenta();
-    setMsg('Cliente creado y seleccionado');
-  } catch (err) { setMsg(err.message); }
+    if (ventaId) {
+      console.log('Seleccionado cliente:', persona.id);
+      await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
+      await refreshVenta();
+    }
+    await buscarClienteMostrador();
+    limpiarFormularioNuevoCliente();
+    setMsg('Cliente creado correctamente');
+  } catch (err) {
+    setMsg(`Error al crear cliente: ${err.message}`);
+  } finally {
+    btnCrear.disabled = false;
+    btnCrear.textContent = labelOriginal;
+  }
 });
 $('#btn-alta-rapida').addEventListener('click', () => { document.querySelector('[data-modulo="clientes"]')?.scrollIntoView({ behavior: 'smooth' }); $('#nuevo-nombre').focus(); });
 $('#nuevo-tipo-cliente')?.addEventListener('change', actualizarFormularioTipoCliente);
@@ -1142,22 +1184,33 @@ $('#pres-dar-alta-persona').addEventListener('click', async () => {
   } catch (err) { setMsg(err.message); }
 });
 $('#pres-btn-crear-cliente').addEventListener('click', async () => {
+  const btnCrearPres = $('#pres-btn-crear-cliente');
+  const labelOriginal = btnCrearPres.textContent;
+  const tipoCliente = 'PERSONAL';
+  const nombre = $('#pres-crear-nombre').value.trim();
+  const telefono = $('#pres-crear-telefono').value.trim();
+  const cuitDni = $('#pres-crear-cuitdni').value.trim();
+  const mail = '';
+  const errorValidacion = validarDatosCliente({ tipoCliente, nombre, telefono, cuitDni, mail });
+  if (errorValidacion) return setMsg(errorValidacion, 'warning');
+  btnCrearPres.disabled = true;
+  btnCrearPres.textContent = 'Creando...';
+  setMsg('Guardando cliente...', 'info');
   try {
-    const nombre = $('#pres-crear-nombre').value.trim();
-    if (!nombre) throw new Error('Nombre de cliente obligatorio');
-    const nuevo = await api('/personas', {
-      method: 'POST',
-      body: JSON.stringify({
-        nombre,
-        telefono: $('#pres-crear-telefono').value.trim() || null,
-        cuitDni: $('#pres-crear-cuitdni').value.trim() || null,
-        tipo: 'CLIENTE'
-      })
-    });
+    const nuevo = await crearClientePayload({ tipoCliente, nombre, telefono, cuitDni, mail });
     presupuestoClienteId = nuevo.id;
     $('#pres-cliente-activo').textContent = nuevo.nombre;
-    setMsg('Cliente creado y seleccionado');
-  } catch (err) { setMsg(err.message); }
+    $('#pres-crear-nombre').value = '';
+    $('#pres-crear-telefono').value = '';
+    $('#pres-crear-cuitdni').value = '';
+    await buscarClientePresupuesto();
+    setMsg('Cliente creado correctamente');
+  } catch (err) {
+    setMsg(`Error al crear cliente: ${err.message}`);
+  } finally {
+    btnCrearPres.disabled = false;
+    btnCrearPres.textContent = labelOriginal;
+  }
 });
 $('#pres-lista').addEventListener('click', async (e) => {
   const imp = e.target.closest('button[data-pres-imprimir]');
