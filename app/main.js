@@ -174,12 +174,15 @@ function renderCarrito() {
 
   const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0));
   const descuento = Math.max(0, Number($('#descuento').value || 0));
-  const descuentoTipo = $('#descuento-tipo').value;
-  const descuentoAplicado = descuentoTipo === 'PORCENTAJE' ? (subtotal * (descuento / 100)) : descuento;
-  const final = Math.max(0, subtotal - descuentoAplicado);
+  const descuentoAplicado = subtotal * (descuento / 100);
+  const ajusteRedondeo = Number($('#ajuste-redondeo')?.value || 0);
+  const final = Math.max(0, subtotal - descuentoAplicado + ajusteRedondeo);
   $('#subtotal').textContent = money(subtotal);
-  $('#total').textContent = money(subtotal);
+  $('#importe-descuento').textContent = money(descuentoAplicado);
+  $('#monto-ajuste').textContent = money(ajusteRedondeo);
   $('#total-final').textContent = money(final);
+  const alertas = items.filter(i => (Number(i.producto.stock || 0) - Number(i.cantidad || 0)) < 0);
+  $('#stock-alertas').innerHTML = alertas.map(i => `<div class="item">Atención: este producto quedará con stock negativo. ${i.producto.nombre}</div>`).join('');
 }
 
 
@@ -692,6 +695,17 @@ $('#carrito').addEventListener('click', async (e) => {
 
 $('#descuento').addEventListener('input', renderCarrito);
 $('#descuento-tipo').addEventListener('change', renderCarrito);
+$('#ajuste-redondeo')?.addEventListener('input', renderCarrito);
+$('#ajuste-mas')?.addEventListener('click', () => { $('#ajuste-redondeo').value = (Number($('#ajuste-redondeo').value || 0) + 1).toFixed(2); renderCarrito(); });
+$('#ajuste-menos')?.addEventListener('click', () => { $('#ajuste-redondeo').value = (Number($('#ajuste-redondeo').value || 0) - 1).toFixed(2); renderCarrito(); });
+document.querySelectorAll('.btn-redondeo').forEach((btn) => btn.addEventListener('click', () => {
+  const base = Number(btn.dataset.redondeo || 100);
+  const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0));
+  const actual = subtotal - (subtotal * (Math.max(0, Number($('#descuento').value || 0)) / 100));
+  const objetivo = Math.round(actual / base) * base;
+  $('#ajuste-redondeo').value = (objetivo - actual).toFixed(2);
+  renderCarrito();
+}));
 
 async function buscarClienteMostrador() {
   const q = $('#buscar-cliente').value.trim();
@@ -732,14 +746,16 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
   if (!nombre) return setMsg('Nombre obligatorio');
   const telefono = $('#nuevo-telefono').value.trim();
   const cuitDni = $('#nuevo-cuit').value.trim();
+  const mail = $('#nuevo-mail').value.trim();
   try {
-    const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuitDni, tipo: 'CLIENTE' }) });
+    const persona = await api('/personas', { method: 'POST', body: JSON.stringify({ nombre, telefono, cuitDni, mail, tipo: 'CLIENTE' }) });
     console.log('Seleccionado cliente:', persona.id);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
     await refreshVenta();
     setMsg('Cliente creado y seleccionado');
   } catch (err) { setMsg(err.message); }
 });
+$('#btn-alta-rapida').addEventListener('click', () => { document.querySelector('[data-modulo="clientes"]')?.scrollIntoView({ behavior: 'smooth' }); $('#nuevo-nombre').focus(); });
 
 $('#btn-cerrar').addEventListener('click', async () => {
   console.log('[cerrar-venta] inicio', { ventaId, venta });
@@ -763,11 +779,9 @@ $('#btn-cerrar').addEventListener('click', async () => {
   try {
     console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
     const descuentoValor = Math.max(0, Number($('#descuento').value || 0));
-    const descuentoTipo = $('#descuento-tipo').value;
-    if (descuentoValor > 0 && !venta?.personaId) {
-      return setMsg('Para aplicar descuento, primero debe dar de alta al cliente.');
-    }
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor }) });
+    const descuentoTipo = 'PORCENTAJE';
+    const ajusteRedondeo = Number($('#ajuste-redondeo').value || 0);
+    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify({ descuentoTipo, descuentoValor, ajusteRedondeo }) });
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
@@ -779,7 +793,8 @@ $('#btn-cerrar').addEventListener('click', async () => {
     await loadResumenCaja();
     logFlujo('caja actualizada');
     $('#descuento').value = '0';
-    $('#descuento-tipo').value = 'MONTO';
+    $('#descuento-tipo').value = 'PORCENTAJE';
+    $('#ajuste-redondeo').value = '0';
     setMsg(`✅ Venta #${ventaCerrada.id} cerrada correctamente y enviada a caja`);
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);

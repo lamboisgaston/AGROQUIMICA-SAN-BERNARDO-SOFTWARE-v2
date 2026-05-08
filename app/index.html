@@ -38,10 +38,12 @@
       <strong id="venta-activa">Sin venta activa</strong>
     </section>
 
-    <section class="bloque app-shell" data-modulo="ventas">
+    <section class="bloque app-shell mostrador-ux" data-modulo="ventas clientes">
       <h2>1) Buscador de productos</h2>
-      <input id="buscar-producto" placeholder="Escriba para buscar producto" />
+      <input id="buscar-producto" class="input-grande" placeholder="Escaneá o escribí para buscar producto" />
       <div id="resultados-productos" class="lista"></div>
+      <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
+      <div id="stock-alertas" class="lista"></div>
     </section>
 
     <section class="bloque app-shell" data-modulo="ventas">
@@ -51,14 +53,24 @@
         <tbody id="carrito"></tbody>
       </table>
       <p>Subtotal: <span id="subtotal">$0.00</span></p>
-      <label>Tipo descuento
+      <label>Descuento %
         <select id="descuento-tipo">
-          <option value="MONTO">Monto fijo</option>
           <option value="PORCENTAJE">Porcentaje</option>
         </select>
       </label>
-      <label>Valor descuento <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
-      <p>Total: <span id="total">$0.00</span></p>
+      <label>descuentoPorcentaje <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
+      <label>ajusteRedondeo
+        <button id="ajuste-menos">-</button>
+        <input id="ajuste-redondeo" type="number" value="0" step="0.01" />
+        <button id="ajuste-mas">+</button>
+      </label>
+      <div>
+        <button class="btn-redondeo" data-redondeo="100">Redondear a $100</button>
+        <button class="btn-redondeo" data-redondeo="500">Redondear a $500</button>
+        <button class="btn-redondeo" data-redondeo="1000">Redondear a $1000</button>
+      </div>
+      <p>Importe descontado: <span id="importe-descuento">$0.00</span></p>
+      <p>Ajuste de redondeo: <span id="monto-ajuste">$0.00</span></p>
       <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
     </section>
 
@@ -72,6 +84,7 @@
       <input id="nuevo-nombre" placeholder="Nombre obligatorio" />
       <input id="nuevo-telefono" placeholder="Teléfono opcional" />
       <input id="nuevo-cuit" placeholder="CUIT/DNI opcional" />
+      <input id="nuevo-mail" placeholder="Mail opcional" />
       <button id="btn-crear-cliente">Crear cliente</button>
 
       <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
