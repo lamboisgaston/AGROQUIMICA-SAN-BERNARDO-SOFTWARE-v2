@@ -38,19 +38,13 @@
       <strong id="venta-activa">Sin venta activa</strong>
     </section>
 
-    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
-      <h2>B) Productos</h2>
-      <input id="buscar-producto" class="input-grande" placeholder="Escaneá o escribí para buscar producto" />
-      <div id="resultados-productos" class="lista"></div>
-      <div id="stock-alertas" class="lista"></div>
-    </section>
-
     <section class="bloque app-shell mostrador-ux" data-modulo="ventas clientes">
-      <h2>A) Cliente</h2>
+      <h2>1) Cliente</h2>
       <div class="cliente-buscador-row">
-        <input id="buscar-cliente" placeholder="Buscar cliente por nombre o teléfono" />
+        <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
         <button id="btn-buscar-cliente">Buscar cliente</button>
         <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
+        <button id="btn-consumidor-final" class="btn-grande">Venta sin cliente</button>
       </div>
       <div id="resultados-clientes" class="lista"></div>
       <details id="alta-rapida-panel">
@@ -71,8 +65,15 @@
       <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
     </section>
 
-    <section class="bloque app-shell" data-modulo="ventas">
-      <h2>C) Carrito</h2>
+    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
+      <h2>2) Productos</h2>
+      <input id="buscar-producto" class="input-grande" placeholder="Escaneá o escribí para buscar producto" />
+      <div id="resultados-productos" class="lista"></div>
+      <div id="stock-alertas" class="lista"></div>
+    </section>
+
+    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
+      <h2>3) Carrito</h2>
       <table>
         <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
         <tbody id="carrito"></tbody>
@@ -85,8 +86,8 @@
       <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
     </section>
 
-    <section class="bloque app-shell" data-modulo="ventas">
-      <h2>D) Descuento y condición de pago</h2>
+    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
+      <h2>4) Descuento y pago</h2>
       <label>Descuento %
         <select id="descuento-tipo">
           <option value="PORCENTAJE">Porcentaje</option>
@@ -103,7 +104,7 @@
         <button class="btn-redondeo" data-redondeo="500">Redondear a $500</button>
         <button class="btn-redondeo" data-redondeo="1000">Redondear a $1000</button>
       </div>
-      <p id="msg-descuento-cliente" class="msg-info">Para aplicar descuento primero debe seleccionar o dar de alta un cliente.</p>
+      <p id="msg-descuento-cliente" class="msg-info">Para aplicar descuento debe seleccionar o dar de alta un cliente.</p>
       <label>condicionPagoPrevista
         <select id="condicion-pago-prevista">
           <option value="">Seleccione</option>
@@ -117,8 +118,8 @@
       <p>Condición prevista: <strong id="resumen-condicion-pago">No aplica</strong></p>
     </section>
 
-    <section class="bloque app-shell" data-modulo="ventas">
-      <h2>E) Cerrar venta</h2>
+    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
+      <h2>5) Cerrar venta</h2>
       <button id="btn-cerrar">Cerrar venta</button>
     </section>
 
