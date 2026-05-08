@@ -380,8 +380,8 @@ async function loadCierresCaja() {
   });
 }
 
-function getEstadoCobroOptions() {
-  return ['PAGADO', 'EN_ESPERA_DE_PAGO', 'CUENTA_CORRIENTE', 'CANCELADO']
+function getMedioPagoOptions() {
+  return ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA']
     .map(e => `<option value="${e}">${e}</option>`).join('');
 }
 
@@ -394,7 +394,18 @@ async function loadCaja() {
       const bloquePrevisto = tieneCondicionPrevista
         ? `<strong>Previsto: ${v.condicionPagoPrevista}</strong>`
         : '<strong>Previsto: -</strong>';
-      return `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${bloquePrevisto} | Total: ${money(v.total)} | <label>Estado cobro real: <select id="estado-cobro-${v.id}">${getEstadoCobroOptions()}</select></label>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}" data-condicion-prevista="${v.condicionPagoPrevista || ''}">Confirmar en caja</button></div>`;
+      return `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${bloquePrevisto} | Total: ${money(v.total)}
+        <div class="acciones-caja" data-venta-id="${v.id}">
+          <button class="btn-accion-caja" data-id="${v.id}" data-accion="cobrar">Cobrar ahora</button>
+          <button class="btn-accion-caja" data-id="${v.id}" data-accion="cuenta_corriente" ${v.personaId ? '' : 'disabled title="Solo para clientes registrados"'}>Pasar a cuenta corriente</button>
+          <button class="btn-accion-caja" data-id="${v.id}" data-accion="pendiente">Dejar pendiente</button>
+          <button class="btn-accion-caja" data-id="${v.id}" data-accion="cancelar">Cancelar venta</button>
+          <div id="pago-venta-${v.id}" style="display:none; margin-top:8px;">
+            <label>Medio de pago: <select id="medio-pago-${v.id}">${getMedioPagoOptions()}</select></label>
+            <button class="btn-marcar-pagado" data-id="${v.id}">Marcar como pagado</button>
+          </div>
+        </div>
+      </div>`;
     }).join('')
     : 'No hay ventas pendientes';
 
@@ -404,52 +415,63 @@ async function loadCaja() {
 
   $('#pendientes').innerHTML += `<h3>Ventas cobradas recientes</h3>${recientesHtml}`;
 
-  document.querySelectorAll('.btn-cobrar').forEach(btn => {
+  async function confirmarAccionCaja(ventaId, payload, mensajeExito) {
+    try {
+      const res = await fetch(`/caja/cobrar/${ventaId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const backendError = data?.error || data?.message || 'Error desconocido';
+        alert('Error en caja: ' + backendError);
+        setMsg(`❌ ${backendError}`, 'error');
+        return;
+      }
+      setMsg(`✅ ${mensajeExito} <button class="btn-ver-ticket-inline" data-id="${data.id}">Ver ticket</button>`);
+      await loadCaja();
+      const ticketBtn = document.querySelector('.btn-ver-ticket-inline');
+      if (ticketBtn) {
+        ticketBtn.addEventListener('click', () => {
+          window.open(`/ventas/${ticketBtn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión');
+    }
+  }
+
+  document.querySelectorAll('.btn-accion-caja').forEach(btn => {
     btn.addEventListener('click', async () => {
       const ventaId = btn.dataset.id;
-      const estadoCobroReal = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'PAGADO';
-      const prevista = btn.dataset.condicionPrevista || '';
-      const mediosPagoPermitidos = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
-      const medioPagoReal = (estadoCobroReal === 'PAGADO' && mediosPagoPermitidos.includes(prevista)) ? prevista : null;
-      const payload = {
-        estadoCobroReal,
-        medioPagoReal,
-        formaPago: medioPagoReal || undefined
-      };
+      const accion = btn.dataset.accion;
+      const pagoDiv = document.querySelector(`#pago-venta-${ventaId}`);
 
-      console.error('[caja] payload enviado para confirmar venta', { ventaId, payload, prevista });
-
-      try {
-        const res = await fetch(`/caja/cobrar/${ventaId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-        console.log('Respuesta:', data);
-
-        if (!res.ok) {
-          const backendError = data?.error || data?.message || 'Error desconocido';
-          alert('Error al cobrar: ' + backendError);
-          setMsg(`❌ ${backendError}`, 'error');
-          return;
-        }
-
-        alert('Venta confirmada en caja');
-        setMsg(`✅ Venta #${data.id} confirmada en caja. <button class=\"btn-ver-ticket-inline\" data-id=\"${data.id}\">Ver ticket</button>`);
-        await loadCaja();
-        const ticketBtn = document.querySelector('.btn-ver-ticket-inline');
-        if (ticketBtn) {
-          ticketBtn.addEventListener('click', () => {
-            window.open(`/ventas/${ticketBtn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
-          });
-        }
-
-      } catch (err) {
-        console.error(err);
-        alert('Error de conexión');
+      if (accion === 'cobrar') {
+        pagoDiv.style.display = 'block';
+        return;
       }
+      if (accion === 'cuenta_corriente') {
+        await confirmarAccionCaja(ventaId, { estadoCobroReal: 'CUENTA_CORRIENTE' }, `Venta #${ventaId} pasada a cuenta corriente.`);
+        return;
+      }
+      if (accion === 'pendiente') {
+        await confirmarAccionCaja(ventaId, { estadoCobroReal: 'EN_ESPERA_DE_PAGO' }, `Venta #${ventaId} sigue pendiente.`);
+        return;
+      }
+      if (accion === 'cancelar') {
+        await confirmarAccionCaja(ventaId, { estadoCobroReal: 'CANCELADO' }, `Venta #${ventaId} cancelada.`);
+      }
+    });
+  });
+
+  document.querySelectorAll('.btn-marcar-pagado').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ventaId = btn.dataset.id;
+      const medioPago = document.querySelector(`#medio-pago-${ventaId}`)?.value || 'EFECTIVO';
+      await confirmarAccionCaja(ventaId, { estadoCobro: 'PAGADO', medioPago }, `Venta #${ventaId} marcada como pagada.`);
     });
   });
 
