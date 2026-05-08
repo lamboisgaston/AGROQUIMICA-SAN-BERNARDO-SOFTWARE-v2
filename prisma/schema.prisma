@@ -105,7 +105,12 @@ model Persona {
   telefono        String?
   cuitDni         String?
   tipo            String
+  tipoCliente     TipoCliente @default(PERSONAL)
   mail            String?
+  direccion       String?
+  contactoComercial String?
+  observaciones   String?
+  telefonoEmergencia String?
   ventas          Venta[]
   presupuestos    Presupuesto[]
   cuentaCorriente CuentaCorriente?
@@ -236,4 +241,10 @@ enum MedioPago {
 enum TipoMovimientoCuentaCorriente {
   DEBITO
   CREDITO
+}
+
+
+enum TipoCliente {
+  PERSONAL
+  EMPRESA
 }

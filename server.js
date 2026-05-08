@@ -568,24 +568,45 @@ app.get('/personas', asyncHandler(async (req, res) => {
 }));
 
 app.post('/personas', asyncHandler(async (req, res) => {
-  const { nombre, telefono, cuitDni, tipo, razonSocial, cuit, mail, telefonoPrincipal, telefonoEmergencia } = req.body || {};
-  const nombreFinal = String(razonSocial || nombre || '').trim();
-  if (!nombreFinal) {
-    return res.status(400).json({ error: 'nombre es obligatorio' });
+  const { nombre, telefono, cuitDni, tipo, tipoCliente, razonSocial, cuit, mail, telefonoPrincipal, telefonoEmergencia, direccion, contactoComercial, observaciones } = req.body || {};
+  const tipoClienteFinal = String(tipoCliente || 'PERSONAL').trim().toUpperCase() === 'EMPRESA' ? 'EMPRESA' : 'PERSONAL';
+  const nombreFinal = String(tipoClienteFinal === 'EMPRESA' ? (razonSocial || nombre || '') : (nombre || razonSocial || '')).trim();
+  const telefonoFinal = String(telefonoPrincipal || telefono || telefonoEmergencia || '').trim();
+  const cuitFinal = String(cuit || cuitDni || '').trim();
+  const mailFinal = String(mail || '').trim();
+
+  if (tipoClienteFinal === 'PERSONAL') {
+    if (!nombreFinal || !telefonoFinal) return res.status(400).json({ error: 'Para cliente PERSONAL, nombre y telefono son obligatorios' });
+  }
+  if (tipoClienteFinal === 'EMPRESA') {
+    if (!nombreFinal || !cuitFinal || !telefonoFinal || !mailFinal) return res.status(400).json({ error: 'Para cliente EMPRESA, razonSocial, cuit, telefono y mail son obligatorios' });
   }
 
-  const telefonoFinal = String(telefonoPrincipal || telefono || telefonoEmergencia || '').trim();
+  let advertenciaDuplicado = null;
+  if (tipoClienteFinal === 'PERSONAL' && telefonoFinal) {
+    const duplicado = await prisma.persona.findFirst({ where: { tipoCliente: 'PERSONAL', telefono: telefonoFinal } });
+    if (duplicado) advertenciaDuplicado = 'Ya existe un cliente PERSONAL con el mismo telefono';
+  }
+  if (tipoClienteFinal === 'EMPRESA' && cuitFinal) {
+    const duplicado = await prisma.persona.findFirst({ where: { tipoCliente: 'EMPRESA', cuitDni: cuitFinal } });
+    if (duplicado) advertenciaDuplicado = 'Ya existe un cliente EMPRESA con el mismo CUIT';
+  }
 
   const persona = await prisma.persona.create({
     data: {
       nombre: nombreFinal,
       telefono: telefonoFinal || null,
-      cuitDni: cuit || cuitDni || null,
+      cuitDni: cuitFinal || null,
       tipo: tipo || 'CLIENTE',
-      mail: mail ? String(mail).trim() : null
+      tipoCliente: tipoClienteFinal,
+      mail: mailFinal || null,
+      direccion: direccion ? String(direccion).trim() : null,
+      contactoComercial: contactoComercial ? String(contactoComercial).trim() : null,
+      observaciones: observaciones ? String(observaciones).trim() : null,
+      telefonoEmergencia: telefonoEmergencia ? String(telefonoEmergencia).trim() : null
     }
   });
-  res.json(persona);
+  res.json({ ...persona, advertenciaDuplicado });
 }));
 
 app.get('/personas/buscar', asyncHandler(async (req, res) => {
