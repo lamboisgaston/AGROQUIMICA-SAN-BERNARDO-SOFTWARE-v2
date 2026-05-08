@@ -125,6 +125,8 @@ model Presupuesto {
   subtotal           Float               @default(0)
   descuentoTipo      String?
   descuentoValor     Float               @default(0)
+  ajusteRedondeo     Float               @default(0)
+  condicionPagoPrevista CondicionPagoPrevista?
   total              Float               @default(0)
   observaciones      String?
   validez            String?
