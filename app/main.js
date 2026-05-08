@@ -37,7 +37,11 @@ async function api(url, options = {}) {
     const errorMessage = (typeof data === 'object' && data)
       ? (data.error || data.message)
       : (String(data || '').trim());
-    throw new Error(errorMessage || `Error ${response.status}`);
+    const err = new Error(errorMessage || `Error ${response.status}`);
+    err.status = response.status;
+    err.body = data;
+    err.url = url;
+    throw err;
   }
 
   return data;
@@ -133,21 +137,21 @@ async function crearClientePayload({ tipoCliente, nombre, telefono, cuitDni, mai
   });
 }
 function mostrarErrorBusqueda(containerSelector, error) {
-  console.error('[busqueda][frontend] error', { containerSelector, error });
+  const detalle = error?.body ? (typeof error.body === 'string' ? error.body : JSON.stringify(error.body)) : '';
+  console.error('[busqueda][frontend] error', { containerSelector, error, detalle });
   const container = $(containerSelector);
   if (!container) return;
-  container.innerHTML = `<div class="item">Error al buscar: ${error.message}</div>`;
+  container.innerHTML = `<div class="item">Error al buscar: ${error?.message || 'Error desconocido'}${detalle ? ` | ${detalle}` : ''}</div>`;
 }
 
 async function buscarProductos(query) {
   const q = (query || '').trim();
   console.log('Buscando productos:', q);
   if (!q) return [];
-  const res = await fetch(`/productos?q=${encodeURIComponent(q)}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error buscando productos');
-  console.log('Resultados productos:', data);
-  return (data || []).slice(0, 8);
+  const data = await api(`/productos?q=${encodeURIComponent(q)}`);
+  const lista = Array.isArray(data) ? data : [];
+  console.log('Resultados productos:', lista);
+  return lista.slice(0, 8);
 }
 
 async function buscarPersonas(query) {
@@ -1065,7 +1069,11 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     if (!nombre) return setMsg('El nombre del producto es obligatorio', 'error');
     if (!categoria) return setMsg('La categoría del producto es obligatoria', 'error');
 
-    const body = {
+    const proveedorIds = Array.from($('#prod-proveedor').selectedOptions || [])
+      .map((o) => Number(o.value))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    const payload = {
       nombre,
       categoria,
       marca: $('#prod-marca').value.trim(),
@@ -1077,18 +1085,19 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
       ivaPorcentaje: Number($('#prod-iva').value || 0),
       fletePorcentaje: Number($('#prod-flete').value || 0),
       margenGananciaPorcentaje: Number($('#prod-ganancia').value || 0),
-      proveedorIds: Array.from($('#prod-proveedor').selectedOptions || []).map(o => Number(o.value)).filter(Boolean)
+      proveedorIds
     };
 
     const id = $('#prod-id').value;
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/productos/${id}` : '/productos';
-    console.log('[producto-guardado][frontend] iniciando', { method, url, body, id: id || null });
+    console.log('[producto-guardado][frontend] payload', payload);
+    console.log('[producto-guardado][frontend] iniciando', { method, url, payload, id: id || null });
 
     btnGuardar.disabled = true;
     setMsg('Guardando...', 'info');
 
-    const productoGuardado = await api(url, { method, body: JSON.stringify(body) });
+    const productoGuardado = await api(url, { method, body: JSON.stringify(payload) });
     console.log('[producto-guardado][frontend] respuesta ok', productoGuardado);
 
     if (categoriaNueva && !categoriasProducto.includes(categoriaNueva)) {
@@ -1110,7 +1119,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     setMsg('Producto guardado', 'success');
   } catch (err) {
     console.error('[producto-guardado][frontend] error', err);
-    setMsg(`Error al guardar producto: ${err.message}`, 'error');
+    const detalle = err?.body ? (typeof err.body === 'string' ? err.body : JSON.stringify(err.body)) : '';
+    setMsg(`Error al guardar producto: ${err.message}${detalle ? ` | ${detalle}` : ''}`, 'error');
   } finally {
     btnGuardar.disabled = false;
   }
