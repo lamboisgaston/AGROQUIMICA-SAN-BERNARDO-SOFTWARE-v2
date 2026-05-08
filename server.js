@@ -1015,8 +1015,8 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 }));
 
 app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
+  console.log('CERRAR VENTA PARAMS', req.params);
   console.log('CERRAR VENTA BODY', req.body);
-  console.log('CERRAR VENTA ID', req.params.id);
 
   try {
     const ventaId = parsePositiveInt(req.params.id);
@@ -1041,10 +1041,10 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
     }
 
     const personaIdValido = Number.isInteger(Number(venta.personaId)) && Number(venta.personaId) > 0;
-    const hayDescuento = Number(descuentoValor || 0) > 0;
+    const hayDescuento = Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0;
 
     if (hayDescuento && !personaIdValido) {
-      return res.status(400).json({ error: 'Para aplicar descuento debe seleccionar un cliente real.' });
+      return res.status(400).json({ error: 'Para aplicar descuento o ajuste debe seleccionar un cliente real.' });
     }
 
     if (condicionPagoPrevista && !Object.values(CondicionPagoPrevista).includes(condicionPagoPrevista)) {
@@ -1052,11 +1052,16 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
     }
 
     if (hayDescuento && !condicionPagoPrevista) {
-      return res.status(400).json({ error: 'Si hay descuento, condicionPagoPrevista es obligatoria' });
+      return res.status(400).json({ error: 'Si hay descuento o ajuste, condicionPagoPrevista es obligatoria' });
     }
 
     const personaIdBody = personaId === undefined || personaId === null || Number(personaId) === 0 ? null : Number(personaId);
     const personaIdVenta = venta.personaId ? Number(venta.personaId) : null;
+
+    if (personaIdBody !== null && personaIdBody <= 0) {
+      return res.status(400).json({ error: 'personaId inválido' });
+    }
+
     if (personaIdBody !== null && personaIdBody !== personaIdVenta) {
       return res.status(400).json({ error: 'personaId no coincide con la venta activa' });
     }
@@ -1102,10 +1107,8 @@ app.post('/mostrador/ventas/:id/cerrar', async (req, res) => {
 
     res.json(ventaCerrada);
   } catch (error) {
-    res.status(500).json({
-      error: error.message,
-      stack: error.stack
-    });
+    console.error('ERROR CERRAR VENTA', error);
+    return res.status(500).json({ error: error.message });
   }
 });
 
