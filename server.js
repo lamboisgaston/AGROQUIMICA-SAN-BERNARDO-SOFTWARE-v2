@@ -96,7 +96,7 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
 
 
 
-function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuentoValor = 0) {
+function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuentoValor = 0, ajusteRedondeo = 0) {
   const subtotal = items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
   const valor = Math.max(0, Number(descuentoValor || 0));
 
@@ -107,12 +107,14 @@ function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuento
     descuentoAplicado = valor;
   }
 
-  const total = Math.max(0, subtotal - descuentoAplicado);
+  const ajuste = Number(ajusteRedondeo || 0);
+  const total = Math.max(0, subtotal - descuentoAplicado + ajuste);
 
   return {
     subtotal,
     descuentoTipo: (descuentoTipo === 'PORCENTAJE' || descuentoTipo === 'MONTO') ? descuentoTipo : null,
     descuentoValor: valor,
+    ajusteRedondeo: ajuste,
     total
   };
 }
@@ -579,7 +581,8 @@ app.post('/personas', asyncHandler(async (req, res) => {
       nombre: nombreFinal,
       telefono: telefonoFinal || null,
       cuitDni: cuit || cuitDni || null,
-      tipo: tipo || 'CLIENTE'
+      tipo: tipo || 'CLIENTE',
+      mail: mail ? String(mail).trim() : null
     }
   });
   res.json(persona);
@@ -852,9 +855,6 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
   });
 
   const cantidadFinal = (existente?.cantidad || 0) + cantidadParsed;
-  if (cantidadFinal > producto.stock) {
-    return res.status(400).json({ error: 'Stock insuficiente para ese producto' });
-  }
 
   await prisma.ventaItem.upsert({
     where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } },
@@ -873,8 +873,8 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
   });
 
   const items = await prisma.ventaItem.findMany({ where: { ventaId } });
-  const ventaConDescuento = await prisma.venta.findUnique({ where: { id: ventaId }, select: { descuentoTipo: true, descuentoValor: true } });
-  const totales = calcularTotalesConDescuento(items, ventaConDescuento?.descuentoTipo, ventaConDescuento?.descuentoValor);
+  const ventaConDescuento = await prisma.venta.findUnique({ where: { id: ventaId }, select: { descuentoTipo: true, descuentoValor: true, ajusteRedondeo: true } });
+  const totales = calcularTotalesConDescuento(items, ventaConDescuento?.descuentoTipo, ventaConDescuento?.descuentoValor, ventaConDescuento?.ajusteRedondeo);
   const ventaActualizada = await prisma.venta.update({
     where: { id: ventaId },
     data: { total: totales.total, subtotal: totales.subtotal },
@@ -911,10 +911,6 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
   } else {
     const producto = await prisma.producto.findUnique({ where: { id: productoId } });
     if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
-    if (cantidad > producto.stock) {
-      return res.status(400).json({ error: 'Stock insuficiente para ese producto' });
-    }
-
     await prisma.ventaItem.update({
       where: { id: existente.id },
       data: { cantidad, subtotal: existente.precioUnitario * cantidad }
@@ -922,8 +918,8 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
   }
 
   const items = await prisma.ventaItem.findMany({ where: { ventaId } });
-  const ventaConDescuento = await prisma.venta.findUnique({ where: { id: ventaId }, select: { descuentoTipo: true, descuentoValor: true } });
-  const totales = calcularTotalesConDescuento(items, ventaConDescuento?.descuentoTipo, ventaConDescuento?.descuentoValor);
+  const ventaConDescuento = await prisma.venta.findUnique({ where: { id: ventaId }, select: { descuentoTipo: true, descuentoValor: true, ajusteRedondeo: true } });
+  const totales = calcularTotalesConDescuento(items, ventaConDescuento?.descuentoTipo, ventaConDescuento?.descuentoValor, ventaConDescuento?.ajusteRedondeo);
   const ventaActualizada = await prisma.venta.update({
     where: { id: ventaId },
     data: { total: totales.total, subtotal: totales.subtotal },
@@ -936,7 +932,7 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
 app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
-  const { personaId, nombre, telefono, tipo, cuitDni } = req.body;
+  const { personaId, nombre, telefono, tipo, cuitDni, mail } = req.body;
 
   const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
   if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
@@ -959,7 +955,8 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
         nombre: String(nombre).trim(),
         telefono: telefono ? String(telefono).trim() : null,
         cuitDni: cuitDni ? String(cuitDni).trim() : null,
-        tipo: tipo || 'CONSUMIDOR_FINAL'
+        tipo: tipo || 'CONSUMIDOR_FINAL',
+        mail: mail ? String(mail).trim() : null
       }
     });
   }
@@ -975,7 +972,7 @@ app.put('/mostrador/ventas/:id/persona', asyncHandler(async (req, res) => {
 
 app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
-  const { descuentoTipo, descuentoValor } = req.body || {};
+  const { descuentoTipo, descuentoValor, ajusteRedondeo } = req.body || {};
   if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
   const venta = await prisma.venta.findUnique({
@@ -999,13 +996,13 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Para aplicar descuento, primero debe dar de alta al cliente.' });
   }
 
-  const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0);
+  const totales = calcularTotalesConDescuento(venta.items, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
 
   await prisma.$transaction(async tx => {
     for (const item of venta.items) {
       const producto = await tx.producto.findUnique({ where: { id: item.productoId } });
-      if (!producto || producto.stock < item.cantidad) {
-        throw new Error(`Stock insuficiente para producto ${item.productoId}`);
+      if (!producto) {
+        throw new Error(`Producto inexistente ${item.productoId}`);
       }
       await tx.producto.update({
         where: { id: item.productoId },
@@ -1023,6 +1020,7 @@ app.post('/mostrador/ventas/:id/cerrar', asyncHandler(async (req, res) => {
         subtotal: totales.subtotal,
         descuentoTipo: totales.descuentoTipo,
         descuentoValor: totales.descuentoValor,
+        ajusteRedondeo: totales.ajusteRedondeo,
         total: totales.total
       }
     });

@@ -46,3 +46,10 @@ th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 @media (min-width: 900px) {
   .dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+.mostrador-ux .input-grande { font-size: 20px; padding: 12px; width: 100%; }
+.btn-grande { font-size: 18px; padding: 10px 16px; }
+@media (max-width: 900px) {
+  .bloque table { display:block; overflow:auto; }
+  .bloque button { min-height: 40px; }
+}

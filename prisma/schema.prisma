@@ -105,6 +105,7 @@ model Persona {
   telefono        String?
   cuitDni         String?
   tipo            String
+  mail            String?
   ventas          Venta[]
   presupuestos    Presupuesto[]
   cuentaCorriente CuentaCorriente?
@@ -163,6 +164,7 @@ model Venta {
   total     Float       @default(0)
   descuentoTipo String?
   descuentoValor Float   @default(0)
+  ajusteRedondeo Float  @default(0)
   subtotal  Float       @default(0)
   items     VentaItem[]
   createdAt DateTime    @default(now())
