@@ -255,18 +255,27 @@ function validarPayloadProducto(payload = {}) {
   return null;
 }
 
+function construirFiltroBusquedaProductos(q = '') {
+  const termino = String(q || '').trim();
+  if (!termino) return undefined;
+  const idBuscado = Number(termino);
+  const or = [
+    { nombre: { contains: termino } },
+    { categoria: { contains: termino } },
+    { marca: { contains: termino } }
+  ];
+  if (Number.isInteger(idBuscado) && idBuscado > 0) {
+    or.push({ id: idBuscado });
+  }
+  return { OR: or };
+}
+
 app.get('/productos', async (req, res) => {
   try {
     const tipoCambioActual = await obtenerTipoCambioActual();
     const q = String(req.query.q || '').trim();
     const productos = await prisma.producto.findMany({
-      where: q ? {
-        OR: [
-          { nombre: { contains: q } },
-          { categoria: { contains: q } },
-          { marca: { contains: q } }
-        ]
-      } : undefined,
+      where: construirFiltroBusquedaProductos(q),
       include: { proveedores: { include: { proveedor: true } } },
       orderBy: { nombre: 'asc' }
     });
@@ -281,13 +290,7 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
   if (!q) return res.json([]);
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany({
-    where: {
-      OR: [
-        { nombre: { contains: q } },
-        { categoria: { contains: q } },
-        { marca: { contains: q } }
-      ]
-    },
+    where: construirFiltroBusquedaProductos(q),
     include: { proveedores: { include: { proveedor: true } } },
     orderBy: { nombre: 'asc' },
     take: 20

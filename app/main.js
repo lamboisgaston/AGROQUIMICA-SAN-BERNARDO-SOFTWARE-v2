@@ -133,6 +133,7 @@ async function crearClientePayload({ tipoCliente, nombre, telefono, cuitDni, mai
   });
 }
 function mostrarErrorBusqueda(containerSelector, error) {
+  console.error('[busqueda][frontend] error', { containerSelector, error });
   const container = $(containerSelector);
   if (!container) return;
   container.innerHTML = `<div class="item">Error al buscar: ${error.message}</div>`;
@@ -142,7 +143,7 @@ async function buscarProductos(query) {
   const q = (query || '').trim();
   console.log('Buscando productos:', q);
   if (!q) return [];
-  const res = await fetch(`/productos/buscar?q=${encodeURIComponent(q)}`);
+  const res = await fetch(`/productos?q=${encodeURIComponent(q)}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error buscando productos');
   console.log('Resultados productos:', data);
@@ -204,6 +205,7 @@ async function agregarProductoAlCarrito(productoId) {
     renderProductos();
     $('#buscar-producto').focus();
   } catch (err) {
+    console.error('[mostrador][carrito] error al agregar producto', { productoId, error: err });
     setMsg(`Error al agregar producto: ${err.message}`);
   }
 }
@@ -522,7 +524,13 @@ function renderProductosAdmin() {
 function renderPresupuestoProductos() {
   const origen = productosPresupuestoVisibles.length ? productosPresupuestoVisibles : productos;
   const lista = origen
-    .filter(p => !filtroProductosPresupuesto || p.nombre.toLowerCase().includes(filtroProductosPresupuesto))
+    .filter((p) => {
+      if (!filtroProductosPresupuesto) return true;
+      return (p.nombre || '').toLowerCase().includes(filtroProductosPresupuesto)
+        || (p.categoria || '').toLowerCase().includes(filtroProductosPresupuesto)
+        || (p.marca || '').toLowerCase().includes(filtroProductosPresupuesto)
+        || String(p.id || '').includes(filtroProductosPresupuesto);
+    })
     .slice(0, 8);
   presupuestoItems = presupuestoItems.map((it) => {
     const base = Number(it.precioUnitario || 0) * Number(it.cantidad || 0);
