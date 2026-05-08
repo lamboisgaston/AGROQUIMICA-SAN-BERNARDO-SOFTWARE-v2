@@ -401,24 +401,32 @@ async function loadCaja() {
   document.querySelectorAll('.btn-cobrar').forEach(btn => {
     btn.addEventListener('click', async () => {
       const ventaId = btn.dataset.id;
-      const estadoCobro = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'PAGADO';
+      const estadoCobroReal = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'PAGADO';
       const prevista = btn.dataset.condicionPrevista || '';
-      const formaPago = prevista || '';
+      const mediosPagoPermitidos = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
+      const medioPagoReal = (estadoCobroReal === 'PAGADO' && mediosPagoPermitidos.includes(prevista)) ? prevista : null;
+      const payload = {
+        estadoCobroReal,
+        medioPagoReal,
+        formaPago: medioPagoReal || undefined
+      };
 
-      console.log('Confirmando venta en caja:', ventaId, { formaPago, estadoCobro, prevista });
+      console.error('[caja] payload enviado para confirmar venta', { ventaId, payload, prevista });
 
       try {
         const res = await fetch(`/caja/cobrar/${ventaId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ formaPago, estadoCobro })
+          body: JSON.stringify(payload)
         });
 
         const data = await res.json();
         console.log('Respuesta:', data);
 
         if (!res.ok) {
-          alert('Error al cobrar: ' + data.error);
+          const backendError = data?.error || data?.message || 'Error desconocido';
+          alert('Error al cobrar: ' + backendError);
+          setMsg(`❌ ${backendError}`, 'error');
           return;
         }
 

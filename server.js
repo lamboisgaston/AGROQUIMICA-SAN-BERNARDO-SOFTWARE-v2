@@ -1095,15 +1095,20 @@ app.post('/caja/cobrar/:id', async (req, res) => {
     const ventaId = parsePositiveInt(req.params.id);
     if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
 
-    const { formaPago, medioPago, estadoCobro } = req.body || {};
-    console.log('Venta a cobrar:', ventaId);
-    console.log('Forma de pago:', formaPago);
-
-    const estadoCobroNormalizado = estadoCobro || 'PAGADO';
+    const { formaPago, medioPago, medioPagoReal, estadoCobro, estadoCobroReal } = req.body || {};
+    const estadoCobroNormalizado = estadoCobroReal || estadoCobro || 'PAGADO';
     const estadosValidos = ['PAGADO', 'EN_ESPERA_DE_PAGO', 'CUENTA_CORRIENTE', 'CANCELADO'];
     if (!estadosValidos.includes(estadoCobroNormalizado)) {
-      return res.status(400).json({ error: 'estadoCobro inválido' });
+      return res.status(400).json({ error: 'estadoCobroReal inválido' });
     }
+
+    console.error('[caja/cobrar] payload recibido', {
+      ventaId,
+      estadoCobroReal: estadoCobroNormalizado,
+      formaPago,
+      medioPago,
+      medioPagoReal
+    });
 
     const venta = await prisma.venta.findUnique({ where: { id: ventaId } });
 
@@ -1124,14 +1129,16 @@ app.post('/caja/cobrar/:id', async (req, res) => {
       return res.status(200).json({ ...ventaCancelada, estadoCobro: estadoCobroNormalizado });
     }
 
-    const pago = estadoCobroNormalizado === 'CUENTA_CORRIENTE' ? 'CUENTA_CORRIENTE' : (formaPago || medioPago);
+    const pago = estadoCobroNormalizado === 'CUENTA_CORRIENTE'
+      ? 'CUENTA_CORRIENTE'
+      : (medioPagoReal || formaPago || medioPago || venta.condicionPagoPrevista || null);
     if (!pago) {
       return res.status(400).json({ error: 'formaPago inválida' });
     }
 
     if (pago === 'CUENTA_CORRIENTE') {
       if (!venta.personaId) {
-        return res.status(400).json({ error: 'Cuenta corriente solo para clientes registrados' });
+        return res.status(400).json({ error: 'No se puede enviar a cuenta corriente una venta sin cliente.' });
       }
 
       await prisma.$transaction(async tx => {
