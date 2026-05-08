@@ -14,6 +14,8 @@ model Producto {
   marca             String     @default("")
   unidad            String     @default("")
   stock             Int        @default(0)
+  stockMinimo       Int        @default(0)
+  ultimaActualizacionStock DateTime?
   monedaCosto       String     @default("USD")
   costoBase         Float      @default(0)
   precioVenta       Float      @default(0)
@@ -30,11 +32,14 @@ model Producto {
 }
 
 model Proveedor {
-  id             Int        @id @default(autoincrement())
-  nombre         String
-  telefono       String?
-  cuit           String?
-  observaciones  String?
+  id                 Int        @id @default(autoincrement())
+  razonSocial        String
+  cuit               String?
+  telefono           String?
+  mail               String?
+  direccion          String?
+  contactoComercial  String?
+  observaciones      String?
   productos      ProductoProveedor[]
   remitos        RemitoProveedor[]
 }

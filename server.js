@@ -367,21 +367,23 @@ app.get('/proveedores', asyncHandler(async (req, res) => {
   const proveedores = await prisma.proveedor.findMany({
     where: q ? {
       OR: [
-        { nombre: { contains: q } },
-        { cuit: { contains: q } }
+        { razonSocial: { contains: q } },
+        { cuit: { contains: q } },
+        { contactoComercial: { contains: q } }
       ]
     } : undefined,
-    orderBy: { nombre: 'asc' },
+    include: { productos: { include: { producto: true } } },
+    orderBy: { razonSocial: 'asc' },
     take: q ? 8 : undefined
   });
   res.json(proveedores);
 }));
 
 app.post('/proveedores', asyncHandler(async (req, res) => {
-  const { nombre, telefono, cuit, observaciones } = req.body || {};
-  if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'nombre es obligatorio' });
+  const { razonSocial, telefono, cuit, mail, direccion, contactoComercial, observaciones } = req.body || {};
+  if (!razonSocial || !String(razonSocial).trim()) return res.status(400).json({ error: 'razonSocial es obligatorio' });
   const proveedor = await prisma.proveedor.create({
-    data: { nombre: String(nombre).trim(), telefono: telefono || null, cuit: cuit || null, observaciones: observaciones || null }
+    data: { razonSocial: String(razonSocial).trim(), telefono: telefono || null, cuit: cuit || null, mail: mail || null, direccion: direccion || null, contactoComercial: contactoComercial || null, observaciones: observaciones || null }
   });
   res.status(201).json(proveedor);
 }));
@@ -389,11 +391,19 @@ app.post('/proveedores', asyncHandler(async (req, res) => {
 app.put('/proveedores/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
-  const { nombre, telefono, cuit, observaciones } = req.body || {};
+  const { razonSocial, telefono, cuit, mail, direccion, contactoComercial, observaciones } = req.body || {};
   const proveedor = await prisma.proveedor.update({
     where: { id },
-    data: { nombre: String(nombre || '').trim(), telefono: telefono || null, cuit: cuit || null, observaciones: observaciones || null }
+    data: { razonSocial: String(razonSocial || '').trim(), telefono: telefono || null, cuit: cuit || null, mail: mail || null, direccion: direccion || null, contactoComercial: contactoComercial || null, observaciones: observaciones || null }
   });
+  res.json(proveedor);
+}));
+
+app.get('/proveedores/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const proveedor = await prisma.proveedor.findUnique({ where: { id }, include: { productos: { include: { producto: true } } } });
+  if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
   res.json(proveedor);
 }));
 
@@ -420,6 +430,22 @@ app.post('/proveedores/:id/productos/:productoId', asyncHandler(async (req, res)
   if (!proveedor || !producto) return res.status(404).json({ error: 'Proveedor o producto no encontrado' });
   await prisma.productoProveedor.create({ data: { proveedorId, productoId } }).catch(() => null);
   res.status(201).json({ ok: true });
+}));
+
+app.delete('/proveedores/:id/productos/:productoId', asyncHandler(async (req, res) => {
+  const proveedorId = parsePositiveInt(req.params.id);
+  const productoId = parsePositiveInt(req.params.productoId);
+  if (!proveedorId || !productoId) return res.status(400).json({ error: 'ids inválidos' });
+  await prisma.productoProveedor.deleteMany({ where: { proveedorId, productoId } });
+  res.json({ ok: true });
+}));
+
+app.get('/productos/:id/proveedores', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
+  if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+  res.json((producto.proveedores || []).map(p => p.proveedor));
 }));
 
 app.post('/remitos-proveedor', asyncHandler(async (req, res) => {
@@ -464,13 +490,14 @@ app.get('/productos/:id/stock', asyncHandler(async (req, res) => {
   const producto = await prisma.producto.findUnique({ where: { id } });
   if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
   const movimientos = await prisma.movimientoStock.findMany({ where: { productoId: id }, orderBy: { createdAt: 'desc' }, take: 20 });
-  res.json({ productoId: id, stockActual: producto.stock, movimientos });
+  const estado = producto.stock === 0 ? 'SIN_STOCK' : producto.stock <= Number(producto.stockMinimo || 0) ? 'BAJO_STOCK' : 'STOCK_NORMAL';
+  res.json({ productoId: id, cantidadActual: producto.stock, stockMinimo: producto.stockMinimo || 0, unidad: producto.unidad || 'UN', ultimaActualizacion: producto.ultimaActualizacionStock, estado, movimientos });
 }));
 
 app.post('/productos/:id/stock', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
-  const { tipo, cantidad, motivo } = req.body || {};
+  const { tipo, cantidad, motivo, stockMinimo } = req.body || {};
   const cantidadNum = Number(cantidad);
   if (!Object.values(TipoMovimientoStock).includes(tipo)) return res.status(400).json({ error: 'tipo inválido' });
   if (!Number.isInteger(cantidadNum) || cantidadNum <= 0) return res.status(400).json({ error: 'cantidad debe ser entero > 0' });
@@ -482,11 +509,35 @@ app.post('/productos/:id/stock', asyncHandler(async (req, res) => {
     const delta = tipo === TipoMovimientoStock.ENTRADA ? cantidadNum : -cantidadNum;
     const nuevoStock = tipo === TipoMovimientoStock.AJUSTE ? cantidadNum : producto.stock + delta;
     if (nuevoStock < 0) throw new Error('Stock no puede quedar negativo');
-    const actualizado = await tx.producto.update({ where: { id }, data: { stock: nuevoStock } });
+    const actualizado = await tx.producto.update({ where: { id }, data: { stock: nuevoStock, stockMinimo: Number.isInteger(Number(stockMinimo)) ? Number(stockMinimo) : undefined, ultimaActualizacionStock: new Date() } });
     const movimiento = await tx.movimientoStock.create({ data: { productoId: id, tipo, cantidad: cantidadNum, motivo: String(motivo).trim() } });
     return { actualizado, movimiento };
   });
-  res.status(201).json({ stockActual: result.actualizado.stock, movimiento: result.movimiento });
+  res.status(201).json({ cantidadActual: result.actualizado.stock, stockMinimo: result.actualizado.stockMinimo || 0, ultimaActualizacion: result.actualizado.ultimaActualizacionStock, movimiento: result.movimiento });
+}));
+
+app.get('/stock', asyncHandler(async (_req, res) => {
+  const productos = await prisma.producto.findMany({ include: { proveedores: true }, orderBy: { nombre: 'asc' } });
+  res.json(productos.map(p => ({
+    productoId: p.id,
+    productoNombre: p.nombre,
+    cantidadActual: p.stock,
+    stockMinimo: p.stockMinimo || 0,
+    unidad: p.unidad || 'UN',
+    ultimaActualizacion: p.ultimaActualizacionStock,
+    estado: p.stock === 0 ? 'SIN_STOCK' : p.stock <= Number(p.stockMinimo || 0) ? 'BAJO_STOCK' : 'STOCK_NORMAL',
+    proveedores: p.proveedores.length
+  })));
+}));
+
+app.get('/stock/bajo', asyncHandler(async (_req, res) => {
+  const productos = await prisma.producto.findMany({ where: { stock: { gt: 0 } }, include: { proveedores: true }, orderBy: { nombre: 'asc' } });
+  res.json(productos.filter(p => p.stock <= Number(p.stockMinimo || 0)).map(p => ({ productoId: p.id, productoNombre: p.nombre, cantidadActual: p.stock, stockMinimo: p.stockMinimo || 0, unidad: p.unidad || 'UN', estado: 'BAJO_STOCK' })));
+}));
+
+app.get('/stock/sin-proveedor', asyncHandler(async (_req, res) => {
+  const productos = await prisma.producto.findMany({ where: { proveedores: { none: {} } }, orderBy: { nombre: 'asc' } });
+  res.json(productos.map(p => ({ productoId: p.id, productoNombre: p.nombre, cantidadActual: p.stock, stockMinimo: p.stockMinimo || 0, unidad: p.unidad || 'UN' })));
 }));
 
 app.get('/config/tipo-cambio', asyncHandler(async (req, res) => {
