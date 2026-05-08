@@ -600,6 +600,37 @@ function renderRemitoItems() {
     : '<tr><td colspan="5">Sin productos en el remito</td></tr>';
 }
 
+function abrirModulo(modulo) {
+  const home = $('#home-dashboard');
+  const appShell = document.querySelectorAll('.app-shell');
+  const modulos = document.querySelectorAll('[data-modulo]');
+  if (!home) return;
+  home.classList.add('hidden');
+  appShell.forEach((el) => el.classList.remove('hidden'));
+  modulos.forEach((el) => {
+    const grupos = String(el.dataset.modulo || '').split(/\s+/).filter(Boolean);
+    el.classList.toggle('hidden', !grupos.includes(modulo));
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function volverInicio() {
+  const home = $('#home-dashboard');
+  const appShell = document.querySelectorAll('.app-shell');
+  const modulos = document.querySelectorAll('[data-modulo]');
+  if (!home) return;
+  home.classList.remove('hidden');
+  appShell.forEach((el) => el.classList.add('hidden'));
+  modulos.forEach((el) => el.classList.add('hidden'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.querySelectorAll('[data-abrir-modulo]').forEach((btn) => {
+  btn.addEventListener('click', () => abrirModulo(btn.dataset.abrirModulo));
+});
+$('#btn-volver-inicio')?.addEventListener('click', volverInicio);
+volverInicio();
+
 $('#btn-nueva').addEventListener('click', async () => {
   try {
     const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
