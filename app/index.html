@@ -73,7 +73,7 @@
       <div id="resultados-productos" class="lista"></div>
       <div id="stock-alertas" class="lista"></div>
         </div>
-        <aside class="workbench-side">
+        <aside class="workbench-side sticky-summary ventas-side-panel">
           <section class="side-card">
             <h3>Carrito</h3>
             <table class="table-compact">
@@ -115,8 +115,10 @@
     </section>
 
     <section class="bloque app-shell caja-workbench" data-modulo="caja">
-      <h2>Caja</h2>
-      <div class="caja-toolbar"><strong>Pendientes y cobro</strong></div>
+      <div class="caja-header">
+        <h2>Caja</h2>
+        <div class="caja-toolbar"><strong>Pendientes y cobro</strong></div>
+      </div>
       <div id="pendientes" class="pendientes-grid">Cargando...</div>
     </section>
 
@@ -301,7 +303,7 @@
   </div>
 
   </div>
-    <aside class="workbench-side sticky-summary">
+    <aside class="workbench-side sticky-summary presupuesto-side-panel">
   <h3>Resumen final</h3>
   <p>Subtotal: <strong id="pres-subtotal">$0.00</strong></p>
   <p>Descuento %: <strong id="pres-resumen-descuento-pct">0%</strong></p>
