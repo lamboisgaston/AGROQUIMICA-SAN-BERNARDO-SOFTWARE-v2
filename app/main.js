@@ -717,11 +717,59 @@ function renderRemitoItems() {
     : '<tr><td colspan="5">Sin productos en el remito</td></tr>';
 }
 
+
+const ROLE_STORAGE_KEY = 'agro_sb_active_role';
+const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
+const ROLE_MODULES = {
+  ADMINISTRADOR_GENERAL: ['clientes','productos','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
+  GERENTE: ['clientes','productos','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
+  MOSTRADOR: ['ventas','clientes','productos','presupuestos','stock'],
+  CAJA: ['caja','cuenta-corriente','reportes']
+};
+let activeRole = null;
+let activeRoleName = '';
+
+function renderUsuarioActivo() {
+  const el = $('#usuario-activo');
+  if (!el) return;
+  el.textContent = activeRole ? `Usuario activo: ${activeRoleName} | ${activeRole}` : 'Usuario activo: - | -';
+}
+
+function applyRoleModules() {
+  const allowed = new Set(ROLE_MODULES[activeRole] || []);
+  document.querySelectorAll('[data-module-card]').forEach((card) => {
+    card.classList.toggle('hidden', !allowed.has(card.dataset.moduleCard));
+  });
+}
+
+function seleccionarRol(role, roleName) {
+  activeRole = role;
+  activeRoleName = roleName;
+  localStorage.setItem(ROLE_STORAGE_KEY, role);
+  localStorage.setItem(ROLE_NAME_STORAGE_KEY, roleName);
+  renderUsuarioActivo();
+  applyRoleModules();
+  volverInicio();
+}
+
+function cambiarUsuario() {
+  activeRole = null;
+  activeRoleName = '';
+  localStorage.removeItem(ROLE_STORAGE_KEY);
+  localStorage.removeItem(ROLE_NAME_STORAGE_KEY);
+  renderUsuarioActivo();
+  document.querySelectorAll('.app-shell').forEach((el) => el.classList.add('hidden'));
+  $('#home-dashboard')?.classList.add('hidden');
+  $('#role-selector')?.classList.remove('hidden');
+}
 function abrirModulo(modulo) {
+  if (!activeRole) return;
+  const roleSelector = $('#role-selector');
   const home = $('#home-dashboard');
   const appShell = document.querySelectorAll('.app-shell');
   const modulos = document.querySelectorAll('[data-modulo]');
   if (!home) return;
+  roleSelector?.classList.add('hidden');
   home.classList.add('hidden');
   appShell.forEach((el) => el.classList.remove('hidden'));
   modulos.forEach((el) => {
@@ -732,10 +780,19 @@ function abrirModulo(modulo) {
 }
 
 function volverInicio() {
+  const roleSelector = $('#role-selector');
   const home = $('#home-dashboard');
   const appShell = document.querySelectorAll('.app-shell');
   const modulos = document.querySelectorAll('[data-modulo]');
   if (!home) return;
+  if (!activeRole) {
+    roleSelector?.classList.remove('hidden');
+    home.classList.add('hidden');
+    appShell.forEach((el) => el.classList.add('hidden'));
+    modulos.forEach((el) => el.classList.add('hidden'));
+    return;
+  }
+  roleSelector?.classList.add('hidden');
   home.classList.remove('hidden');
   appShell.forEach((el) => el.classList.add('hidden'));
   modulos.forEach((el) => el.classList.add('hidden'));
@@ -745,7 +802,19 @@ function volverInicio() {
 document.querySelectorAll('[data-abrir-modulo]').forEach((btn) => {
   btn.addEventListener('click', () => abrirModulo(btn.dataset.abrirModulo));
 });
+document.querySelectorAll('[data-select-role]').forEach((btn) => {
+  btn.addEventListener('click', () => seleccionarRol(btn.dataset.selectRole, btn.dataset.roleName || btn.dataset.selectRole));
+});
+$('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
+const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
+const savedRoleName = localStorage.getItem(ROLE_NAME_STORAGE_KEY);
+if (savedRole && ROLE_MODULES[savedRole]) {
+  activeRole = savedRole;
+  activeRoleName = savedRoleName || savedRole;
+  renderUsuarioActivo();
+  applyRoleModules();
+}
 volverInicio();
 
 $('#btn-nueva').addEventListener('click', async () => {

@@ -101,3 +101,7 @@ details[open] { display: grid; gap: 5px; }
   .menu-principal { position: static; }
   .caja-workbench .pendientes-grid { max-height: none; overflow: visible; grid-template-columns: 1fr; }
 }
+
+.active-user-row { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px; }
+.role-grid .dashboard-card button { width: 100%; }
+

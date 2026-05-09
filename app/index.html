@@ -8,27 +8,41 @@
   </head>
   <body>
     <header class="app-header">
-      <h1>Mostrador</h1>
+      <h1>Agroquímica San Bernardo</h1>
       <p class="app-header-subtitle">Agroquímica San Bernardo · Ingeniería Lambois</p>
     </header>
 
-    <section id="home-dashboard" class="dashboard-home">
-      <h2>Seleccioná un módulo</h2>
-      <p class="dashboard-subtitle">Ingresá al área de trabajo que necesitás.</p>
-      <div class="dashboard-grid">
-        <article class="dashboard-card"><h3>Clientes</h3><p>Alta, búsqueda y gestión de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
-        <article class="dashboard-card"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
-        <article class="dashboard-card"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
-        <article class="dashboard-card"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
-        <article class="dashboard-card"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
-        <article class="dashboard-card"><h3>Cuenta corriente</h3><p>Saldo y pagos de clientes.</p><button data-abrir-modulo="cuenta-corriente">Entrar</button></article>
-        <article class="dashboard-card"><h3>Proveedores</h3><p>Alta y detalle de proveedores.</p><button data-abrir-modulo="proveedores">Entrar</button></article>
-        <article class="dashboard-card"><h3>Stock</h3><p>Movimientos, control y ajuste.</p><button data-abrir-modulo="stock">Entrar</button></article>
-        <article class="dashboard-card"><h3>Remitos</h3><p>Carga de remitos y entrada de mercadería.</p><button data-abrir-modulo="remitos">Entrar</button></article>
-        <article class="dashboard-card"><h3>Reportes</h3><p>Ventas cobradas y calendario de caja.</p><button data-abrir-modulo="reportes">Entrar</button></article>
+    <section id="role-selector" class="dashboard-home">
+      <h2>Seleccioná rol / operador</h2>
+      <p class="dashboard-subtitle">Primero elegí quién ingresa al sistema.</p>
+      <div class="dashboard-grid role-grid">
+        <article class="dashboard-card"><h3>Administrador General</h3><p>Acceso total al sistema.</p><button data-select-role="ADMINISTRADOR_GENERAL" data-role-name="Administrador General">Ingresar</button></article>
+        <article class="dashboard-card"><h3>Gerente</h3><p>Gestión completa operativa.</p><button data-select-role="GERENTE" data-role-name="Gerente">Ingresar</button></article>
+        <article class="dashboard-card"><h3>Mostrador</h3><p>Ventas, clientes y productos.</p><button data-select-role="MOSTRADOR" data-role-name="Mostrador">Ingresar</button></article>
+        <article class="dashboard-card"><h3>Caja</h3><p>Cobros, cierres y cuenta corriente.</p><button data-select-role="CAJA" data-role-name="Caja">Ingresar</button></article>
       </div>
     </section>
 
+    <section id="home-dashboard" class="dashboard-home hidden">
+      <div class="active-user-row">
+        <strong id="usuario-activo">Usuario activo: - | -</strong>
+        <button id="btn-cambiar-usuario" type="button">Cambiar usuario</button>
+      </div>
+      <h2>Seleccioná un módulo</h2>
+      <p class="dashboard-subtitle">Ingresá al área de trabajo que necesitás.</p>
+      <div class="dashboard-grid">
+        <article class="dashboard-card" data-module-card="clientes"><h3>Clientes</h3><p>Alta, búsqueda y gestión de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="ventas"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="caja"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="cuenta-corriente"><h3>Cuenta corriente</h3><p>Saldo y pagos de clientes.</p><button data-abrir-modulo="cuenta-corriente">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="proveedores"><h3>Proveedores</h3><p>Alta y detalle de proveedores.</p><button data-abrir-modulo="proveedores">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="stock"><h3>Stock</h3><p>Movimientos, control y ajuste.</p><button data-abrir-modulo="stock">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="remitos"><h3>Remitos</h3><p>Carga de remitos y entrada de mercadería.</p><button data-abrir-modulo="remitos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="reportes"><h3>Reportes</h3><p>Ventas cobradas y calendario de caja.</p><button data-abrir-modulo="reportes">Entrar</button></article>
+      </div>
+    </section>
     <nav class="menu-principal app-shell hidden">
       <button id="btn-volver-inicio" type="button">Volver al inicio</button>
       <a href="#productos-panel">Productos</a>
