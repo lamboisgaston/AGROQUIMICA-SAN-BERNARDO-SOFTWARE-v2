@@ -1136,13 +1136,29 @@ app.post('/caja/cobrar/:id', async (req, res) => {
     }
 
     if (estadoCobroNormalizado === 'EN_ESPERA_DE_PAGO') {
-      return res.status(200).json({ ...venta, estadoCobro: estadoCobroNormalizado, mensaje: 'Venta marcada en espera de pago' });
+      const ventaEnEspera = await prisma.venta.update({
+        where: { id: ventaId },
+        data: { estado: EstadoVenta.PENDIENTE_CAJA }
+      });
+      return res.status(200).json({ ...ventaEnEspera, estadoCobro: estadoCobroNormalizado, mensaje: 'Venta marcada en espera de pago' });
     }
 
     if (estadoCobroNormalizado === 'CANCELADO') {
-      const ventaCancelada = await prisma.venta.update({
-        where: { id: ventaId },
-        data: { estado: EstadoVenta.BORRADOR, medioPago: null }
+      const ventaCancelada = await prisma.$transaction(async tx => {
+        const itemsVenta = await tx.ventaItem.findMany({ where: { ventaId } });
+        for (const item of itemsVenta) {
+          await tx.producto.update({
+            where: { id: item.productoId },
+            data: { stock: { increment: item.cantidad } }
+          });
+          await tx.movimientoStock.create({
+            data: { productoId: item.productoId, tipo: TipoMovimientoStock.ENTRADA, cantidad: item.cantidad, motivo: `Cancelación de venta #${ventaId}` }
+          });
+        }
+        return tx.venta.update({
+          where: { id: ventaId },
+          data: { estado: EstadoVenta.BORRADOR, medioPago: null }
+        });
       });
       return res.status(200).json({ ...ventaCancelada, estadoCobro: estadoCobroNormalizado });
     }
