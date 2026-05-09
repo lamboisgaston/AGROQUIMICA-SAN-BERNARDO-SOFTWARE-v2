@@ -381,7 +381,7 @@ async function loadCierresCaja() {
 }
 
 function getEstadoCobroOptions() {
-  return ['PAGADO', 'EN_ESPERA_DE_PAGO', 'CUENTA_CORRIENTE', 'CANCELADO']
+  return ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CUENTA_CORRIENTE', 'EN_ESPERA_DE_PAGO', 'CANCELADO']
     .map(e => `<option value="${e}">${e}</option>`).join('');
 }
 
@@ -407,14 +407,20 @@ async function loadCaja() {
   document.querySelectorAll('.btn-cobrar').forEach(btn => {
     btn.addEventListener('click', async () => {
       const ventaId = btn.dataset.id;
-      const estadoCobroReal = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'PAGADO';
-      const prevista = btn.dataset.condicionPrevista || '';
+      const seleccionCaja = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'EFECTIVO';
       const mediosPagoPermitidos = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
-      const medioPagoReal = (estadoCobroReal === 'PAGADO' && mediosPagoPermitidos.includes(prevista)) ? prevista : null;
+      const estadoCobroReal = mediosPagoPermitidos.includes(seleccionCaja)
+        ? 'PAGADO'
+        : seleccionCaja;
+      const formaPago = mediosPagoPermitidos.includes(seleccionCaja)
+        ? seleccionCaja
+        : undefined;
+      const medioPagoReal = formaPago;
+      const prevista = btn.dataset.condicionPrevista || '';
       const payload = {
         estadoCobroReal,
         medioPagoReal,
-        formaPago: medioPagoReal || undefined
+        formaPago
       };
 
       console.error('[caja] payload enviado para confirmar venta', { ventaId, payload, prevista });
@@ -1269,7 +1275,6 @@ $('#pres-guardar').addEventListener('click', async () => {
     if (descuentoValor > 0 && presupuestoTipoDestinatario !== 'EXISTENTE') throw new Error('Para aplicar descuento debe seleccionar o dar de alta un cliente.');
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
     const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
-    $('#pres-dar-alta-persona').dataset.presupuestoId = creado.id;
     presupuestoItems = [];
     presupuestoClienteId = null;
     presupuestoNombreLibre = '';
@@ -1280,7 +1285,8 @@ $('#pres-guardar').addEventListener('click', async () => {
     setMsg('Presupuesto guardado');
   } catch (err) { setMsg(err.message); }
 });
-$('#pres-dar-alta-persona').addEventListener('click', async () => {
+const botonAltaPresupuestoViejo = $('#pres-dar-alta-persona');
+if (botonAltaPresupuestoViejo) botonAltaPresupuestoViejo.addEventListener('click', async () => {
   try {
     const presupuestoId = Number($('#pres-dar-alta-persona').dataset.presupuestoId || 0);
     if (!presupuestoId) throw new Error('Primero guarde un presupuesto para poder dar de alta');

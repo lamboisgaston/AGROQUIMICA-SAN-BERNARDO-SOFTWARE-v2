@@ -239,82 +239,82 @@
     </section>
 
     <section class="bloque app-shell" data-modulo="presupuestos">
-      <h2>11) Presupuestos</h2>
-      <h3>Destinatario</h3>
-      <label>Tipo
-        <select id="pres-tipo-destinatario">
-          <option value="EXISTENTE">Buscar persona/empresa existente</option>
-          <option value="LIBRE">Crear presupuesto libre</option>
-          <option value="A_QUIEN_CORRESPONDA">A quien corresponda</option>
-        </select>
-      </label>
-      <input id="pres-buscar-cliente" placeholder="Buscar por nombre, teléfono o CUIT/DNI" />
-      <button id="pres-btn-buscar-cliente">Buscar cliente</button>
-      <input id="pres-nombre-libre" placeholder="Nombre manual para presupuesto libre" />
-      <div id="pres-clientes" class="lista"></div>
-      <details>
-        <summary>Cliente no encontrado: crear cliente</summary>
-        <input id="pres-crear-nombre" placeholder="Nombre completo" />
-        <input id="pres-crear-telefono" placeholder="Teléfono" />
-        <input id="pres-crear-cuitdni" placeholder="CUIT/DNI" />
-        <button id="pres-btn-crear-cliente">Crear y seleccionar</button>
-      </details>
-      <p>Cliente presupuesto: <strong id="pres-cliente-activo">Ninguno</strong></p>
-      <details>
-        <summary>Dar de alta como persona/empresa</summary>
-        <input id="pres-alta-razon-social" placeholder="razonSocial *" />
-        <input id="pres-alta-cuit" placeholder="cuit *" />
-        <input id="pres-alta-mail" placeholder="mail *" />
-        <input id="pres-alta-telefono-principal" placeholder="telefonoPrincipal *" />
-        <input id="pres-alta-telefono-emergencia" placeholder="telefonoEmergencia *" />
-        <button id="pres-dar-alta-persona">Dar de alta como persona/empresa</button>
-      </details>
-      <h3>Datos comerciales</h3>
-      <input id="pres-observaciones" placeholder="Observaciones" />
-      <input id="pres-validez" placeholder="Validez del presupuesto (ej: 7 días)" />
-      <input id="pres-alias" placeholder="Alias transferencia" />
-      <input id="pres-banco" placeholder="Datos bancarios" />
-      <h3>Productos</h3>
-      <input id="pres-buscar-producto" placeholder="Buscar producto por nombre" />
-      <button id="pres-btn-buscar-producto">Buscar producto</button>
-      <div id="pres-productos" class="lista"></div>
-      <h3>Descuento</h3>
-      <div id="pres-descuento-bloque">
-        <label>descuentoPorcentaje <input id="pres-descuento" type="number" min="0" step="0.01" value="0" /></label>
-        <p id="pres-descuento-msg" class="muted"></p>
-      </div>
-      <h3>Condición prevista</h3>
-      <label>condicionPagoPrevista
-        <select id="pres-condicion-pago-prevista">
-          <option value="">Seleccione</option>
-          <option value="EFECTIVO">EFECTIVO</option>
-          <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-          <option value="TARJETA">TARJETA</option>
-          <option value="CUENTA_CORRIENTE">CUENTA_CORRIENTE</option>
-          <option value="OTRO">OTRO</option>
-        </select>
-      </label>
-      <h3>Redondeo</h3>
-      <label>ajusteRedondeo
-        <input id="pres-ajuste-redondeo" type="number" step="0.01" value="0" />
-      </label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="pres-redondear-100">Redondear a $100</button>
-        <button id="pres-redondear-500">Redondear a $500</button>
-        <button id="pres-redondear-1000">Redondear a $1000</button>
-      </div>
-      <h3>Resumen final</h3>
-      <p>Subtotal: <strong id="pres-subtotal">$0.00</strong></p>
-      <p>Descuento %: <strong id="pres-resumen-descuento-pct">0%</strong></p>
-      <p>Importe descontado: <strong id="pres-importe-descuento">$0.00</strong></p>
-      <p>Ajuste redondeo: <strong id="pres-resumen-ajuste">$0.00</strong></p>
-      <p>Total final: <strong id="pres-total">$0.00</strong></p>
-      <p>Condición prevista: <strong id="pres-resumen-condicion">No requerida</strong></p>
-      <button id="pres-guardar">Guardar presupuesto</button>
-      <div id="pres-lista" class="lista"></div>
-    </section>
+  <h2>11) Presupuestos</h2>
 
-    <section class="bloque app-shell" data-modulo="proveedores stock remitos">
+  <h3>Destinatario</h3>
+  <label>Tipo de presupuesto
+    <select id="pres-tipo-destinatario">
+      <option value="A_QUIEN_CORRESPONDA">Consumidor final</option>
+      <option value="EXISTENTE">Cliente dado de alta</option>
+    </select>
+  </label>
+
+  <div id="pres-bloque-cliente">
+    <input id="pres-buscar-cliente" placeholder="Buscar cliente por nombre, teléfono o CUIT/DNI" />
+    <button id="pres-btn-buscar-cliente">Buscar cliente</button>
+    <div id="pres-clientes" class="lista"></div>
+    <p>Cliente presupuesto: <strong id="pres-cliente-activo">Ninguno</strong></p>
+  </div>
+
+  <input id="pres-nombre-libre" type="hidden" />
+
+  <h3>Datos comerciales</h3>
+  <input id="pres-observaciones" placeholder="Observaciones" />
+  <input id="pres-validez" placeholder="Validez del presupuesto (ej: 7 días)" />
+  <input id="pres-alias" placeholder="Alias transferencia" />
+  <input id="pres-banco" placeholder="Datos bancarios" />
+
+  <h3>Productos</h3>
+  <input id="pres-buscar-producto" placeholder="Buscar producto por nombre" />
+  <button id="pres-btn-buscar-producto">Buscar producto</button>
+  <div id="pres-productos" class="lista"></div>
+
+  <h3>Descuento</h3>
+  <div id="pres-descuento-bloque">
+    <label>Descuento %
+      <input id="pres-descuento" type="number" min="0" step="0.01" value="0" />
+    </label>
+    <p id="pres-descuento-msg" class="muted">El descuento puede aplicarse también a consumidor final.</p>
+  </div>
+
+  <h3>Condición prevista</h3>
+  <label>Condición de pago prevista
+    <select id="pres-condicion-pago-prevista">
+      <option value="">Seleccione</option>
+      <option value="EFECTIVO">EFECTIVO</option>
+      <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+      <option value="TARJETA">TARJETA</option>
+      <option value="CUENTA_CORRIENTE">CUENTA_CORRIENTE</option>
+      <option value="OTRO">OTRO</option>
+    </select>
+  </label>
+
+  <h3>Redondeo</h3>
+  <label>Ajuste redondeo
+    <input id="pres-ajuste-redondeo" type="number" step="0.01" value="0" />
+  </label>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button id="pres-redondear-100">Redondear a $100</button>
+    <button id="pres-redondear-500">Redondear a $500</button>
+    <button id="pres-redondear-1000">Redondear a $1000</button>
+  </div>
+
+  <h3>Resumen final</h3>
+  <p>Subtotal: <strong id="pres-subtotal">$0.00</strong></p>
+  <p>Descuento %: <strong id="pres-resumen-descuento-pct">0%</strong></p>
+  <p>Importe descontado: <strong id="pres-importe-descuento">$0.00</strong></p>
+  <p>Ajuste redondeo: <strong id="pres-resumen-ajuste">$0.00</strong></p>
+  <p>Total final: <strong id="pres-total">$0.00</strong></p>
+  <p>Condición prevista: <strong id="pres-resumen-condicion">No requerida</strong></p>
+
+  <button id="pres-guardar">Guardar presupuesto</button>
+
+  <h3>Presupuestos guardados</h3>
+  <div id="pres-lista" class="lista"></div>
+</section>
+
+<section class="bloque app-shell" data-modulo="proveedores stock remitos">
       <h2 id="proveedores-panel">10) Proveedores</h2>
       <button id="btn-nuevo-proveedor">Nuevo proveedor</button>
       <h3>Crear proveedor</h3>

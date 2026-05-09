@@ -673,10 +673,6 @@ async function guardarPresupuesto(req, res, id = null) {
   }
 
   if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe incluir productos' });
-  if ((Number(descuentoValor || 0) > 0 || Number(ajusteRedondeo || 0) !== 0) && tipo !== TipoDestinatarioPresupuesto.EXISTENTE) {
-    return res.status(400).json({ error: 'Para aplicar descuento debe seleccionar o dar de alta un cliente.' });
-  }
-
   const tipoCambioActual = await obtenerTipoCambioActual();
   const itemsCalculados = [];
   for (const item of items) {
