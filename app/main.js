@@ -97,7 +97,9 @@ function logFlujo(paso, payload) {
 
 function labelCliente(p) {
   const tipo = String(p.tipoCliente || 'PERSONAL').toUpperCase();
-  return `${tipo} | ${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'}`;
+  const compras = Number(p.cantidadCompras || 0);
+  const total = money(p.totalComprado || 0);
+  return `${tipo} | Tel: ${p.telefono || '-'} | ${p.nombre || '-'} | ${p.cuitDni || '-'} | Compras: ${compras} | Total comprado: ${total}`;
 }
 function actualizarFormularioTipoCliente() {
   const tipo = $('#nuevo-tipo-cliente')?.value || 'PERSONAL';
@@ -116,7 +118,7 @@ function limpiarFormularioNuevoCliente() {
 }
 
 function validarDatosCliente({ tipoCliente, nombre, telefono, cuitDni, mail }) {
-  if (!nombre || !telefono) return 'Para PERSONAL: nombre y teléfono obligatorios';
+  if (!telefono) return 'Para PERSONAL: teléfono obligatorio';
   if (tipoCliente === 'EMPRESA' && (!cuitDni || !mail)) return 'Para EMPRESA: razón social, CUIT, teléfono y mail obligatorios';
   return null;
 }
@@ -230,7 +232,9 @@ function renderCarrito() {
   $('#importe-descuento').textContent = money(descuentoAplicado);
   $('#monto-ajuste').textContent = money(ajusteRedondeo);
   $('#total-final').textContent = money(final);
-  const clienteNombre = venta?.persona?.nombre || 'Consumidor final';
+  const clienteNombre = venta?.persona
+    ? `Tel: ${venta.persona.telefono || '-'} | ${venta.persona.nombre || '-'}`
+    : 'Consumidor final';
   $('#carrito-cliente').textContent = clienteNombre;
   const tieneCliente = Boolean(venta?.personaId);
   const bloqueo = !tieneCliente;
@@ -260,7 +264,7 @@ function aplicarEstadoSaldo(selector, saldo) {
 
 function renderClienteActivo() {
   const p = venta?.persona;
-  $('#cliente-activo').textContent = p ? `${p.nombre} | ${p.telefono || '-'} | ${p.cuitDni || '-'}` : 'Consumidor final';
+  $('#cliente-activo').textContent = p ? `Tel: ${p.telefono || '-'} | ${p.nombre || '-'} | ${p.cuitDni || '-'} | Compras: ${Number(p.cantidadCompras || 0)} | Total comprado: ${money(p.totalComprado || 0)}` : 'Consumidor final';
 }
 
 async function cargarCuentaCorrientePersona(personaId) {
@@ -291,7 +295,7 @@ async function renderCuentaCorrienteClienteActivo() {
 function renderPanelCuentaCorriente(cuenta) {
   cuentaCorrienteMostrada = cuenta;
   $('#cc-cliente-activo').textContent = cuenta?.persona
-    ? `${cuenta.persona.nombre} | ${cuenta.persona.telefono} | ${cuenta.persona.cuitDni || '-'}`
+    ? `Tel: ${cuenta.persona.telefono || '-'} | ${cuenta.persona.nombre || '-'} | ${cuenta.persona.cuitDni || '-'} | Compras: ${Number(cuenta.persona.cantidadCompras || 0)} | Total comprado: ${money(cuenta.persona.totalComprado || 0)}`
     : 'Ninguno';
   const saldo = cuenta?.saldo || 0;
   $('#cc-saldo').textContent = money(saldo);
@@ -823,7 +827,7 @@ async function buscarClienteMostrador() {
   try {
     const personas = await buscarPersonas(q);
     $('#resultados-clientes').innerHTML = personas.length
-      ? personas.slice(0, 8).map(p => `<div class="item"><strong>${p.nombre}</strong> | ${p.telefono || '-'} | ${(p.tipoCliente || 'PERSONAL').toUpperCase()} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+      ? personas.slice(0, 8).map(p => `<div class="item"><strong>📞 ${p.telefono || '-'}</strong> | ${p.nombre || '-'} | ${(p.tipoCliente || 'PERSONAL').toUpperCase()} | Compras: ${Number(p.cantidadCompras || 0)} | Total comprado: ${money(p.totalComprado || 0)} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
       : '<div class="item">Sin resultados <button id="btn-crear-desde-busqueda">Crear cliente</button></div>';
   } catch (error) { mostrarErrorBusqueda('#resultados-clientes', error); }
 }
@@ -989,7 +993,7 @@ $('#btn-cc-buscar').addEventListener('click', async () => {
   try {
     const personas = await api('/personas/buscar?q=' + encodeURIComponent(q));
     $('#cc-resultados-clientes').innerHTML = personas.length
-      ? personas.map(p => `<div class="item">${p.nombre} | ${p.telefono} | ${p.cuitDni || '-'} <button data-cc-persona="${p.id}">Ver cuenta</button></div>`).join('')
+      ? personas.map(p => `<div class="item"><strong>📞 ${p.telefono || '-'}</strong> | ${p.nombre || '-'} | ${p.cuitDni || '-'} | Compras: ${Number(p.cantidadCompras || 0)} | Total comprado: ${money(p.totalComprado || 0)} <button data-cc-persona="${p.id}">Ver cuenta</button></div>`).join('')
       : '<div class="item">Sin resultados</div>';
   } catch (e) { setMsg(e.message); }
 });
@@ -1198,7 +1202,7 @@ async function buscarClientePresupuesto() {
   try {
     const personas = await buscarPersonas(q);
     $('#pres-clientes').innerHTML = personas.filter(p => (p.tipo || '').toUpperCase() !== 'CONSUMIDOR_FINAL').slice(0, 8)
-      .map(p => `<div class="item">${p.nombre} <button data-pres-cliente="${p.id}" data-pres-nombre="${p.nombre}">Seleccionar</button></div>`).join('') || '<div class="item">Sin resultados</div>';
+      .map(p => `<div class="item"><strong>📞 ${p.telefono || '-'}</strong> | ${p.nombre || '-'} | Compras: ${Number(p.cantidadCompras || 0)} | Total comprado: ${money(p.totalComprado || 0)} <button data-pres-cliente="${p.id}" data-pres-nombre="${p.nombre}">Seleccionar</button></div>`).join('') || '<div class="item">Sin resultados</div>';
   } catch (error) { mostrarErrorBusqueda('#pres-clientes', error); }
 }
 $('#pres-btn-buscar-cliente').addEventListener('click', buscarClientePresupuesto);

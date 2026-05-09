@@ -567,7 +567,14 @@ app.put('/config/tipo-cambio', asyncHandler(async (req, res) => {
 
 app.get('/personas', asyncHandler(async (req, res) => {
   const personas = await prisma.persona.findMany();
-  res.json(personas);
+  const stats = await prisma.venta.groupBy({
+    by: ['personaId'],
+    where: { estado: EstadoVenta.COBRADA, personaId: { not: null } },
+    _count: { _all: true },
+    _sum: { total: true }
+  });
+  const statsByPersona = new Map(stats.map((s) => [s.personaId, { cantidadCompras: s._count._all, totalComprado: Number(s._sum.total || 0) }]));
+  res.json(personas.map((p) => ({ ...p, ...(statsByPersona.get(p.id) || { cantidadCompras: 0, totalComprado: 0 }) })));
 }));
 
 app.post('/personas', asyncHandler(async (req, res) => {
@@ -578,9 +585,7 @@ app.post('/personas', asyncHandler(async (req, res) => {
   const cuitFinal = String(cuit || cuitDni || '').trim();
   const mailFinal = String(mail || '').trim();
 
-  if (tipoClienteFinal === 'PERSONAL') {
-    if (!nombreFinal || !telefonoFinal) return res.status(400).json({ error: 'Para cliente PERSONAL, nombre y telefono son obligatorios' });
-  }
+  if (tipoClienteFinal === 'PERSONAL' && !telefonoFinal) return res.status(400).json({ error: 'Para cliente PERSONAL, telefono es obligatorio' });
   if (tipoClienteFinal === 'EMPRESA') {
     if (!nombreFinal || !cuitFinal || !telefonoFinal || !mailFinal) return res.status(400).json({ error: 'Para cliente EMPRESA, razonSocial, cuit, telefono y mail son obligatorios' });
   }
@@ -588,7 +593,10 @@ app.post('/personas', asyncHandler(async (req, res) => {
   let advertenciaDuplicado = null;
   if (tipoClienteFinal === 'PERSONAL' && telefonoFinal) {
     const duplicado = await prisma.persona.findFirst({ where: { tipoCliente: 'PERSONAL', telefono: telefonoFinal } });
-    if (duplicado) advertenciaDuplicado = 'Ya existe un cliente PERSONAL con el mismo telefono';
+    if (duplicado) {
+      advertenciaDuplicado = 'Ya existe un cliente PERSONAL con el mismo telefono';
+      return res.json({ ...duplicado, advertenciaDuplicado, reutilizado: true });
+    }
   }
   if (tipoClienteFinal === 'EMPRESA' && cuitFinal) {
     const duplicado = await prisma.persona.findFirst({ where: { tipoCliente: 'EMPRESA', cuitDni: cuitFinal } });
@@ -625,10 +633,16 @@ app.get('/personas/buscar', asyncHandler(async (req, res) => {
       ]
     },
     take: 20,
-    orderBy: { id: 'desc' }
+    orderBy: [{ telefono: 'asc' }, { id: 'desc' }]
   });
-
-  res.json(personas);
+  const stats = await prisma.venta.groupBy({
+    by: ['personaId'],
+    where: { estado: EstadoVenta.COBRADA, personaId: { in: personas.map((p) => p.id) } },
+    _count: { _all: true },
+    _sum: { total: true }
+  });
+  const statsByPersona = new Map(stats.map((s) => [s.personaId, { cantidadCompras: s._count._all, totalComprado: Number(s._sum.total || 0) }]));
+  res.json(personas.map((p) => ({ ...p, ...(statsByPersona.get(p.id) || { cantidadCompras: 0, totalComprado: 0 }) })));
 }));
 
 function validarClienteParaPresupuesto(persona) {
@@ -1405,6 +1419,16 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
   if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
   const persona = await prisma.persona.findUnique({ where: { id: personaId } });
   if (!persona) return res.status(404).json({ error: 'Persona no encontrada' });
+  const comprasStats = await prisma.venta.aggregate({
+    where: { personaId, estado: EstadoVenta.COBRADA },
+    _count: { _all: true },
+    _sum: { total: true }
+  });
+  const personaConStats = {
+    ...persona,
+    cantidadCompras: comprasStats._count._all || 0,
+    totalComprado: Number(comprasStats._sum.total || 0)
+  };
 
   const cuenta = await prisma.cuentaCorriente.findUnique({
     where: { personaId },
@@ -1421,12 +1445,12 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
     return res.json({
       id: null,
       personaId: persona.id,
-      persona,
+      persona: personaConStats,
       saldo: 0,
       movimientos: []
     });
   }
-  res.json(cuenta);
+  res.json({ ...cuenta, persona: { ...cuenta.persona, cantidadCompras: comprasStats._count._all || 0, totalComprado: Number(comprasStats._sum.total || 0) } });
 }));
 
 app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req, res) => {
