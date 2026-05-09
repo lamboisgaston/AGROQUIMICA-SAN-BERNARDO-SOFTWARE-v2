@@ -41,7 +41,9 @@
       <strong id="venta-activa">Sin venta activa</strong>
     </section>
 
-    <section class="bloque app-shell mostrador-ux compact-form" data-modulo="ventas clientes">
+    <section class="bloque app-shell mostrador-ux compact-form ventas-workbench" data-modulo="ventas clientes">
+      <div class="workbench-grid">
+        <div class="workbench-main">
       <h2>1) Cliente</h2>
       <div class="cliente-buscador-row">
         <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
@@ -66,69 +68,56 @@
       <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
       <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
       <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
-    </section>
-
-    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
       <h2>2) Productos</h2>
       <input id="buscar-producto" class="input-grande" placeholder="Escaneá o escribí para buscar producto" />
       <div id="resultados-productos" class="lista"></div>
       <div id="stock-alertas" class="lista"></div>
-    </section>
-
-    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
-      <h2>3) Carrito</h2>
-      <table>
-        <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
-        <tbody id="carrito"></tbody>
-      </table>
-      <p>Cliente seleccionado: <strong id="carrito-cliente">Consumidor final</strong></p>
-      <p>Subtotal: <span id="subtotal">$0.00</span></p>
-      <p>Descuento %: <span id="resumen-descuento-pct">0.00%</span></p>
-      <p>Importe descontado: <span id="importe-descuento">$0.00</span></p>
-      <p>Ajuste redondeo: <span id="monto-ajuste">$0.00</span></p>
-      <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
-    </section>
-
-    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
-      <h2>4) Descuento y pago</h2>
-      <label>Descuento %
-        <select id="descuento-tipo">
-          <option value="PORCENTAJE">Porcentaje</option>
-        </select>
-      </label>
-      <label>descuentoPorcentaje <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
-      <label>ajusteRedondeo
-        <button id="ajuste-menos">-</button>
-        <input id="ajuste-redondeo" type="number" value="0" step="0.01" />
-        <button id="ajuste-mas">+</button>
-      </label>
-      <div>
-        <button class="btn-redondeo" data-redondeo="100">Redondear a $100</button>
-        <button class="btn-redondeo" data-redondeo="500">Redondear a $500</button>
-        <button class="btn-redondeo" data-redondeo="1000">Redondear a $1000</button>
+        </div>
+        <aside class="workbench-side">
+          <section class="side-card">
+            <h3>Carrito</h3>
+            <table class="table-compact">
+              <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
+              <tbody id="carrito"></tbody>
+            </table>
+            <p>Cliente seleccionado: <strong id="carrito-cliente">Consumidor final</strong></p>
+            <p>Subtotal: <span id="subtotal">$0.00</span></p>
+            <p>Descuento %: <span id="resumen-descuento-pct">0.00%</span></p>
+            <p>Importe descontado: <span id="importe-descuento">$0.00</span></p>
+            <p>Ajuste redondeo: <span id="monto-ajuste">$0.00</span></p>
+            <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
+          </section>
+          <section class="side-card">
+            <h3>Cobro y cierre</h3>
+            <label>Descuento %
+              <select id="descuento-tipo">
+                <option value="PORCENTAJE">Porcentaje</option>
+              </select>
+            </label>
+            <label>descuentoPorcentaje <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
+            <label>ajusteRedondeo
+              <div class="inline-control"><button id="ajuste-menos">-</button><input id="ajuste-redondeo" type="number" value="0" step="0.01" /><button id="ajuste-mas">+</button></div>
+            </label>
+            <div class="action-row">
+              <button class="btn-redondeo" data-redondeo="100">$100</button>
+              <button class="btn-redondeo" data-redondeo="500">$500</button>
+              <button class="btn-redondeo" data-redondeo="1000">$1000</button>
+            </div>
+            <p id="msg-descuento-cliente" class="msg-info">Para aplicar descuento debe seleccionar o dar de alta un cliente.</p>
+            <label>condicionPagoPrevista
+              <select id="condicion-pago-prevista"><option value="">Seleccione</option><option value="EFECTIVO">EFECTIVO</option><option value="TRANSFERENCIA">TRANSFERENCIA</option><option value="TARJETA">TARJETA</option><option value="CUENTA_CORRIENTE">CUENTA_CORRIENTE</option><option value="OTRO">OTRO</option></select>
+            </label>
+            <p>Condición prevista: <strong id="resumen-condicion-pago">No aplica</strong></p>
+            <button id="btn-cerrar" class="btn-primary">Cerrar venta</button>
+          </section>
+        </aside>
       </div>
-      <p id="msg-descuento-cliente" class="msg-info">Para aplicar descuento debe seleccionar o dar de alta un cliente.</p>
-      <label>condicionPagoPrevista
-        <select id="condicion-pago-prevista">
-          <option value="">Seleccione</option>
-          <option value="EFECTIVO">EFECTIVO</option>
-          <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-          <option value="TARJETA">TARJETA</option>
-          <option value="CUENTA_CORRIENTE">CUENTA_CORRIENTE</option>
-          <option value="OTRO">OTRO</option>
-        </select>
-      </label>
-      <p>Condición prevista: <strong id="resumen-condicion-pago">No aplica</strong></p>
     </section>
 
-    <section class="bloque app-shell mostrador-ux" data-modulo="ventas">
-      <h2>5) Cerrar venta</h2>
-      <button id="btn-cerrar">Cerrar venta</button>
-    </section>
-
-    <section class="bloque app-shell" data-modulo="caja">
-      <h2>5) Caja</h2>
-      <div id="pendientes">Cargando...</div>
+    <section class="bloque app-shell caja-workbench" data-modulo="caja">
+      <h2>Caja</h2>
+      <div class="caja-toolbar"><strong>Pendientes y cobro</strong></div>
+      <div id="pendientes" class="pendientes-grid">Cargando...</div>
     </section>
 
     <section class="bloque app-shell compact-form" data-modulo="cuenta-corriente">
@@ -170,6 +159,8 @@
     </section>
 
     <section class="bloque app-shell compact-form productos-modulo" data-modulo="productos">
+      <div class="workbench-grid">
+        <div class="workbench-main">
       <h2 id="productos-panel">9) Productos y precios</h2>
       <div class="action-row">
         <button id="btn-modo-agregar-producto">Agregar producto</button>
@@ -180,7 +171,9 @@
         <input id="admin-buscar-producto" placeholder="Buscar producto por nombre, categoría o marca" />
         <div id="productos-admin" class="lista"></div>
       </div>
-      <input id="prod-id" type="hidden" />
+      </div>
+        <aside class="workbench-side sticky-summary">
+          <input id="prod-id" type="hidden" />
       <div class="campo-producto">
         <label for="prod-nombre">Nombre del producto</label>
         <input id="prod-nombre" />
@@ -239,9 +232,13 @@
       <p>Precio de venta final en pesos: <strong id="prod-precio-final">$0.00</strong></p>
       <button id="btn-guardar-producto">Guardar producto</button>
       <button id="btn-nuevo-producto">Nuevo</button>
+        </aside>
+      </div>
     </section>
 
-    <section class="bloque app-shell compact-form" data-modulo="presupuestos">
+    <section class="bloque app-shell compact-form presupuestos-workbench" data-modulo="presupuestos">
+  <div class="workbench-grid">
+    <div class="workbench-main">
   <h2>11) Presupuestos</h2>
 
   <h3>Destinatario</h3>
@@ -303,6 +300,8 @@
     <button id="pres-redondear-1000">Redondear a $1000</button>
   </div>
 
+  </div>
+    <aside class="workbench-side sticky-summary">
   <h3>Resumen final</h3>
   <p>Subtotal: <strong id="pres-subtotal">$0.00</strong></p>
   <p>Descuento %: <strong id="pres-resumen-descuento-pct">0%</strong></p>
@@ -311,10 +310,13 @@
   <p>Total final: <strong id="pres-total">$0.00</strong></p>
   <p>Condición prevista: <strong id="pres-resumen-condicion">No requerida</strong></p>
 
-  <button id="pres-guardar">Guardar presupuesto</button>
+
+  <button id="pres-guardar" class="btn-primary">Guardar presupuesto</button>
 
   <h3>Presupuestos guardados</h3>
   <div id="pres-lista" class="lista"></div>
+    </aside>
+  </div>
 </section>
 
 <section class="bloque app-shell compact-form" data-modulo="proveedores stock remitos">
