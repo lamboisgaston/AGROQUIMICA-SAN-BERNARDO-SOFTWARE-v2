@@ -634,13 +634,18 @@ async function verDetalleProveedor() {
   const id = Number($('#proveedor-detalle-select')?.value || 0);
   if (!id) return setMsg('Seleccione proveedor');
   const qProducto = ($('#proveedor-buscar-producto')?.value || '').trim();
-  const [proveedor, productosAsociados, historial] = await Promise.all([api(`/proveedores/${id}`), api(`/proveedores/${id}/productos?q=${encodeURIComponent(qProducto)}`), api(`/remitos-proveedor?proveedorId=${id}`)]);
-  $('#proveedor-detalle').innerHTML = `<div class="item"><b>${proveedor.razonSocial}</b> | CUIT: ${proveedor.cuit || '-'} | Tel: ${proveedor.telefono || '-'} | Mail: ${proveedor.mail || '-'} | Dirección: ${proveedor.direccion || '-'} | Contacto: ${proveedor.contactoComercial || '-'} | Obs: ${proveedor.observaciones || '-'} | Productos: ${(proveedor.productos || []).length} | Historial compras: ${(historial || []).length}</div>`;
+  const [proveedor, productosAsociados] = await Promise.all([api(`/proveedores/${id}`), api(`/proveedores/${id}/productos?q=${encodeURIComponent(qProducto)}`)]);
+  $('#proveedor-detalle').innerHTML = `<div class="item"><b>${proveedor.razonSocial}</b> | CUIT: ${proveedor.cuit || '-'} | Tel: ${proveedor.telefono || '-'} | Mail: ${proveedor.mail || '-'} | Dirección: ${proveedor.direccion || '-'} | Contacto: ${proveedor.contactoComercial || '-'} | Obs: ${proveedor.observaciones || '-'} | Productos asociados: ${(proveedor.productos || []).length}</div>`;
   $('#proveedor-productos').innerHTML = productosAsociados.length
-    ? productosAsociados.map((p) => `<div class="item">${p.nombre} | Costo: ${p.monedaUltimoCosto || p.monedaCosto || ''} ${money(p.ultimoCosto ?? p.costoBase)} <button data-ver-proveedores-producto="${p.id}">Ver proveedores</button> <button data-desasociar-producto="${p.id}">Desasociar</button></div>`).join('')
+    ? productosAsociados.map((p) => `<div class="item">${p.nombre} | Costo: ${p.monedaUltimoCosto || p.monedaCosto || ''} ${money(p.ultimoCosto ?? p.costoBase)} <button data-ver-proveedores-producto="${p.id}">Ver proveedores</button> <button data-desasociar-producto="${p.id}">Quitar asociación</button></div>`).join('')
     : '<div class="item">Sin productos asociados</div>';
   const asociados = new Set(productosAsociados.map((p) => p.id));
-  $('#proveedor-asociar-producto').innerHTML = '<option value="">Seleccione producto</option>' + productos.filter((p) => !asociados.has(p.id)).map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
+  const disponibles = productos.filter((p) => !asociados.has(p.id));
+  $('#proveedor-asociar-producto').innerHTML = '<option value="">Seleccione producto</option>' + disponibles.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
+  const resumen = $('#proveedor-asociacion-resumen');
+  if (resumen) {
+    resumen.innerHTML = `<b>Proveedor seleccionado:</b> ${proveedor.razonSocial}<br><b>Este proveedor vende estos productos:</b> ${productosAsociados.length ? productosAsociados.map((p) => p.nombre).join(', ') : 'Ninguno todavía'}<br><b>Productos disponibles para asociar:</b> ${disponibles.length}`;
+  }
 }
 async function renderProveedoresRemito() {
   const remSel = $('#remito-proveedor');
