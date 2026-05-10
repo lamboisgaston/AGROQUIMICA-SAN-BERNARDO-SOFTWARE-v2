@@ -377,11 +377,24 @@ app.get('/proveedores', asyncHandler(async (req, res) => {
         { contactoComercial: { contains: q } }
       ]
     } : undefined,
-    include: { productos: { include: { producto: true } } },
+    include: {
+      productos: { include: { producto: true } },
+      remitos: {
+        orderBy: { fecha: 'desc' },
+        take: 1,
+        include: { detalles: { orderBy: { id: 'desc' }, take: 1 } }
+      }
+    },
     orderBy: { razonSocial: 'asc' },
     take: q ? 8 : undefined
   });
-  res.json(proveedores);
+  res.json(proveedores.map((pr) => ({
+    ...pr,
+    cantidadProductos: pr.productos?.length || 0,
+    ultimoCosto: pr.remitos?.[0]?.detalles?.[0]?.costoCompra ?? null,
+    monedaUltimoCosto: pr.remitos?.[0]?.detalles?.[0]?.monedaCosto ?? null,
+    fechaUltimaActualizacion: pr.remitos?.[0]?.fecha ?? null
+  })));
 }));
 
 app.post('/proveedores', asyncHandler(async (req, res) => {
@@ -407,7 +420,17 @@ app.put('/proveedores/:id', asyncHandler(async (req, res) => {
 app.get('/proveedores/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
-  const proveedor = await prisma.proveedor.findUnique({ where: { id }, include: { productos: { include: { producto: true } } } });
+  const proveedor = await prisma.proveedor.findUnique({
+    where: { id },
+    include: {
+      productos: { include: { producto: true } },
+      remitos: {
+        orderBy: { fecha: 'desc' },
+        take: 10,
+        include: { detalles: { include: { producto: true } } }
+      }
+    }
+  });
   if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
   res.json(proveedor);
 }));
@@ -415,13 +438,33 @@ app.get('/proveedores/:id', asyncHandler(async (req, res) => {
 app.get('/proveedores/:id/productos', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
+  const q = String(req.query.q || '').trim();
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany({
-    where: { proveedores: { some: { proveedorId: id } } },
+    where: {
+      proveedores: { some: { proveedorId: id } },
+      ...(q ? { OR: [{ nombre: { contains: q } }, { categoria: { contains: q } }, { marca: { contains: q } }] } : {})
+    },
     orderBy: { nombre: 'asc' },
     include: { proveedores: { include: { proveedor: true } } }
   });
-  res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
+  const costos = await prisma.detalleRemitoProveedor.findMany({
+    where: { remito: { proveedorId: id } },
+    orderBy: [{ id: 'desc' }]
+  });
+  const ultimoCostoPorProducto = new Map();
+  costos.forEach((c) => {
+    if (!ultimoCostoPorProducto.has(c.productoId)) ultimoCostoPorProducto.set(c.productoId, c);
+  });
+  res.json(productos.map((p) => {
+    const base = mapearProductoConPrecioPesos(p, tipoCambioActual);
+    const ultimo = ultimoCostoPorProducto.get(p.id);
+    return {
+      ...base,
+      ultimoCosto: ultimo?.costoCompra ?? null,
+      monedaUltimoCosto: ultimo?.monedaCosto ?? null
+    };
+  }));
 }));
 
 app.post('/proveedores/:id/productos/:productoId', asyncHandler(async (req, res) => {
