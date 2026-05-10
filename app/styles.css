@@ -105,3 +105,10 @@ details[open] { display: grid; gap: 5px; }
 .active-user-row { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px; }
 .role-grid .dashboard-card button { width: 100%; }
 
+.proveedores-workbench { display:grid; grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.6fr); gap: 8px; align-items:start; }
+.proveedores-col-lista, .proveedores-col-detalle { display:grid; gap: 6px; }
+.proveedores-col-lista #proveedores-lista { max-height: 42vh; }
+.proveedores-col-detalle #proveedor-productos { max-height: 46vh; }
+.proveedor-row { display:flex; justify-content:space-between; gap:6px; align-items:center; }
+.proveedor-row small { color: var(--muted); }
+@media (max-width: 900px) { .proveedores-workbench { grid-template-columns: 1fr; } }
