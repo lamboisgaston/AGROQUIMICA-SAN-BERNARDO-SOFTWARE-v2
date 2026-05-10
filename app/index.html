@@ -335,7 +335,7 @@
   </div>
 </section>
 
-<section class="bloque app-shell compact-form" data-modulo="proveedores stock remitos">
+<section class="bloque app-shell compact-form" data-modulo="proveedores">
       <h2 id="proveedores-panel">10) Proveedores</h2>
       <div class="proveedores-workbench">
         <aside class="proveedores-col-lista">
@@ -353,18 +353,22 @@
           <button id="btn-crear-proveedor">Crear proveedor</button>
         </aside>
         <div class="proveedores-col-detalle">
-          <h3>Detalle del proveedor</h3>
+          <h3>Asociación proveedor-producto</h3>
           <label>Proveedor <select id="proveedor-detalle-select"></select></label>
           <button id="btn-ver-proveedor">Ver detalle</button>
           <div id="proveedor-detalle" class="lista"></div>
+          <div id="proveedor-asociacion-resumen" class="item">Seleccione un proveedor para ver y gestionar asociaciones.</div>
           <h3>Productos asociados</h3>
           <label>Buscar producto del proveedor <input id="proveedor-buscar-producto" placeholder="Nombre / categoría / marca" /></label>
           <div id="proveedor-productos" class="lista"></div>
-          <label>Asociar producto existente <select id="proveedor-asociar-producto"></select></label>
+          <h3>Productos disponibles para asociar</h3>
+          <label>Producto disponible <select id="proveedor-asociar-producto"></select></label>
           <button id="btn-asociar-producto-proveedor">Asociar producto</button>
         </div>
       </div>
+    </section>
 
+<section class="bloque app-shell compact-form" data-modulo="stock">
       <h2 id="stock-panel">11) Stock</h2>
       <div class="action-row">
         <button id="btn-stock-sin-proveedor">Productos sin proveedor</button>
@@ -386,6 +390,10 @@
       <button id="btn-registrar-stock">Registrar movimiento</button>
       <div id="stock-movimientos" class="lista"></div>
 
+    </section>
+
+<section class="bloque app-shell compact-form" data-modulo="remitos">
+      <h2 id="remitos-panel">12) Remitos</h2>
       <h3>Cargar remito</h3>
       <label>Buscar proveedor <input id="remito-buscar-proveedor" placeholder="Nombre o CUIT" /></label>
       <label>Proveedor <select id="remito-proveedor"></select></label>
