@@ -122,7 +122,7 @@ function renderProductoCard(p, opciones = {}) {
     <div class="producto-media">${imagenHtml}</div>
     <div class="producto-info">
       <div class="producto-titulo">${p.nombre || '-'}</div>
-      <div class="producto-meta">Categoría: <strong>${p.categoria || '-'}</strong></div>
+      <div class="producto-meta">Categorías: <strong>${(p.categorias || []).map((c) => c.nombre).join(', ') || p.categoria || '-'}</strong></div>
       <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
       <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
       ${proveedoresTexto ? `<div class="producto-meta">Proveedores: <strong>${proveedoresTexto}</strong></div>` : ''}
@@ -526,8 +526,7 @@ async function loadVentasCobradas() {
 function limpiarFormularioProducto() {
   $('#prod-id').value = '';
   $('#prod-nombre').value = '';
-  $('#prod-categoria').value = '';
-  $('#prod-categoria-nueva').value = '';
+  Array.from($('#prod-categoria').options || []).forEach(o => { o.selected = false; });
   $('#prod-marca').value = '';
   $('#prod-unidad').value = '';
   $('#prod-stock').value = '0';
@@ -551,12 +550,13 @@ function renderResumenPreciosProducto() {
   $('#prod-precio-final').textContent = money(c.precioVentaPesos);
 }
 
-function renderCategoriasProducto(selected = '') {
+function renderCategoriasProducto(selected = []) {
   const sel = $('#prod-categoria');
   if (!sel) return;
-  const opciones = categoriasProducto.map(c => `<option value="${c}">${c}</option>`).join('');
-  sel.innerHTML = `<option value="">Seleccione categoría</option>${opciones}`;
-  if (selected) sel.value = selected;
+  const opciones = categoriasProducto.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  sel.innerHTML = opciones;
+  const selectedSet = new Set((selected || []).map(String));
+  Array.from(sel.options).forEach((opt) => { opt.selected = selectedSet.has(opt.value); });
 }
 
 function setModoProducto(nuevoModo) {
@@ -569,7 +569,7 @@ function setModoProducto(nuevoModo) {
 function renderProductosAdmin() {
   const container = $('#productos-admin');
   const f = filtroProductosAdmin.toLowerCase();
-  const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
+  const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || ((p.categorias || []).map((c) => c.nombre).join(' ').toLowerCase().includes(f)) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
     ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button>` })).join('')
     : '<div class="item">Sin productos</div>';
@@ -580,6 +580,7 @@ function renderPresupuestoProductos() {
     .filter((p) => {
       if (!filtroProductosPresupuesto) return true;
       return (p.nombre || '').toLowerCase().includes(filtroProductosPresupuesto)
+        || ((p.categorias || []).map((c) => c.nombre).join(' ').toLowerCase().includes(filtroProductosPresupuesto))
         || (p.categoria || '').toLowerCase().includes(filtroProductosPresupuesto)
         || (p.marca || '').toLowerCase().includes(filtroProductosPresupuesto)
         || String(p.id || '').includes(filtroProductosPresupuesto);
@@ -725,8 +726,16 @@ async function loadTipoCambio() {
 }
 
 async function loadCategoriasProducto() {
-  categoriasProducto = await api('/productos/categorias');
+  categoriasProducto = await api('/categorias');
   renderCategoriasProducto();
+  renderCategoriasAdmin();
+}
+
+function renderCategoriasAdmin() {
+  const cont = $('#categorias-lista');
+  if (!cont) return;
+  cont.innerHTML = categoriasProducto.map((c) => `<div class="item">#${c.id} <b>${c.nombre}</b> | ${c.descripcion || '-'} | ${c.activo ? 'Activa' : 'Inactiva'}
+    <button data-cat-toggle="${c.id}" data-activo="${c.activo ? '1' : '0'}">${c.activo ? 'Desactivar' : 'Activar'}</button></div>`).join('') || '<div class="item">Sin categorías</div>';
 }
 
 async function loadProductosAll() {
@@ -1205,12 +1214,11 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
   const btnGuardar = $('#btn-guardar-producto');
   try {
     const nombre = $('#prod-nombre').value.trim();
-    const categoriaSeleccionada = $('#prod-categoria').value.trim();
-    const categoriaNueva = $('#prod-categoria-nueva').value.trim();
-    const categoria = categoriaSeleccionada || categoriaNueva;
+    const categoriaIds = Array.from($('#prod-categoria').selectedOptions || []).map((o) => Number(o.value)).filter((id) => Number.isInteger(id) && id > 0);
+    const categoriaTexto = categoriasProducto.filter((c) => categoriaIds.includes(c.id)).map((c) => c.nombre).join(', ');
 
     if (!nombre) return setMsg('El nombre del producto es obligatorio', 'error');
-    if (!categoria) return setMsg('La categoría del producto es obligatoria', 'error');
+    if (!categoriaIds.length) return setMsg('Debe seleccionar al menos una categoría', 'error');
 
     const proveedorIds = Array.from($('#prod-proveedor').selectedOptions || [])
       .map((o) => Number(o.value))
@@ -1218,7 +1226,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
 
     const payload = {
       nombre,
-      categoria,
+      categoria: categoriaTexto,
+      categoriaIds,
       marca: $('#prod-marca').value.trim(),
       unidad: $('#prod-unidad').value.trim(),
       stock: Number($('#prod-stock').value || 0),
@@ -1242,11 +1251,6 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
 
     const productoGuardado = await api(url, { method, body: JSON.stringify(payload) });
     console.log('[producto-guardado][frontend] respuesta ok', productoGuardado);
-
-    if (categoriaNueva && !categoriasProducto.includes(categoriaNueva)) {
-      categoriasProducto.push(categoriaNueva);
-      categoriasProducto = categoriasProducto.sort((a, b) => a.localeCompare(b));
-    }
 
     await loadProductosAll();
     filtroProductosAdmin = '';
@@ -1272,13 +1276,26 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
 $('#btn-nuevo-producto').addEventListener('click', limpiarFormularioProducto);
 $('#btn-modo-agregar-producto').addEventListener('click', () => setModoProducto('AGREGAR'));
 $('#btn-modo-editar-producto').addEventListener('click', () => setModoProducto('EDITAR'));
-$('#btn-crear-categoria').addEventListener('click', () => {
-  const nueva = ($('#prod-categoria-nueva').value || '').trim();
-  if (!nueva) return;
-  if (!categoriasProducto.includes(nueva)) categoriasProducto.push(nueva);
-  categoriasProducto = categoriasProducto.sort((a,b)=>a.localeCompare(b));
-  renderCategoriasProducto(nueva);
-  $('#prod-categoria-nueva').value = '';
+$('#btn-guardar-categoria')?.addEventListener('click', async () => {
+  try {
+    const nombre = ($('#cat-nombre').value || '').trim();
+    const descripcion = ($('#cat-descripcion').value || '').trim();
+    if (!nombre) return setMsg('Nombre de categoría obligatorio', 'error');
+    await api('/categorias', { method: 'POST', body: JSON.stringify({ nombre, descripcion }) });
+    $('#cat-nombre').value = '';
+    $('#cat-descripcion').value = '';
+    await loadCategoriasProducto();
+    setMsg('Categoría creada', 'success');
+  } catch (err) { setMsg(err.message, 'error'); }
+});
+$('#categorias-lista')?.addEventListener('click', async (e) => {
+  const id = Number(e.target.dataset.catToggle || 0);
+  if (!id) return;
+  try {
+    const activoActual = e.target.dataset.activo === '1';
+    await api(`/categorias/${id}`, { method: 'PUT', body: JSON.stringify({ activo: !activoActual }) });
+    await loadCategoriasProducto();
+  } catch (err) { setMsg(err.message, 'error'); }
 });
 $('#admin-buscar-producto').addEventListener('input', async (e) => {
   const q = e.target.value.trim();
@@ -1303,7 +1320,7 @@ $('#productos-admin').addEventListener('click', (e) => {
   console.log('Producto cargado para edición:', p);
   $('#prod-id').value = p.id;
   $('#prod-nombre').value = p.nombre;
-  $('#prod-categoria').value = p.categoria;
+  renderCategoriasProducto((p.categorias || []).map((c) => c.id));
   $('#prod-marca').value = p.marca || '';
   $('#prod-unidad').value = p.unidad || '';
   $('#prod-stock').value = p.stock;
