@@ -344,14 +344,30 @@
           <input id="proveedor-buscar" placeholder="Buscar proveedor (nombre/CUIT)" />
           <div id="proveedores-lista" class="lista"></div>
           <h3>Crear proveedor</h3>
-          <input id="prov-razon-social" placeholder="Razón social" />
-          <input id="prov-telefono" placeholder="Teléfono opcional" />
-          <input id="prov-cuit" placeholder="CUIT opcional" />
-          <input id="prov-mail" placeholder="Mail opcional" />
-          <input id="prov-direccion" placeholder="Dirección opcional" />
-          <input id="prov-contacto" placeholder="Contacto comercial opcional" />
-          <input id="prov-observaciones" placeholder="Observaciones opcional" />
-          <button id="btn-crear-proveedor">Crear proveedor</button>
+          <div class="proveedor-formulario">
+            <label for="prov-razon-social">Razón social</label>
+            <input id="prov-razon-social" placeholder="Razón social" />
+
+            <label for="prov-telefono">Teléfono</label>
+            <input id="prov-telefono" placeholder="Teléfono opcional" />
+
+            <label for="prov-cuit">CUIT</label>
+            <input id="prov-cuit" placeholder="CUIT opcional" />
+
+            <label for="prov-mail">Mail</label>
+            <input id="prov-mail" placeholder="Mail opcional" />
+
+            <label for="prov-direccion">Dirección</label>
+            <input id="prov-direccion" placeholder="Dirección opcional" />
+
+            <label for="prov-contacto">Contacto</label>
+            <input id="prov-contacto" placeholder="Contacto comercial opcional" />
+
+            <label for="prov-observaciones">Observaciones</label>
+            <input id="prov-observaciones" placeholder="Observaciones opcional" />
+
+            <button id="btn-crear-proveedor">Crear proveedor</button>
+          </div>
         </aside>
         <div class="proveedores-col-detalle">
           <h3>Detalle de proveedor</h3>
