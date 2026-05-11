@@ -24,6 +24,66 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+
+function formatMoney(value) {
+  return '$' + Number(value || 0).toFixed(2);
+}
+
+function escapePdfText(value) {
+  return String(value ?? '').replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
+}
+
+function generarPdfBasico(lineas) {
+  const lineHeight = 14;
+  const top = 800;
+  const bottom = 40;
+  const usable = top - bottom;
+  const porPagina = Math.max(1, Math.floor(usable / lineHeight));
+  const paginas = [];
+  for (let i = 0; i < lineas.length; i += porPagina) paginas.push(lineas.slice(i, i + porPagina));
+
+  const objects = [];
+  const addObj = (content) => { objects.push(content); return objects.length; };
+
+  const fontId = addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  const pageIds = [];
+
+  for (const pageLines of paginas) {
+    let y = top;
+    let stream = 'BT\n/F1 11 Tf\n';
+    for (const line of pageLines) {
+      stream += `1 0 0 1 40 ${y} Tm (${escapePdfText(line)}) Tj\n`;
+      y -= lineHeight;
+    }
+    stream += 'ET';
+
+    const contentId = addObj(`<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream`);
+    const pageId = addObj(`<< /Type /Page /Parent PAGES_OBJ /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    pageIds.push(pageId);
+  }
+
+  const kids = pageIds.map(id => `${id} 0 R`).join(' ');
+  const pagesId = addObj(`<< /Type /Pages /Kids [ ${kids} ] /Count ${pageIds.length} >>`);
+  pageIds.forEach((id) => {
+    objects[id - 1] = objects[id - 1].replace('PAGES_OBJ', `${pagesId} 0 R`);
+  });
+  const catalogId = addObj(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  for (let i = 0; i < objects.length; i++) {
+    offsets.push(Buffer.byteLength(pdf, 'utf8'));
+    pdf += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`;
+  }
+  const xrefPos = Buffer.byteLength(pdf, 'utf8');
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+  for (let i = 1; i <= objects.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+  return Buffer.from(pdf, 'utf8');
+}
 const TIMEZONE_CAJA = 'America/Argentina/Salta';
 
 function obtenerFechaCajaArgentina(fecha = new Date()) {
@@ -811,7 +871,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   const p = await prisma.presupuesto.findUnique({ where: { id }, include: { persona: true, items: { include: { producto: true } } } });
   if (!p) return res.status(404).send('No encontrado');
-  const moneda = (n) => '$' + Number(n || 0).toFixed(2);
+  const moneda = formatMoney;
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const rows = p.items.map(i => `<tr><td>${escapeHtml(i.producto.nombre)}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`).join('');
   res.type('html').send(`<!doctype html>
@@ -866,6 +926,50 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   </div>
 </body>
 </html>`);
+}));
+
+
+app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  const p = await prisma.presupuesto.findUnique({ where: { id }, include: { persona: true, items: { include: { producto: true } } } });
+  if (!p) return res.status(404).send('No encontrado');
+
+  const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
+  const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
+  const lineas = [
+    `Agroquímica y Fumigaciones San Bernardo`,
+    `Presupuesto #${p.id}`,
+    `Fecha: ${fecha}`,
+    `Estado: ${p.estado}`,
+    '',
+    `Cliente: ${cliente}`,
+    `Teléfono: ${p.persona?.telefono || '-'}`,
+    `CUIT/DNI: ${p.persona?.cuitDni || '-'}`,
+    '',
+    'Productos:',
+    '------------------------------------------------------------'
+  ];
+
+  p.items.forEach((i, idx) => {
+    lineas.push(`${idx + 1}. ${i.producto?.nombre || 'Producto'} | Cant: ${i.cantidad} | P.Unit: ${formatMoney(i.precioUnitario)} | Subtotal: ${formatMoney(i.subtotal)}`);
+  });
+
+  lineas.push(
+    '------------------------------------------------------------',
+    `Subtotal: ${formatMoney(p.subtotal)}`,
+    `Descuento: ${formatMoney(p.descuentoValor || 0)}`,
+    `Redondeo: ${formatMoney(p.ajusteRedondeo || 0)}`,
+    `Total: ${formatMoney(p.total)}`
+  );
+
+  if (p.observaciones) {
+    lineas.push('', `Observaciones: ${p.observaciones}`);
+  }
+
+  const pdf = generarPdfBasico(lineas);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="presupuesto-${p.id}.pdf"`);
+  res.send(pdf);
 }));
 
 app.post('/mostrador/ventas', asyncHandler(async (req, res) => {

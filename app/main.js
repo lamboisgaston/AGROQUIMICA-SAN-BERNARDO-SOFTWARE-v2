@@ -598,8 +598,7 @@ function normalizarTelefonoWhatsapp(telefono) {
 }
 
 function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
-  const link = `${window.location.origin}/presupuestos/${presupuestoId}/imprimir`;
-  return `Hola, te compartimos el presupuesto #${presupuestoId} de Agroquímica San Bernardo. Total: ${money(total)}. Ver presupuesto: ${link}`;
+  return `Hola, te compartimos el presupuesto #${presupuestoId} de Agroquímica San Bernardo. Total: ${money(total)}. Adjuntamos el PDF del presupuesto.`;
 }
 
 async function loadPresupuestos() {
@@ -607,7 +606,7 @@ async function loadPresupuestos() {
   $('#pres-lista').innerHTML = lista.map(p => {
     const telefonoCliente = normalizarTelefonoWhatsapp(p.persona?.telefono || p.persona?.telefonoPrincipal || '');
     const puedeWhatsapp = Boolean(telefonoCliente);
-    return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a class="btn-link" href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer">Imprimir</a> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
+    return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a class="btn-link" href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer">Imprimir</a> <button data-pres-pdf="${p.id}">Descargar PDF</button> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
   }).join('');
 }
 function renderProveedores() {
@@ -1434,6 +1433,11 @@ $('#pres-lista').addEventListener('click', async (e) => {
   const ac = e.target.closest('button[data-pres-aceptar]');
   const re = e.target.closest('button[data-pres-rechazar]');
   const wa = e.target.closest('button[data-pres-whatsapp]');
+  const pdf = e.target.closest('button[data-pres-pdf]');
+  if (pdf) {
+    const pdfUrl = `${window.location.origin}/presupuestos/${Number(pdf.dataset.presPdf)}/pdf`;
+    window.location.href = pdfUrl;
+  }
   if (wa) {
     const numero = normalizarTelefonoWhatsapp(wa.dataset.presWhatsappTelefono || '');
     if (numero) {
