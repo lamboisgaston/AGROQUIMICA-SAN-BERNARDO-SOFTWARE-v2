@@ -888,6 +888,8 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
+  const descuento = Number(p.descuentoValor || 0);
+  const redondeo = Number(p.ajusteRedondeo || 0);
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="presupuesto-${p.id}.pdf"`);
@@ -895,39 +897,82 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   const doc = new PDFDocument({ margin: 40, size: 'A4' });
   doc.pipe(res);
 
-  doc.fontSize(18).text('Agroquímica y Fumigaciones San Bernardo', { align: 'left' });
-  doc.moveDown(0.3);
-  doc.fontSize(12).text(`Presupuesto #${p.id}`);
-  doc.text(`Fecha: ${fecha}`);
-  doc.text(`Estado: ${p.estado}`);
+  const pageWidth = doc.page.width;
+  const left = 40;
+  const right = pageWidth - 40;
 
-  doc.moveDown();
-  doc.fontSize(13).text('Cliente', { underline: true });
-  doc.fontSize(11).text(`Nombre: ${cliente}`);
-  doc.text(`Teléfono: ${p.persona?.telefono || '-'}`);
-  doc.text(`CUIT/DNI: ${p.persona?.cuitDni || '-'}`);
+  const drawBox = (y, h) => {
+    doc.roundedRect(left, y, right - left, h, 6).lineWidth(1).strokeColor('#bdbdbd').stroke();
+  };
 
-  doc.moveDown();
-  doc.fontSize(13).text('Productos', { underline: true });
-  doc.moveDown(0.3);
+  doc.rect(left, 40, right - left, 64).fill('#f6f6f6');
+  doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica y Fumigaciones San Bernardo', left + 12, 52);
+  doc.fontSize(11).text('Ingeniería Lambois', left + 12, 74);
+  doc.font('Helvetica').fontSize(11).text(`Presupuesto #${p.id}`, right - 180, 52, { width: 168, align: 'right' });
+  doc.text(`Fecha: ${fecha}`, right - 180, 68, { width: 168, align: 'right' });
+  doc.text(`Estado: ${p.estado}`, right - 180, 84, { width: 168, align: 'right' });
 
+  let y = 118;
+  drawBox(y, 72);
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#111').text('Destinatario', left + 10, y + 10);
+  doc.font('Helvetica').fontSize(10)
+    .text(`Cliente: ${cliente}`, left + 10, y + 28)
+    .text(`Teléfono: ${p.persona?.telefono || '-'}`, left + 10, y + 42)
+    .text(`CUIT/DNI: ${p.persona?.cuitDni || '-'}`, left + 10, y + 56);
+
+  y += 88;
+  const cols = { producto: left + 8, cantidad: left + 332, precio: left + 410, subtotal: left + 498 };
+  doc.rect(left, y, right - left, 24).fill('#efefef');
+  doc.fillColor('#111').font('Helvetica-Bold').fontSize(10)
+    .text('Producto', cols.producto, y + 7)
+    .text('Cant.', cols.cantidad, y + 7, { width: 60, align: 'center' })
+    .text('Precio unitario', cols.precio, y + 7, { width: 80, align: 'right' })
+    .text('Subtotal', cols.subtotal, y + 7, { width: 70, align: 'right' });
+
+  y += 24;
+  doc.font('Helvetica').fontSize(10);
   p.items.forEach((item, index) => {
-    doc.fontSize(10).text(
-      `${index + 1}. ${item.producto?.nombre || 'Producto'} | Cant: ${item.cantidad} | P.Unit: ${formatMoney(item.precioUnitario)} | Subtotal: ${formatMoney(item.subtotal)}`
-    );
+    const rowHeight = 20;
+    if (index % 2 === 0) {
+      doc.rect(left, y, right - left, rowHeight).fill('#fafafa');
+    }
+    doc.fillColor('#111')
+      .text(item.producto?.nombre || 'Producto', cols.producto, y + 6, { width: 310 })
+      .text(String(item.cantidad), cols.cantidad, y + 6, { width: 60, align: 'center' })
+      .text(formatMoney(item.precioUnitario), cols.precio, y + 6, { width: 80, align: 'right' })
+      .text(formatMoney(item.subtotal), cols.subtotal, y + 6, { width: 70, align: 'right' });
+    y += rowHeight;
+  });
+  doc.rect(left, y - (p.items.length * 20 + 24), right - left, p.items.length * 20 + 24).lineWidth(1).strokeColor('#d3d3d3').stroke();
+
+  y += 16;
+  const totalsX = right - 250;
+  drawBox(y, 86);
+  doc.font('Helvetica').fontSize(10)
+    .text('Subtotal:', totalsX, y + 10, { width: 120, align: 'right' })
+    .text(formatMoney(p.subtotal), totalsX + 124, y + 10, { width: 110, align: 'right' })
+    .text('Descuento:', totalsX, y + 28, { width: 120, align: 'right' })
+    .text(formatMoney(descuento), totalsX + 124, y + 28, { width: 110, align: 'right' })
+    .text('Redondeo:', totalsX, y + 46, { width: 120, align: 'right' })
+    .text(formatMoney(redondeo), totalsX + 124, y + 46, { width: 110, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL: ${formatMoney(p.total)}`, totalsX, y + 64, { width: 234, align: 'right' });
+
+  y += 102;
+  const bloques = [
+    ['Observaciones', p.observaciones || '-'],
+    ['Validez del presupuesto', p.validez || '-'],
+    ['Condición de pago', `Alias: ${p.aliasTransferencia || '-'} | Datos bancarios: ${p.datosBancarios || '-'}`]
+  ];
+
+  bloques.forEach(([titulo, contenido]) => {
+    const h = 42;
+    drawBox(y, h);
+    doc.font('Helvetica-Bold').fontSize(10).text(`${titulo}:`, left + 10, y + 9);
+    doc.font('Helvetica').fontSize(10).text(String(contenido), left + 120, y + 9, { width: right - left - 132 });
+    y += h + 8;
   });
 
-  doc.moveDown();
-  doc.fontSize(12).text(`Subtotal: ${formatMoney(p.subtotal)}`, { align: 'right' });
-  doc.text(`Descuento: ${formatMoney(p.descuentoValor || 0)}`, { align: 'right' });
-  doc.text(`Redondeo: ${formatMoney(p.ajusteRedondeo || 0)}`, { align: 'right' });
-  doc.font('Helvetica-Bold').text(`Total: ${formatMoney(p.total)}`, { align: 'right' });
-  doc.font('Helvetica');
-
-  if (p.observaciones) {
-    doc.moveDown();
-    doc.fontSize(11).text(`Observaciones: ${p.observaciones}`);
-  }
+  doc.fontSize(9).fillColor('#555').text('Documento comercial emitido por Agroquímica y Fumigaciones San Bernardo - Ingeniería Lambois.', left, doc.page.height - 46, { width: right - left, align: 'center' });
 
   doc.end();
 }));
