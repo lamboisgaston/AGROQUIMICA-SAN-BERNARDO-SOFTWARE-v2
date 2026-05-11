@@ -338,34 +338,33 @@
 
 <section class="bloque app-shell compact-form" data-modulo="proveedores">
       <h2 id="proveedores-panel">10) Proveedores</h2>
-      <div id="proveedor-encabezado-seleccion" class="item proveedor-encabezado">Seleccione un proveedor para asociar productos</div>
       <div class="proveedores-workbench">
         <aside class="proveedores-col-lista">
-          <div class="proveedores-toolbar">
-            <input id="proveedor-buscar" placeholder="Buscar proveedor (nombre/CUIT)" />
-            <button id="btn-nuevo-proveedor">Nuevo proveedor</button>
-          </div>
-          <h3>Crear proveedor</h3>
-          <div class="proveedor-form-grid">
-            <input id="prov-razon-social" placeholder="Razón social" />
-            <input id="prov-cuit" placeholder="CUIT opcional" />
-            <input id="prov-telefono" placeholder="Teléfono opcional" />
-            <input id="prov-mail" placeholder="Mail opcional" />
-            <input id="prov-direccion" placeholder="Dirección opcional" />
-            <input id="prov-contacto" placeholder="Contacto comercial opcional" />
-            <input id="prov-observaciones" placeholder="Observaciones opcional" />
-          </div>
-          <button id="btn-crear-proveedor">Crear proveedor</button>
+          <button id="btn-nuevo-proveedor">Nuevo proveedor</button>
+          <input id="proveedor-buscar" placeholder="Buscar proveedor (nombre/CUIT)" />
           <div id="proveedores-lista" class="lista"></div>
+          <h3>Crear proveedor</h3>
+          <input id="prov-razon-social" placeholder="Razón social" />
+          <input id="prov-telefono" placeholder="Teléfono opcional" />
+          <input id="prov-cuit" placeholder="CUIT opcional" />
+          <input id="prov-mail" placeholder="Mail opcional" />
+          <input id="prov-direccion" placeholder="Dirección opcional" />
+          <input id="prov-contacto" placeholder="Contacto comercial opcional" />
+          <input id="prov-observaciones" placeholder="Observaciones opcional" />
+          <button id="btn-crear-proveedor">Crear proveedor</button>
         </aside>
         <div class="proveedores-col-detalle">
-          <h3>Productos</h3>
-          <label>Buscar producto <input id="proveedor-buscar-producto" placeholder="Nombre / categoría / marca" /></label>
-          <div id="proveedor-productos-disponibles" class="lista"></div>
-          <label>Producto disponible <select id="proveedor-asociar-producto"></select></label>
-          <button id="btn-asociar-producto-proveedor">Asociar al proveedor seleccionado</button>
-          <h3>Productos asociados al proveedor seleccionado</h3>
+          <h3>Asociación proveedor-producto</h3>
+          <label>Proveedor <select id="proveedor-detalle-select"></select></label>
+          <button id="btn-ver-proveedor">Ver detalle</button>
+          <div id="proveedor-detalle" class="lista"></div>
+          <div id="proveedor-asociacion-resumen" class="item">Seleccione un proveedor para ver y gestionar asociaciones.</div>
+          <h3>Productos asociados</h3>
+          <label>Buscar producto del proveedor <input id="proveedor-buscar-producto" placeholder="Nombre / categoría / marca" /></label>
           <div id="proveedor-productos" class="lista"></div>
+          <h3>Productos disponibles para asociar</h3>
+          <label>Producto disponible <select id="proveedor-asociar-producto"></select></label>
+          <button id="btn-asociar-producto-proveedor">Asociar producto</button>
         </div>
       </div>
     </section>
