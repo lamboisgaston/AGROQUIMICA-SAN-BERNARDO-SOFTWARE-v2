@@ -593,9 +593,22 @@ function renderPresupuestoProductos() {
     : '<div class="item">Debe agregar al menos un producto</div>';
   $('#pres-productos').innerHTML = `${resultados || '<div class="item">Sin productos encontrados</div>'}${tabla}`;
 }
+function normalizarTelefonoWhatsapp(telefono) {
+  return String(telefono || '').replace(/[\s\-()]/g, '');
+}
+
+function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
+  const link = `${window.location.origin}/presupuestos/${presupuestoId}/imprimir`;
+  return `Hola, te compartimos el presupuesto #${presupuestoId} de Agroquímica San Bernardo. Total: ${money(total)}. Ver presupuesto: ${link}`;
+}
+
 async function loadPresupuestos() {
   const lista = await api('/presupuestos');
-  $('#pres-lista').innerHTML = lista.map(p => `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <button data-pres-imprimir="${p.id}">Imprimir</button> <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`).join('');
+  $('#pres-lista').innerHTML = lista.map(p => {
+    const telefonoCliente = normalizarTelefonoWhatsapp(p.persona?.telefono || p.persona?.telefonoPrincipal || '');
+    const puedeWhatsapp = Boolean(telefonoCliente);
+    return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer"><button data-pres-imprimir="${p.id}">Imprimir</button></a> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
+  }).join('');
 }
 function renderProveedores() {
   const q = ($('#proveedor-buscar')?.value || '').trim().toLowerCase();
@@ -1336,6 +1349,11 @@ $('#pres-redondear-500').addEventListener('click', () => aplicarRedondeoPresupue
 $('#pres-redondear-1000').addEventListener('click', () => aplicarRedondeoPresupuesto(1000));
 $('#pres-tipo-destinatario').addEventListener('change', (e) => {
   presupuestoTipoDestinatario = e.target.value;
+  if (presupuestoTipoDestinatario !== 'EXISTENTE') {
+    presupuestoClienteId = null;
+    $('#pres-cliente-activo').textContent = 'Ninguno';
+  }
+  renderPresupuestoProductos();
 });
 $('#pres-nombre-libre').addEventListener('input', (e) => {
   presupuestoNombreLibre = e.target.value.trim();
@@ -1416,7 +1434,21 @@ $('#pres-lista').addEventListener('click', async (e) => {
   const imp = e.target.closest('button[data-pres-imprimir]');
   const ac = e.target.closest('button[data-pres-aceptar]');
   const re = e.target.closest('button[data-pres-rechazar]');
-  if (imp) window.open(`/presupuestos/${imp.dataset.presImprimir}/imprimir`, '_blank', 'noopener,noreferrer');
+  if (imp) {
+    const url = `/presupuestos/${imp.dataset.presImprimir}/imprimir`;
+    const nuevaVentana = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!nuevaVentana) window.location.href = url;
+  }
+  const wa = e.target.closest('button[data-pres-whatsapp]');
+  if (wa) {
+    const numero = normalizarTelefonoWhatsapp(wa.dataset.presWhatsappTelefono || '');
+    if (numero) {
+      const mensaje = armarMensajeWhatsappPresupuesto(Number(wa.dataset.presWhatsapp), Number(wa.dataset.presWhatsappTotal || 0));
+      const waUrl = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+      const waWin = window.open(waUrl, '_blank', 'noopener,noreferrer');
+      if (!waWin) window.location.href = waUrl;
+    }
+  }
   if (ac) await api(`/presupuestos/${ac.dataset.presAceptar}/aceptar`, { method: 'POST', body: JSON.stringify({ estadoVenta: 'PENDIENTE_CAJA' }) });
   if (re) await api(`/presupuestos/${re.dataset.presRechazar}/rechazar`, { method: 'POST', body: '{}' });
   if (ac || re) await loadPresupuestos();
