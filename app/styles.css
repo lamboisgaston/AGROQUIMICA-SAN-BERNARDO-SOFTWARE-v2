@@ -114,3 +114,22 @@ details[open] { display: grid; gap: 5px; }
 .proveedor-meta { display:grid; gap:2px; }
 .proveedor-id { font-size: 12px; color: #1e3a8a; font-weight: 700; }
 @media (max-width: 900px) { .proveedores-workbench { grid-template-columns: 1fr; } }
+
+.producto-card { display: grid; grid-template-columns: 90px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px; }
+.producto-media { width: 90px; height: 90px; border: 1px solid #dbe3ef; border-radius: 10px; overflow: hidden; background: #f8fafc; display:flex; align-items:center; justify-content:center; }
+.producto-card-img { width: 100%; height: 100%; object-fit: cover; display:block; }
+.producto-card-placeholder { font-size: 12px; color: #64748b; text-align: center; padding: 8px; }
+.producto-info { display:grid; gap: 3px; min-width: 0; }
+.producto-titulo { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.producto-meta { font-size: 13px; color: #1e293b; }
+.producto-acciones { display:grid; gap: 6px; align-self: stretch; }
+.btn-accion-agregar, .btn-accion-editar, .btn-accion-precio { font-size: 13px; font-weight: 700; min-height: 34px; }
+.btn-accion-agregar { background: #dcfce7; border-color: #86efac; color: #166534; }
+.btn-accion-editar { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+.btn-accion-precio { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+
+@media (max-width: 900px) {
+  .producto-card { grid-template-columns: 70px minmax(0,1fr); }
+  .producto-media { width: 70px; height: 70px; }
+  .producto-acciones { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(120px,1fr)); }
+}

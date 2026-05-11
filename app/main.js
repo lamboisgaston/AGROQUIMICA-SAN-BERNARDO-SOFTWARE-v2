@@ -97,6 +97,43 @@ function logFlujo(paso, payload) {
 
 
 
+
+function obtenerImagenProducto(p) {
+  return p?.imagenUrl || p?.fotoUrl || p?.imageUrl || p?.imagen || p?.foto || '';
+}
+
+function renderProductoCard(p, opciones = {}) {
+  const {
+    accion = '',
+    accionLabel = 'Agregar',
+    accionClass = 'btn-accion-agregar',
+    extraBotones = '',
+    seleccionado = false,
+    mostrarCosto = false,
+    proveedoresTexto = ''
+  } = opciones;
+  const imagen = obtenerImagenProducto(p);
+  const imagenHtml = imagen
+    ? `<img src="${imagen}" alt="${p.nombre || 'Producto'}" class="producto-card-img" loading="lazy" />`
+    : '<div class="producto-card-placeholder">Sin foto</div>';
+  const precio = money(p.precioPesosCalculado || p.precioVentaPesos || p.precioFinalPesos || 0);
+  const stock = Number(p.stock ?? 0);
+  return `<div class="item producto-card ${seleccionado ? 'item-seleccionado' : ''}">
+    <div class="producto-media">${imagenHtml}</div>
+    <div class="producto-info">
+      <div class="producto-titulo">${p.nombre || '-'}</div>
+      <div class="producto-meta">Categoría: <strong>${p.categoria || '-'}</strong></div>
+      <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
+      <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
+      ${proveedoresTexto ? `<div class="producto-meta">Proveedores: <strong>${proveedoresTexto}</strong></div>` : ''}
+      ${mostrarCosto ? `<div class="producto-meta">Costo compra: <strong>${p.monedaCompra || p.monedaCosto || 'ARS'} ${money(p.costoCompra ?? p.costoBase)}</strong> · Convertido: <strong>${money(p.costoCompraPesos)}</strong></div>` : ''}
+    </div>
+    <div class="producto-acciones">
+      ${accion ? `<button class="${accionClass}" ${accion}="${p.id}">${accionLabel}</button>` : ''}
+      ${extraBotones}
+    </div>
+  </div>`;
+}
 function labelCliente(p) {
   const tipo = String(p.tipoCliente || 'PERSONAL').toUpperCase();
   const compras = Number(p.cantidadCompras || 0);
@@ -188,7 +225,7 @@ async function renderProductos() {
       indiceProductoSeleccionado = 0;
     }
     $('#resultados-productos').innerHTML = lista.length
-      ? lista.map((p, idx) => `<div class="item ${idx === indiceProductoSeleccionado ? 'item-seleccionado' : ''}">${p.nombre} | ${money(p.precioPesosCalculado)} | Stock ${p.stock} <button data-producto="${p.id}">Agregar</button></div>`).join('')
+      ? lista.map((p, idx) => renderProductoCard(p, { seleccionado: idx === indiceProductoSeleccionado, accion: 'data-producto', accionLabel: 'Agregar', accionClass: 'btn-accion-agregar' })).join('')
       : '<div class="item">Sin resultados</div>';
   } catch (error) {
     mostrarErrorBusqueda('#resultados-productos', error);
@@ -534,7 +571,7 @@ function renderProductosAdmin() {
   const f = filtroProductosAdmin.toLowerCase();
   const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
-    ? lista.map(p => `<div class="item">${p.nombre} | ${p.categoria} | ${p.marca || '-'} | ${p.unidad || '-'} | Proveedores P${(p.proveedores || []).length}: ${(p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-'} | Compra ${p.monedaCompra || p.monedaCosto} ${money(p.costoCompra ?? p.costoBase)} | Convertido ${money(p.costoCompraPesos)} | Final ${money(p.precioVentaPesos || p.precioFinalPesos)} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+    ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button>` })).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
@@ -579,7 +616,7 @@ function renderPresupuestoProductos() {
   $('#pres-total').textContent = money(total);
   $('#pres-resumen-condicion').textContent = condicionRequerida ? (condicion || 'Obligatoria') : 'No requerida';
 
-  const resultados = lista.map(p => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado || p.precioFinalPesos)} | Stock ${p.stock} <button data-pres-agregar="${p.id}">Agregar</button></div>`).join('');
+  const resultados = lista.map(p => renderProductoCard(p, { accion: 'data-pres-agregar', accionLabel: 'Agregar', accionClass: 'btn-accion-agregar' })).join('');
   const tabla = presupuestoItems.length
     ? `<table style="width:100%;margin-top:8px;"><thead><tr><th>Producto</th><th>Precio unitario</th><th>Cantidad</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>${
       presupuestoItems.map(it => `<tr>
@@ -1252,7 +1289,7 @@ $('#admin-buscar-producto').addEventListener('input', async (e) => {
   try {
     const lista = await buscarProductos(q);
     $('#productos-admin').innerHTML = lista.length
-      ? lista.map((p) => `<div class="item">${p.nombre} | ${money(p.precioPesosCalculado || p.precioFinalPesos || 0)} | Stock ${p.stock ?? 0} <button data-editar-producto="${p.id}">Editar</button></div>`).join('')
+      ? lista.map((p) => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button>` })).join('')
       : '<div class="item">Sin resultados</div>';
   } catch (error) {
     mostrarErrorBusqueda('#productos-admin', error);
