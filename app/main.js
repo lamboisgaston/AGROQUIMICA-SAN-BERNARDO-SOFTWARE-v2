@@ -607,11 +607,6 @@ function renderProveedores() {
   const opt = proveedores.map(pr => `<option value="${pr.id}">${pr.razonSocial}</option>`);
   const sel = $('#prod-proveedor');
   if (sel) sel.innerHTML = opt.join('');
-  const detalleSel = $('#proveedor-detalle-select');
-  if (detalleSel) {
-    detalleSel.innerHTML = '<option value="">Seleccione proveedor</option>' + opt.join('');
-    if (proveedorSeleccionadoId) detalleSel.value = String(proveedorSeleccionadoId);
-  }
   const remSel = $('#remito-proveedor');
   if (remSel) renderProveedoresRemito();
 }
@@ -636,23 +631,32 @@ async function loadStockResumen(url = '/stock') {
   renderStockTabla(data || []);
 }
 async function verDetalleProveedor() {
-  const id = Number($('#proveedor-detalle-select')?.value || proveedorSeleccionadoId || 0);
-  if (!id) return setMsg('Seleccione proveedor');
+  const id = Number(proveedorSeleccionadoId || 0);
+  const encabezado = $('#proveedor-encabezado-seleccion');
+  if (!id) {
+    if (encabezado) encabezado.textContent = 'Seleccione un proveedor para asociar productos';
+    $('#proveedor-productos').innerHTML = '<div class="item">Seleccione un proveedor para ver productos asociados.</div>';
+    $('#proveedor-asociar-producto').innerHTML = '<option value="">Seleccione proveedor primero</option>';
+    return;
+  }
   proveedorSeleccionadoId = id;
   renderProveedores();
   const qProducto = ($('#proveedor-buscar-producto')?.value || '').trim();
   const [proveedor, productosAsociados] = await Promise.all([api(`/proveedores/${id}`), api(`/proveedores/${id}/productos?q=${encodeURIComponent(qProducto)}`)]);
-  $('#proveedor-detalle').innerHTML = `<div class="item"><b>Proveedor #${proveedor.id} - ${proveedor.razonSocial}</b><br>CUIT: ${proveedor.cuit || '-'} | Tel: ${proveedor.telefono || '-'} | Mail: ${proveedor.mail || '-'} | Dirección: ${proveedor.direccion || '-'} | Contacto: ${proveedor.contactoComercial || '-'} | Obs: ${proveedor.observaciones || '-'} | Productos asociados: ${(proveedor.productos || []).length}</div>`;
+  if (encabezado) encabezado.textContent = `Proveedor seleccionado: #${proveedor.id} - ${proveedor.razonSocial}`;
   $('#proveedor-productos').innerHTML = productosAsociados.length
-    ? productosAsociados.map((p) => `<div class="item">${p.nombre} | Costo: ${p.monedaUltimoCosto || p.monedaCosto || ''} ${money(p.ultimoCosto ?? p.costoBase)} <button data-ver-proveedores-producto="${p.id}">Ver proveedores</button> <button data-desasociar-producto="${p.id}">Quitar asociación</button></div>`).join('')
+    ? productosAsociados.map((p) => `<div class="item">${p.nombre} | ${p.categoria || '-'} | ${p.marca || '-'} <button data-desasociar-producto="${p.id}">Quitar</button></div>`).join('')
     : '<div class="item">Sin productos asociados</div>';
   const asociados = new Set(productosAsociados.map((p) => p.id));
-  const disponibles = productos.filter((p) => !asociados.has(p.id));
+  const disponibles = productos.filter((p) => {
+    if (asociados.has(p.id)) return false;
+    if (!qProducto) return true;
+    return [p.nombre, p.categoria, p.marca].filter(Boolean).join(' ').toLowerCase().includes(qProducto.toLowerCase());
+  });
+  $('#proveedor-productos-disponibles').innerHTML = disponibles.length
+    ? disponibles.map((p) => `<div class="item">#${p.id} | ${p.nombre} | ${p.categoria || '-'} | ${p.marca || '-'}</div>`).join('')
+    : '<div class="item">Sin productos disponibles para asociar</div>';
   $('#proveedor-asociar-producto').innerHTML = '<option value="">Seleccione producto</option>' + disponibles.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
-  const resumen = $('#proveedor-asociacion-resumen');
-  if (resumen) {
-    resumen.innerHTML = `<b>Proveedor seleccionado:</b> ${proveedor.razonSocial}<br><b>Este proveedor vende estos productos:</b> ${productosAsociados.length ? productosAsociados.map((p) => p.nombre).join(', ') : 'Ninguno todavía'}<br><b>Productos disponibles para asociar:</b> ${disponibles.length}`;
-  }
 }
 async function renderProveedoresRemito() {
   const remSel = $('#remito-proveedor');
@@ -1449,7 +1453,6 @@ $('#btn-crear-proveedor').addEventListener('click', async () => {
     await loadProveedores();
     proveedorSeleccionadoId = creado.id;
     renderProveedores();
-    $('#proveedor-detalle-select').value = String(creado.id);
     await verDetalleProveedor();
     setMsg(`Proveedor creado correctamente: #${creado.id} - ${creado.razonSocial}`, 'success');
   } catch (err) { setMsg(err.message); }
@@ -1457,12 +1460,9 @@ $('#btn-crear-proveedor').addEventListener('click', async () => {
 $('#btn-nuevo-proveedor').addEventListener('click', () => {
   $('#prov-razon-social')?.focus();
 });
-$('#btn-ver-proveedor').addEventListener('click', async () => {
-  try { await verDetalleProveedor(); } catch (err) { setMsg(err.message); }
-});
 $('#proveedor-buscar')?.addEventListener('input', renderProveedores);
 $('#proveedor-buscar-producto')?.addEventListener('input', async () => {
-  const id = Number($('#proveedor-detalle-select')?.value || 0);
+  const id = Number(proveedorSeleccionadoId || 0);
   if (!id) return;
   try { await verDetalleProveedor(); } catch (_err) {}
 });
@@ -1470,12 +1470,11 @@ $('#proveedores-lista').addEventListener('click', async (e) => {
   const row = e.target.closest('[data-proveedor-select]');
   if (!row) return;
   proveedorSeleccionadoId = Number(row.dataset.proveedorSelect);
-  $('#proveedor-detalle-select').value = row.dataset.proveedorSelect;
   try { await verDetalleProveedor(); } catch (err) { setMsg(err.message); }
 });
 $('#btn-asociar-producto-proveedor').addEventListener('click', async () => {
   try {
-    const proveedorId = Number($('#proveedor-detalle-select').value || 0);
+    const proveedorId = Number(proveedorSeleccionadoId || 0);
     const productoId = Number($('#proveedor-asociar-producto').value || 0);
     if (!proveedorId || !productoId) return setMsg('Seleccione proveedor y producto');
     await api(`/proveedores/${proveedorId}/productos/${productoId}`, { method: 'POST', body: '{}' });
@@ -1485,17 +1484,10 @@ $('#btn-asociar-producto-proveedor').addEventListener('click', async () => {
   } catch (err) { setMsg(err.message); }
 });
 $('#proveedor-productos').addEventListener('click', async (e) => {
-  const ver = e.target.closest('button[data-ver-proveedores-producto]');
-  if (ver) {
-    const productoId = Number(ver.dataset.verProveedoresProducto || 0);
-    const lista = await api(`/productos/${productoId}/proveedores`);
-    setMsg(`Proveedores: ${(lista || []).map((p) => p.razonSocial).join(', ') || 'Sin proveedores'}`);
-    return;
-  }
   const b = e.target.closest('button[data-desasociar-producto]');
   if (!b) return;
   try {
-    const proveedorId = Number($('#proveedor-detalle-select').value || 0);
+    const proveedorId = Number(proveedorSeleccionadoId || 0);
     const productoId = Number(b.dataset.desasociarProducto || 0);
     await api(`/proveedores/${proveedorId}/productos/${productoId}`, { method: 'DELETE' });
     await loadProductosAll();
