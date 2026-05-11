@@ -1449,6 +1449,7 @@ $('#pres-lista').addEventListener('click', async (e) => {
 });
 
 $('#btn-crear-proveedor').addEventListener('click', async () => {
+  alert('Intentando crear proveedor');
   try {
     const creado = await api('/proveedores', {
       method: 'POST',
@@ -1462,12 +1463,14 @@ $('#btn-crear-proveedor').addEventListener('click', async () => {
         observaciones: $('#prov-observaciones').value.trim() || null
       })
     });
-    await loadProveedores();
     proveedorSeleccionadoId = creado.id;
-    renderProveedores();
-    $('#proveedor-detalle-select').value = String(creado.id);
-    await verDetalleProveedor();
+    await loadProveedores();
+    const detalleSel = $('#proveedor-detalle-select');
+    if (detalleSel) detalleSel.value = String(creado.id);
+    const detalle = $('#proveedor-detalle');
+    if (detalle) detalle.innerHTML = `<div class="item"><b>Proveedor #${creado.id} - ${creado.razonSocial}</b><br>CUIT: ${creado.cuit || '-'} | Tel: ${creado.telefono || '-'} | Mail: ${creado.mail || '-'}</div>`;
     setMsg(`Proveedor guardado correctamente: #${creado.id} - ${creado.razonSocial}`, 'success');
+    alert(`Proveedor guardado correctamente: #${creado.id} - ${creado.razonSocial}`);
   } catch (err) { setMsg(err.message); }
 });
 $('#btn-nuevo-proveedor').addEventListener('click', () => {

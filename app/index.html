@@ -366,7 +366,7 @@
             <label for="prov-observaciones">Observaciones</label>
             <input id="prov-observaciones" placeholder="Observaciones opcional" />
 
-            <button id="btn-crear-proveedor">Crear proveedor</button>
+            <button id="btn-crear-proveedor" type="button">Crear proveedor</button>
           </div>
         </aside>
         <div class="proveedores-col-detalle">
@@ -423,5 +423,75 @@
     </section>
 
     <script src="/app/main.js"></script>
-  </body>
+  
+<script>
+document.addEventListener("click", async function(e) {
+  const btn = e.target.closest("#btn-crear-proveedor");
+  if (!btn) return;
+
+  e.preventDefault();
+
+  const razonSocial = document.querySelector("#prov-razon-social")?.value?.trim();
+  if (!razonSocial) {
+    alert("Debe ingresar razón social del proveedor");
+    return;
+  }
+
+  try {
+    const res = await fetch("/proveedores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        razonSocial,
+        telefono: document.querySelector("#prov-telefono")?.value?.trim() || null,
+        cuit: document.querySelector("#prov-cuit")?.value?.trim() || null,
+        mail: document.querySelector("#prov-mail")?.value?.trim() || null,
+        direccion: document.querySelector("#prov-direccion")?.value?.trim() || null,
+        contactoComercial: document.querySelector("#prov-contacto")?.value?.trim() || null,
+        observaciones: document.querySelector("#prov-observaciones")?.value?.trim() || null
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Error al crear proveedor");
+      return;
+    }
+
+    alert(`Proveedor guardado correctamente: #${data.id} - ${data.razonSocial}`);
+    location.reload();
+  } catch (err) {
+    alert("Error de conexión al crear proveedor");
+  }
+});
+</script>
+
+
+<script>
+async function cargarListaProveedoresSimple() {
+  const cont = document.querySelector("#proveedores-lista");
+  if (!cont) return;
+
+  try {
+    const res = await fetch("/proveedores");
+    const proveedores = await res.json();
+
+    cont.innerHTML = proveedores.length
+      ? proveedores.map(p => `
+        <div class="item">
+          <strong>Proveedor #${p.id}</strong> - ${p.razonSocial}
+          <br>CUIT: ${p.cuit || "-"} | Tel: ${p.telefono || "-"} | Mail: ${p.mail || "-"}
+        </div>
+      `).join("")
+      : '<div class="item">Sin proveedores cargados</div>';
+  } catch (err) {
+    cont.innerHTML = '<div class="item">Error al cargar proveedores</div>';
+  }
+}
+
+document.addEventListener("DOMContentLoaded", cargarListaProveedoresSimple);
+</script>
+
+</body>
 </html>
