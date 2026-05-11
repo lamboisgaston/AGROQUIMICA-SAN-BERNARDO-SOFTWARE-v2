@@ -1,5 +1,6 @@
 const express = require('express');
 const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista } = require('@prisma/client');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -29,61 +30,6 @@ function formatMoney(value) {
   return '$' + Number(value || 0).toFixed(2);
 }
 
-function escapePdfText(value) {
-  return String(value ?? '').replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
-}
-
-function generarPdfBasico(lineas) {
-  const lineHeight = 14;
-  const top = 800;
-  const bottom = 40;
-  const usable = top - bottom;
-  const porPagina = Math.max(1, Math.floor(usable / lineHeight));
-  const paginas = [];
-  for (let i = 0; i < lineas.length; i += porPagina) paginas.push(lineas.slice(i, i + porPagina));
-
-  const objects = [];
-  const addObj = (content) => { objects.push(content); return objects.length; };
-
-  const fontId = addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-  const pageIds = [];
-
-  for (const pageLines of paginas) {
-    let y = top;
-    let stream = 'BT\n/F1 11 Tf\n';
-    for (const line of pageLines) {
-      stream += `1 0 0 1 40 ${y} Tm (${escapePdfText(line)}) Tj\n`;
-      y -= lineHeight;
-    }
-    stream += 'ET';
-
-    const contentId = addObj(`<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream`);
-    const pageId = addObj(`<< /Type /Page /Parent PAGES_OBJ /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
-    pageIds.push(pageId);
-  }
-
-  const kids = pageIds.map(id => `${id} 0 R`).join(' ');
-  const pagesId = addObj(`<< /Type /Pages /Kids [ ${kids} ] /Count ${pageIds.length} >>`);
-  pageIds.forEach((id) => {
-    objects[id - 1] = objects[id - 1].replace('PAGES_OBJ', `${pagesId} 0 R`);
-  });
-  const catalogId = addObj(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
-
-  let pdf = '%PDF-1.4\n';
-  const offsets = [0];
-  for (let i = 0; i < objects.length; i++) {
-    offsets.push(Buffer.byteLength(pdf, 'utf8'));
-    pdf += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`;
-  }
-  const xrefPos = Buffer.byteLength(pdf, 'utf8');
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += '0000000000 65535 f \n';
-  for (let i = 1; i <= objects.length; i++) {
-    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
-  return Buffer.from(pdf, 'utf8');
-}
 const TIMEZONE_CAJA = 'America/Argentina/Salta';
 
 function obtenerFechaCajaArgentina(fecha = new Date()) {
@@ -931,45 +877,59 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
 
 app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
-  const p = await prisma.presupuesto.findUnique({ where: { id }, include: { persona: true, items: { include: { producto: true } } } });
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+
+  const p = await prisma.presupuesto.findUnique({
+    where: { id },
+    include: { persona: true, items: { include: { producto: true } } }
+  });
+
   if (!p) return res.status(404).send('No encontrado');
 
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
-  const lineas = [
-    `Agroquímica y Fumigaciones San Bernardo`,
-    `Presupuesto #${p.id}`,
-    `Fecha: ${fecha}`,
-    `Estado: ${p.estado}`,
-    '',
-    `Cliente: ${cliente}`,
-    `Teléfono: ${p.persona?.telefono || '-'}`,
-    `CUIT/DNI: ${p.persona?.cuitDni || '-'}`,
-    '',
-    'Productos:',
-    '------------------------------------------------------------'
-  ];
 
-  p.items.forEach((i, idx) => {
-    lineas.push(`${idx + 1}. ${i.producto?.nombre || 'Producto'} | Cant: ${i.cantidad} | P.Unit: ${formatMoney(i.precioUnitario)} | Subtotal: ${formatMoney(i.subtotal)}`);
-  });
-
-  lineas.push(
-    '------------------------------------------------------------',
-    `Subtotal: ${formatMoney(p.subtotal)}`,
-    `Descuento: ${formatMoney(p.descuentoValor || 0)}`,
-    `Redondeo: ${formatMoney(p.ajusteRedondeo || 0)}`,
-    `Total: ${formatMoney(p.total)}`
-  );
-
-  if (p.observaciones) {
-    lineas.push('', `Observaciones: ${p.observaciones}`);
-  }
-
-  const pdf = generarPdfBasico(lineas);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="presupuesto-${p.id}.pdf"`);
-  res.send(pdf);
+
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  doc.pipe(res);
+
+  doc.fontSize(18).text('Agroquímica y Fumigaciones San Bernardo', { align: 'left' });
+  doc.moveDown(0.3);
+  doc.fontSize(12).text(`Presupuesto #${p.id}`);
+  doc.text(`Fecha: ${fecha}`);
+  doc.text(`Estado: ${p.estado}`);
+
+  doc.moveDown();
+  doc.fontSize(13).text('Cliente', { underline: true });
+  doc.fontSize(11).text(`Nombre: ${cliente}`);
+  doc.text(`Teléfono: ${p.persona?.telefono || '-'}`);
+  doc.text(`CUIT/DNI: ${p.persona?.cuitDni || '-'}`);
+
+  doc.moveDown();
+  doc.fontSize(13).text('Productos', { underline: true });
+  doc.moveDown(0.3);
+
+  p.items.forEach((item, index) => {
+    doc.fontSize(10).text(
+      `${index + 1}. ${item.producto?.nombre || 'Producto'} | Cant: ${item.cantidad} | P.Unit: ${formatMoney(item.precioUnitario)} | Subtotal: ${formatMoney(item.subtotal)}`
+    );
+  });
+
+  doc.moveDown();
+  doc.fontSize(12).text(`Subtotal: ${formatMoney(p.subtotal)}`, { align: 'right' });
+  doc.text(`Descuento: ${formatMoney(p.descuentoValor || 0)}`, { align: 'right' });
+  doc.text(`Redondeo: ${formatMoney(p.ajusteRedondeo || 0)}`, { align: 'right' });
+  doc.font('Helvetica-Bold').text(`Total: ${formatMoney(p.total)}`, { align: 'right' });
+  doc.font('Helvetica');
+
+  if (p.observaciones) {
+    doc.moveDown();
+    doc.fontSize(11).text(`Observaciones: ${p.observaciones}`);
+  }
+
+  doc.end();
 }));
 
 app.post('/mostrador/ventas', asyncHandler(async (req, res) => {
