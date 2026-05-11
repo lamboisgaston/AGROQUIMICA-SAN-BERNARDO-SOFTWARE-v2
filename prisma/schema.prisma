@@ -29,6 +29,17 @@ model Producto {
   proveedores       ProductoProveedor[]
   detalleRemitos    DetalleRemitoProveedor[]
   presupuestoItems  PresupuestoItem[]
+  categorias        Categoria[]
+}
+
+model Categoria {
+  id          Int        @id @default(autoincrement())
+  nombre      String     @unique
+  descripcion String?
+  activo      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  productos   Producto[]
 }
 
 model Proveedor {

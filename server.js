@@ -244,9 +244,9 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
 }
 
 function validarPayloadProducto(payload = {}) {
+  const categoriaIds = Array.isArray(payload.categoriaIds) ? payload.categoriaIds : [];
   const obligatorios = [
     ['nombre', payload.nombre],
-    ['categoria', payload.categoria],
     ['monedaCompra', payload.monedaCompra ?? payload.monedaCosto],
     ['costoCompraOriginal', payload.costoCompraOriginal ?? payload.costoCompra ?? payload.costoBase],
     ['stock', payload.stock]
@@ -258,7 +258,14 @@ function validarPayloadProducto(payload = {}) {
   if (faltantes.length) {
     return `Faltan campos obligatorios: ${faltantes.join(', ')}`;
   }
+  if (!categoriaIds.length) {
+    return 'Debe seleccionar al menos una categoría';
+  }
   return null;
+}
+
+function parseCategoriaIds(raw = []) {
+  return [...new Set((Array.isArray(raw) ? raw : []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
 }
 
 function construirFiltroBusquedaProductos(q = '') {
@@ -282,7 +289,7 @@ app.get('/productos', async (req, res) => {
     const q = String(req.query.q || '').trim();
     const productos = await prisma.producto.findMany({
       where: construirFiltroBusquedaProductos(q),
-      include: { proveedores: { include: { proveedor: true } } },
+      include: { proveedores: { include: { proveedor: true } }, categorias: true },
       orderBy: { nombre: 'asc' }
     });
     return res.json(productos.map(p => mapearProductoConPrecioPesos(p, tipoCambioActual)));
@@ -297,7 +304,7 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany({
     where: construirFiltroBusquedaProductos(q),
-    include: { proveedores: { include: { proveedor: true } } },
+      include: { proveedores: { include: { proveedor: true } }, categorias: true },
     orderBy: { nombre: 'asc' },
     take: 20
   });
@@ -313,15 +320,18 @@ app.post('/productos', asyncHandler(async (req, res) => {
       return res.status(400).json({ error: errorValidacion });
     }
     const tipoCambioActual = await obtenerTipoCambioActual();
-    const data = normalizarPayloadProducto(req.body, tipoCambioActual);
+    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
+    const categorias = await prisma.categoria.findMany({ where: { id: { in: categoriaIds }, activo: true } });
+    if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
+    const data = normalizarPayloadProducto({ ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
     const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
-    const producto = await prisma.producto.create({ data });
+    const producto = await prisma.producto.create({ data: { ...data, categorias: { connect: categoriaIds.map((id) => ({ id })) } } });
     console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
     if (proveedorIds.length) {
       await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
     }
-    const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } } } });
+    const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } }, categorias: true } });
     res.status(201).json(mapearProductoConPrecioPesos(productoConProveedores, tipoCambioActual));
   } catch (error) {
     console.error('[producto-guardado][backend] POST /productos error', { message: error.message, stack: error.stack, payload: req.body });
@@ -329,13 +339,36 @@ app.post('/productos', asyncHandler(async (req, res) => {
   }
 }));
 
-app.get('/productos/categorias', asyncHandler(async (_req, res) => {
-  const rows = await prisma.producto.findMany({
-    select: { categoria: true },
-    distinct: ['categoria'],
-    orderBy: { categoria: 'asc' }
+app.get('/categorias', asyncHandler(async (_req, res) => {
+  const categorias = await prisma.categoria.findMany({
+    where: { activo: true },
+    orderBy: { nombre: 'asc' }
   });
-  res.json(rows.map(r => r.categoria).filter(Boolean));
+  res.json(categorias);
+}));
+
+app.post('/categorias', asyncHandler(async (req, res) => {
+  const nombre = String(req.body?.nombre || '').trim();
+  const descripcion = String(req.body?.descripcion || '').trim() || null;
+  if (!nombre) return res.status(400).json({ error: 'nombre es obligatorio' });
+  const existente = await prisma.categoria.findUnique({ where: { nombre } });
+  if (existente) return res.status(409).json({ error: 'Ya existe una categoría con ese nombre' });
+  const creada = await prisma.categoria.create({ data: { nombre, descripcion } });
+  res.status(201).json(creada);
+}));
+
+app.put('/categorias/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const nombre = req.body?.nombre == null ? undefined : String(req.body.nombre).trim();
+  const descripcion = req.body?.descripcion == null ? undefined : (String(req.body.descripcion).trim() || null);
+  const activo = req.body?.activo == null ? undefined : Boolean(req.body.activo);
+  if (nombre !== undefined && !nombre) return res.status(400).json({ error: 'nombre es obligatorio' });
+  const actualizada = await prisma.categoria.update({
+    where: { id },
+    data: { ...(nombre !== undefined ? { nombre } : {}), ...(descripcion !== undefined ? { descripcion } : {}), ...(activo !== undefined ? { activo } : {}) }
+  });
+  res.json(actualizada);
 }));
 
 app.put('/productos/:id', asyncHandler(async (req, res) => {
@@ -349,14 +382,17 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
       return res.status(400).json({ error: errorValidacion });
     }
     const tipoCambioActual = await obtenerTipoCambioActual();
-    const existente = await prisma.producto.findUnique({ where: { id } });
+    const existente = await prisma.producto.findUnique({ where: { id }, include: { categorias: true } });
     if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
 
-    const data = normalizarPayloadProducto({ ...existente, ...req.body }, tipoCambioActual);
+    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
+    const categorias = await prisma.categoria.findMany({ where: { id: { in: categoriaIds }, activo: true } });
+    if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
+    const data = normalizarPayloadProducto({ ...existente, ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
     const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
     await prisma.$transaction(async tx => {
-      await tx.producto.update({ where: { id }, data });
+      await tx.producto.update({ where: { id }, data: { ...data, categorias: { set: categoriaIds.map((cid) => ({ id: cid })) } } });
       if (Array.isArray(req.body?.proveedorIds)) {
         await tx.productoProveedor.deleteMany({ where: { productoId: id } });
         if (proveedorIds.length) {
@@ -364,7 +400,7 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
         }
       }
     });
-    const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } } } });
+    const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } }, categorias: true } });
     console.log('[producto-guardado][backend] PUT /productos/:id actualizado', { id: producto?.id, nombre: producto?.nombre });
     res.json(mapearProductoConPrecioPesos(producto, tipoCambioActual));
   } catch (error) {

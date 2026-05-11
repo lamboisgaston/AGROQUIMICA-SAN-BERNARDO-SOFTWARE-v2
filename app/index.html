@@ -196,12 +196,8 @@
         <input id="prod-nombre" />
       </div>
       <div class="campo-producto">
-        <label for="prod-categoria">Categoría</label>
-        <div class="action-row">
-          <select id="prod-categoria"></select>
-          <input id="prod-categoria-nueva" placeholder="Nueva categoría" />
-          <button id="btn-crear-categoria" type="button">Crear categoría</button>
-        </div>
+        <label for="prod-categoria">Categorías (Ctrl/Cmd + click para múltiple)</label>
+        <select id="prod-categoria" multiple size="5"></select>
       </div>
       <div class="campo-producto">
         <label for="prod-marca">Marca</label>
@@ -251,6 +247,16 @@
       <button id="btn-nuevo-producto">Nuevo</button>
         </aside>
       </div>
+    </section>
+
+    <section class="bloque app-shell compact-form" data-modulo="productos">
+      <h2>10) Categorías</h2>
+      <div class="action-row">
+        <input id="cat-nombre" placeholder="Nombre categoría" />
+        <input id="cat-descripcion" placeholder="Descripción (opcional)" />
+        <button id="btn-guardar-categoria">Crear categoría</button>
+      </div>
+      <div id="categorias-lista" class="lista"></div>
     </section>
 
     <section class="bloque app-shell compact-form presupuestos-workbench" data-modulo="presupuestos">
