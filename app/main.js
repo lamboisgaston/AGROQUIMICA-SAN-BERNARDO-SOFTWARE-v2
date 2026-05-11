@@ -18,7 +18,7 @@ let filtroProductosAdmin = '';
 let modoProducto = 'AGREGAR';
 let categoriasProducto = [];
 let presupuestoClienteId = null;
-let presupuestoTipoDestinatario = 'EXISTENTE';
+let presupuestoTipoDestinatario = 'A_QUIEN_CORRESPONDA';
 let presupuestoNombreLibre = '';
 let presupuestoItems = [];
 let filtroProductosPresupuesto = '';
@@ -607,7 +607,7 @@ async function loadPresupuestos() {
   $('#pres-lista').innerHTML = lista.map(p => {
     const telefonoCliente = normalizarTelefonoWhatsapp(p.persona?.telefono || p.persona?.telefonoPrincipal || '');
     const puedeWhatsapp = Boolean(telefonoCliente);
-    return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer"><button data-pres-imprimir="${p.id}">Imprimir</button></a> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
+    return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a class="btn-link" href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer">Imprimir</a> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
   }).join('');
 }
 function renderProveedores() {
@@ -1347,6 +1347,7 @@ function aplicarRedondeoPresupuesto(base) {
 $('#pres-redondear-100').addEventListener('click', () => aplicarRedondeoPresupuesto(100));
 $('#pres-redondear-500').addEventListener('click', () => aplicarRedondeoPresupuesto(500));
 $('#pres-redondear-1000').addEventListener('click', () => aplicarRedondeoPresupuesto(1000));
+presupuestoTipoDestinatario = $('#pres-tipo-destinatario')?.value || 'A_QUIEN_CORRESPONDA';
 $('#pres-tipo-destinatario').addEventListener('change', (e) => {
   presupuestoTipoDestinatario = e.target.value;
   if (presupuestoTipoDestinatario !== 'EXISTENTE') {
@@ -1366,7 +1367,6 @@ $('#pres-guardar').addEventListener('click', async () => {
     const descuentoValor = Math.max(0, Number($('#pres-descuento').value || 0));
     const ajusteRedondeo = Number($('#pres-ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#pres-condicion-pago-prevista').value || null;
-    if (descuentoValor > 0 && presupuestoTipoDestinatario !== 'EXISTENTE') throw new Error('Para aplicar descuento debe seleccionar o dar de alta un cliente.');
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
     const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
     presupuestoItems = [];
@@ -1431,14 +1431,8 @@ if (!btnCrearClientePresupuesto) {
   }
 });
 $('#pres-lista').addEventListener('click', async (e) => {
-  const imp = e.target.closest('button[data-pres-imprimir]');
   const ac = e.target.closest('button[data-pres-aceptar]');
   const re = e.target.closest('button[data-pres-rechazar]');
-  if (imp) {
-    const url = `/presupuestos/${imp.dataset.presImprimir}/imprimir`;
-    const nuevaVentana = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!nuevaVentana) window.location.href = url;
-  }
   const wa = e.target.closest('button[data-pres-whatsapp]');
   if (wa) {
     const numero = normalizarTelefonoWhatsapp(wa.dataset.presWhatsappTelefono || '');
