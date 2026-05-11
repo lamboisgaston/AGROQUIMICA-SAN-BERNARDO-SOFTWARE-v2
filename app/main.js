@@ -1380,7 +1380,8 @@ if (botonAltaPresupuestoViejo) botonAltaPresupuestoViejo.addEventListener('click
     await loadPresupuestos();
   } catch (err) { setMsg(err.message); }
 });
-$('#pres-btn-crear-cliente').addEventListener('click', async () => {
+const presBtnCrearCliente = $('#pres-btn-crear-cliente');
+if (presBtnCrearCliente) presBtnCrearCliente.addEventListener('click', async () => {
   const btnCrearPres = $('#pres-btn-crear-cliente');
   const labelOriginal = btnCrearPres.textContent;
   const tipoCliente = 'PERSONAL';
