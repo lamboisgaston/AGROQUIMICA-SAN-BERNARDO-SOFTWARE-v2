@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "pdfkit": "^0.18.0"
   },
   "devDependencies": {
     "prisma": "^6.7.0"
