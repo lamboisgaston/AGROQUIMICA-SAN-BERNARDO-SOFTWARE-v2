@@ -894,26 +894,47 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="presupuesto-${p.id}.pdf"`);
 
-  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  const margin = 48;
+  const bottomMargin = 48;
+  const doc = new PDFDocument({ margin, size: 'A4' });
   doc.pipe(res);
 
-  const pageWidth = doc.page.width;
-  const left = 40;
-  const right = pageWidth - 40;
-
-  const drawBox = (y, h) => {
-    doc.roundedRect(left, y, right - left, h, 6).lineWidth(1).strokeColor('#bdbdbd').stroke();
+  const getBounds = () => {
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const top = doc.page.margins.top;
+    const bottom = doc.page.height - bottomMargin;
+    return { left, right, top, bottom, width: right - left };
   };
 
-  doc.rect(left, 40, right - left, 64).fill('#f6f6f6');
-  doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica y Fumigaciones San Bernardo', left + 12, 52);
-  doc.fontSize(11).text('Ingeniería Lambois', left + 12, 74);
-  doc.font('Helvetica').fontSize(11).text(`Presupuesto #${p.id}`, right - 180, 52, { width: 168, align: 'right' });
-  doc.text(`Fecha: ${fecha}`, right - 180, 68, { width: 168, align: 'right' });
-  doc.text(`Estado: ${p.estado}`, right - 180, 84, { width: 168, align: 'right' });
+  const drawBox = (y, h) => {
+    const { left, width } = getBounds();
+    doc.roundedRect(left, y, width, h, 6).lineWidth(1).strokeColor('#bdbdbd').stroke();
+  };
 
-  let y = 118;
+  const drawPageHeader = () => {
+    const { left, right, width, top } = getBounds();
+    doc.rect(left, top, width, 64).fill('#f6f6f6');
+    doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica San Bernardo', left + 12, top + 12, { width: width * 0.55 });
+    doc.fontSize(11).text('Ingeniería Lambois', left + 12, top + 34, { width: width * 0.55 });
+    doc.font('Helvetica').fontSize(11).text(`Presupuesto #${p.id}`, right - 170, top + 12, { width: 160, align: 'right' });
+    doc.text(`Fecha: ${fecha}`, right - 170, top + 28, { width: 160, align: 'right' });
+    doc.text(`Estado: ${p.estado}`, right - 170, top + 44, { width: 160, align: 'right' });
+    return top + 78;
+  };
+
+  const ensureSpace = (y, needed, drawTableHeader) => {
+    const { bottom } = getBounds();
+    if (y + needed <= bottom) return y;
+    doc.addPage();
+    const nextY = drawPageHeader();
+    return drawTableHeader ? drawTableHeader(nextY) : nextY;
+  };
+
+  let y = drawPageHeader();
+
   drawBox(y, 72);
+  const { left, right } = getBounds();
   doc.font('Helvetica-Bold').fontSize(11).fillColor('#111').text('Destinatario', left + 10, y + 10);
   doc.font('Helvetica').fontSize(10)
     .text(`Cliente: ${cliente}`, left + 10, y + 28)
@@ -921,41 +942,66 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     .text(`CUIT/DNI: ${p.persona?.cuitDni || '-'}`, left + 10, y + 56);
 
   y += 88;
-  const cols = { producto: left + 8, cantidad: left + 332, precio: left + 410, subtotal: left + 498 };
-  doc.rect(left, y, right - left, 24).fill('#efefef');
-  doc.fillColor('#111').font('Helvetica-Bold').fontSize(10)
-    .text('Producto', cols.producto, y + 7)
-    .text('Cant.', cols.cantidad, y + 7, { width: 60, align: 'center' })
-    .text('Precio unitario', cols.precio, y + 7, { width: 80, align: 'right' })
-    .text('Subtotal', cols.subtotal, y + 7, { width: 70, align: 'right' });
 
-  y += 24;
+  const tableStartX = left;
+  const tableWidth = right - left;
+  const colWidths = { producto: Math.round(tableWidth * 0.56), cantidad: 62, precio: 96, subtotal: 96 };
+  const colX = {
+    producto: tableStartX + 8,
+    cantidad: tableStartX + colWidths.producto,
+    precio: tableStartX + colWidths.producto + colWidths.cantidad,
+    subtotal: tableStartX + colWidths.producto + colWidths.cantidad + colWidths.precio
+  };
+
+  const drawItemsHeader = (startY) => {
+    doc.rect(tableStartX, startY, tableWidth, 24).fill('#efefef');
+    doc.fillColor('#111').font('Helvetica-Bold').fontSize(10)
+      .text('Producto', colX.producto, startY + 7, { width: colWidths.producto - 10 })
+      .text('Cant.', colX.cantidad, startY + 7, { width: colWidths.cantidad, align: 'center' })
+      .text('Precio unitario', colX.precio, startY + 7, { width: colWidths.precio - 8, align: 'right' })
+      .text('Subtotal', colX.subtotal, startY + 7, { width: colWidths.subtotal - 8, align: 'right' });
+    return startY + 24;
+  };
+
+  y = drawItemsHeader(y);
+  const tableTop = y - 24;
   doc.font('Helvetica').fontSize(10);
+
   p.items.forEach((item, index) => {
-    const rowHeight = 20;
+    const nombreProducto = item.producto?.nombre || 'Producto';
+    const productoHeight = doc.heightOfString(nombreProducto, { width: colWidths.producto - 10, align: 'left' });
+    const rowHeight = Math.max(22, Math.ceil(productoHeight) + 10);
+
+    y = ensureSpace(y, rowHeight + 2, drawItemsHeader);
+
     if (index % 2 === 0) {
-      doc.rect(left, y, right - left, rowHeight).fill('#fafafa');
+      doc.rect(tableStartX, y, tableWidth, rowHeight).fill('#fafafa');
     }
+
     doc.fillColor('#111')
-      .text(item.producto?.nombre || 'Producto', cols.producto, y + 6, { width: 310 })
-      .text(String(item.cantidad), cols.cantidad, y + 6, { width: 60, align: 'center' })
-      .text(formatMoney(item.precioUnitario), cols.precio, y + 6, { width: 80, align: 'right' })
-      .text(formatMoney(item.subtotal), cols.subtotal, y + 6, { width: 70, align: 'right' });
+      .text(nombreProducto, colX.producto, y + 5, { width: colWidths.producto - 10, lineBreak: true })
+      .text(String(item.cantidad), colX.cantidad, y + 5, { width: colWidths.cantidad, align: 'center' })
+      .text(formatMoney(item.precioUnitario), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
+      .text(formatMoney(item.subtotal), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
+
     y += rowHeight;
   });
-  doc.rect(left, y - (p.items.length * 20 + 24), right - left, p.items.length * 20 + 24).lineWidth(1).strokeColor('#d3d3d3').stroke();
+
+  doc.rect(tableStartX, tableTop, tableWidth, y - tableTop).lineWidth(1).strokeColor('#d3d3d3').stroke();
 
   y += 16;
-  const totalsX = right - 250;
+  y = ensureSpace(y, 90);
+  const totalsWidth = Math.min(260, tableWidth);
+  const totalsX = right - totalsWidth;
   drawBox(y, 86);
   doc.font('Helvetica').fontSize(10)
     .text('Subtotal:', totalsX, y + 10, { width: 120, align: 'right' })
-    .text(formatMoney(p.subtotal), totalsX + 124, y + 10, { width: 110, align: 'right' })
+    .text(formatMoney(p.subtotal), totalsX + 124, y + 10, { width: totalsWidth - 124 - 8, align: 'right' })
     .text('Descuento:', totalsX, y + 28, { width: 120, align: 'right' })
-    .text(formatMoney(descuento), totalsX + 124, y + 28, { width: 110, align: 'right' })
+    .text(formatMoney(descuento), totalsX + 124, y + 28, { width: totalsWidth - 124 - 8, align: 'right' })
     .text('Redondeo:', totalsX, y + 46, { width: 120, align: 'right' })
-    .text(formatMoney(redondeo), totalsX + 124, y + 46, { width: 110, align: 'right' });
-  doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL: ${formatMoney(p.total)}`, totalsX, y + 64, { width: 234, align: 'right' });
+    .text(formatMoney(redondeo), totalsX + 124, y + 46, { width: totalsWidth - 124 - 8, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL: ${formatMoney(p.total)}`, totalsX, y + 64, { width: totalsWidth - 8, align: 'right' });
 
   y += 102;
   const bloques = [
@@ -965,14 +1011,17 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   ];
 
   bloques.forEach(([titulo, contenido]) => {
-    const h = 42;
-    drawBox(y, h);
-    doc.font('Helvetica-Bold').fontSize(10).text(`${titulo}:`, left + 10, y + 9);
-    doc.font('Helvetica').fontSize(10).text(String(contenido), left + 120, y + 9, { width: right - left - 132 });
-    y += h + 8;
+    const contentWidth = right - left - 132;
+    const contentHeight = doc.heightOfString(String(contenido), { width: contentWidth, lineBreak: true });
+    const blockHeight = Math.max(42, Math.ceil(contentHeight) + 18);
+    y = ensureSpace(y, blockHeight + 8);
+    drawBox(y, blockHeight);
+    doc.font('Helvetica-Bold').fontSize(10).text(`${titulo}:`, left + 10, y + 9, { width: 105 });
+    doc.font('Helvetica').fontSize(10).text(String(contenido), left + 120, y + 9, { width: contentWidth, lineBreak: true });
+    y += blockHeight + 8;
   });
 
-  doc.fontSize(9).fillColor('#555').text('Documento comercial emitido por Agroquímica y Fumigaciones San Bernardo - Ingeniería Lambois.', left, doc.page.height - 46, { width: right - left, align: 'center' });
+  doc.fontSize(9).fillColor('#555').text('Documento comercial emitido por Agroquímica San Bernardo - Ingeniería Lambois.', left, doc.page.height - 40, { width: right - left, align: 'center' });
 
   doc.end();
 }));
