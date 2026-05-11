@@ -377,24 +377,11 @@ app.get('/proveedores', asyncHandler(async (req, res) => {
         { contactoComercial: { contains: q } }
       ]
     } : undefined,
-    include: {
-      productos: { include: { producto: true } },
-      remitos: {
-        orderBy: { fecha: 'desc' },
-        take: 1,
-        include: { detalles: { orderBy: { id: 'desc' }, take: 1 } }
-      }
-    },
+    select: { id: true, razonSocial: true, cuit: true, telefono: true, mail: true, direccion: true, contactoComercial: true, observaciones: true },
     orderBy: { razonSocial: 'asc' },
-    take: q ? 8 : undefined
+    take: q ? 50 : undefined
   });
-  res.json(proveedores.map((pr) => ({
-    ...pr,
-    cantidadProductos: pr.productos?.length || 0,
-    ultimoCosto: pr.remitos?.[0]?.detalles?.[0]?.costoCompra ?? null,
-    monedaUltimoCosto: pr.remitos?.[0]?.detalles?.[0]?.monedaCosto ?? null,
-    fechaUltimaActualizacion: pr.remitos?.[0]?.fecha ?? null
-  })));
+  res.json(proveedores);
 }));
 
 app.post('/proveedores', asyncHandler(async (req, res) => {
@@ -422,14 +409,7 @@ app.get('/proveedores/:id', asyncHandler(async (req, res) => {
   if (!id) return res.status(400).json({ error: 'id inválido' });
   const proveedor = await prisma.proveedor.findUnique({
     where: { id },
-    include: {
-      productos: { include: { producto: true } },
-      remitos: {
-        orderBy: { fecha: 'desc' },
-        take: 10,
-        include: { detalles: { include: { producto: true } } }
-      }
-    }
+    select: { id: true, razonSocial: true, cuit: true, telefono: true, mail: true, direccion: true, contactoComercial: true, observaciones: true }
   });
   if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
   res.json(proveedor);
