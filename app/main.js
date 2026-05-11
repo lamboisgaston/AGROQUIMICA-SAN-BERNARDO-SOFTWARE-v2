@@ -1380,8 +1380,11 @@ if (botonAltaPresupuestoViejo) botonAltaPresupuestoViejo.addEventListener('click
     await loadPresupuestos();
   } catch (err) { setMsg(err.message); }
 });
-$('#pres-btn-crear-cliente').addEventListener('click', async () => {
-  const btnCrearPres = $('#pres-btn-crear-cliente');
+const btnCrearClientePresupuesto = $('#pres-btn-crear-cliente');
+if (!btnCrearClientePresupuesto) {
+  console.log('[init] Botón #pres-btn-crear-cliente no encontrado; se omite binding en esta vista');
+} else btnCrearClientePresupuesto.addEventListener('click', async () => {
+  const btnCrearPres = btnCrearClientePresupuesto;
   const labelOriginal = btnCrearPres.textContent;
   const tipoCliente = 'PERSONAL';
   const nombre = $('#pres-crear-nombre').value.trim();
