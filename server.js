@@ -130,6 +130,7 @@ const usuarios = [
   { usuario: 'operador', password: 'operador123', rol: 'MOSTRADOR' }
 ];
 const registrosEliminados = [];
+const PASSWORD_ELIMINACION = '12345';
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Backend Agroquímica San Bernardo funcionando' });
@@ -427,6 +428,25 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+
+app.delete('/productos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const password = String(req.body?.password || '');
+  if (password !== PASSWORD_ELIMINACION) return res.status(401).json({ error: 'Contraseña incorrecta para eliminar' });
+  const producto = await prisma.producto.findUnique({ where: { id } });
+  if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+  await prisma.producto.delete({ where: { id } });
+  registrosEliminados.unshift({
+    tipo: 'PRODUCTO',
+    nombre: producto.nombre || `Producto #${producto.id}`,
+    fecha: new Date().toISOString(),
+    eliminadoPor: req.headers['x-usuario'] || 'sistema',
+    motivo: String(req.body?.motivo || '').trim() || 'Sin motivo'
+  });
+  res.json({ ok: true });
+}));
+
 app.get('/proveedores', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim();
   const proveedores = await prisma.proveedor.findMany({
@@ -462,6 +482,25 @@ app.put('/proveedores/:id', asyncHandler(async (req, res) => {
     data: { razonSocial: String(razonSocial || '').trim(), telefono: telefono || null, cuit: cuit || null, mail: mail || null, direccion: direccion || null, contactoComercial: contactoComercial || null, observaciones: observaciones || null }
   });
   res.json(proveedor);
+}));
+
+
+app.delete('/proveedores/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const password = String(req.body?.password || '');
+  if (password !== PASSWORD_ELIMINACION) return res.status(401).json({ error: 'Contraseña incorrecta para eliminar' });
+  const proveedor = await prisma.proveedor.findUnique({ where: { id } });
+  if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
+  await prisma.proveedor.delete({ where: { id } });
+  registrosEliminados.unshift({
+    tipo: 'PROVEEDOR',
+    nombre: proveedor.razonSocial || `Proveedor #${proveedor.id}`,
+    fecha: new Date().toISOString(),
+    eliminadoPor: req.headers['x-usuario'] || 'sistema',
+    motivo: String(req.body?.motivo || '').trim() || 'Sin motivo'
+  });
+  res.json({ ok: true });
 }));
 
 app.get('/proveedores/:id', asyncHandler(async (req, res) => {
@@ -680,6 +719,25 @@ async function buscarClientesConEstadisticas(query = '') {
 app.get('/clientes', asyncHandler(async (req, res) => {
   const clientes = await buscarClientesConEstadisticas(req.query.q || '');
   res.json(clientes);
+}));
+
+
+app.delete('/clientes/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const password = String(req.body?.password || '');
+  if (password !== PASSWORD_ELIMINACION) return res.status(401).json({ error: 'Contraseña incorrecta para eliminar' });
+  const cliente = await prisma.persona.findUnique({ where: { id } });
+  if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+  await prisma.persona.delete({ where: { id } });
+  registrosEliminados.unshift({
+    tipo: 'CLIENTE',
+    nombre: cliente.nombre || `Cliente #${cliente.id}`,
+    fecha: new Date().toISOString(),
+    eliminadoPor: req.headers['x-usuario'] || 'sistema',
+    motivo: String(req.body?.motivo || '').trim() || 'Sin motivo'
+  });
+  res.json({ ok: true });
 }));
 
 app.get('/personas', asyncHandler(async (req, res) => {
