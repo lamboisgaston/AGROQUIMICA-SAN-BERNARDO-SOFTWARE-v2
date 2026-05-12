@@ -34,6 +34,7 @@
       <div class="dashboard-grid">
         <article class="dashboard-card" data-module-card="clientes"><h3>Clientes</h3><p>Alta, búsqueda y gestión de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
         <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>Alta y gestión de categorías de productos.</p><button data-abrir-modulo="categorias">Entrar</button></article>
         <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
@@ -47,6 +48,7 @@
     <nav class="menu-principal app-shell hidden">
       <button id="btn-volver-inicio" type="button">Volver al inicio</button>
       <a href="#productos-panel">Productos</a>
+      <a href="#categorias-panel">Categorías</a>
       <a href="#proveedores-panel">Proveedores</a>
       <a href="#stock-panel">Stock</a>
     </nav>
@@ -249,8 +251,8 @@
       </div>
     </section>
 
-    <section class="bloque app-shell compact-form" data-modulo="productos">
-      <h2>10) Categorías</h2>
+    <section class="bloque app-shell compact-form" data-modulo="categorias">
+      <h2 id="categorias-panel">10) Categorías</h2>
       <div class="action-row">
         <input id="cat-nombre" placeholder="Nombre categoría" />
         <input id="cat-descripcion" placeholder="Descripción (opcional)" />
