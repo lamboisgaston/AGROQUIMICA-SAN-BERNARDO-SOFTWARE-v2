@@ -129,6 +129,7 @@ const usuarios = [
   { usuario: 'gerente', password: 'gerente123', rol: 'GERENTE' },
   { usuario: 'operador', password: 'operador123', rol: 'MOSTRADOR' }
 ];
+const registrosEliminados = [];
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Backend Agroquímica San Bernardo funcionando' });
@@ -147,6 +148,10 @@ app.post('/login', (req, res) => {
     usuario: encontrado.usuario,
     rol: encontrado.rol
   });
+});
+
+app.get('/eliminados', (req, res) => {
+  res.json({ registros: registrosEliminados });
 });
 
 async function obtenerTipoCambioActual() {
@@ -1656,6 +1661,13 @@ app.delete('/caja/cierres/:id', asyncHandler(async (req, res) => {
   if (!cierre) return res.status(404).json({ error: 'Cierre no encontrado' });
 
   await prisma.cierreCajaDiario.delete({ where: { id: cierreId } });
+  registrosEliminados.unshift({
+    tipo: 'CIERRE_CAJA',
+    nombre: `Cierre de caja ${cierre.fechaCaja || cierre.id}`,
+    fecha: new Date().toISOString(),
+    eliminadoPor: req.body?.eliminadoPor || req.headers['x-usuario'] || 'sistema',
+    motivo: 'Eliminación manual desde módulo Caja'
+  });
 
   res.json({ ok: true, mensaje: 'Cierre eliminado (solo registro de prueba)' });
 }));

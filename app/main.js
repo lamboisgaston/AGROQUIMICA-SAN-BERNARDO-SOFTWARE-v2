@@ -803,8 +803,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
+  GERENTE: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -866,6 +866,30 @@ async function abrirModulo(modulo) {
       console.error('[clientes] error al abrir módulo', error);
       setMsg(`Error al abrir Clientes: ${error.message || error}`, 'warning');
     }
+  }
+  if (modulo === 'eliminados') {
+    await loadEliminados();
+  }
+}
+
+async function loadEliminados() {
+  const contenedor = $('#eliminados-lista');
+  if (!contenedor) return;
+  contenedor.innerHTML = 'Cargando...';
+  try {
+    const data = await api('/eliminados');
+    const registros = Array.isArray(data?.registros) ? data.registros : [];
+    if (!registros.length) {
+      contenedor.innerHTML = '<div class="item">No hay registros eliminados.</div>';
+      return;
+    }
+    contenedor.innerHTML = registros.map((item) => `<div class="item">
+      <strong>${item.tipo || '-'}</strong> | ${item.nombre || '-'}<br/>
+      Fecha: ${item.fecha || '-'} | Eliminado por: ${item.eliminadoPor || '-'}<br/>
+      Motivo: ${item.motivo || '-'}
+    </div>`).join('');
+  } catch (error) {
+    contenedor.innerHTML = `<div class="item">Error al cargar eliminados: ${error.message || error}</div>`;
   }
 }
 
