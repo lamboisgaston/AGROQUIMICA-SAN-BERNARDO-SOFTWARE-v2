@@ -337,11 +337,11 @@ app.post('/productos', asyncHandler(async (req, res) => {
     if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
     const data = normalizarPayloadProducto({ ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
-    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
+    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? Array.from(new Set(req.body.proveedorIds.map(Number).filter(Number.isInteger))) : [];
     const producto = await prisma.producto.create({ data: { ...data, categorias: { connect: categoriaIds.map((id) => ({ id })) } } });
     console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
     if (proveedorIds.length) {
-      await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })), skipDuplicates: true });
+      await prisma.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: producto.id, proveedorId })) });
     }
     const productoConProveedores = await prisma.producto.findUnique({ where: { id: producto.id }, include: { proveedores: { include: { proveedor: true } }, categorias: true } });
     res.status(201).json(mapearProductoConPrecioPesos(productoConProveedores, tipoCambioActual));
@@ -403,13 +403,13 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
     const data = normalizarPayloadProducto({ ...existente, ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
-    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
+    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? Array.from(new Set(req.body.proveedorIds.map(Number).filter(Number.isInteger))) : [];
     await prisma.$transaction(async tx => {
       await tx.producto.update({ where: { id }, data: { ...data, categorias: { set: categoriaIds.map((cid) => ({ id: cid })) } } });
       if (Array.isArray(req.body?.proveedorIds)) {
         await tx.productoProveedor.deleteMany({ where: { productoId: id } });
         if (proveedorIds.length) {
-          await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })), skipDuplicates: true });
+          await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })) });
         }
       }
     });
