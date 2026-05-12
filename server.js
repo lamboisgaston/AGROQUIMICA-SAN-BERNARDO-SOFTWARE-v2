@@ -643,6 +643,40 @@ app.put('/config/tipo-cambio', asyncHandler(async (req, res) => {
   res.json({ tipoCambioActual: config.tipoCambioActual });
 }));
 
+
+async function buscarClientesConEstadisticas(query = '') {
+  const q = String(query || '').trim();
+  const where = q ? {
+    OR: [
+      { nombre: { contains: q } },
+      { telefono: { contains: q } },
+      { cuitDni: { contains: q } },
+      { mail: { contains: q } }
+    ]
+  } : undefined;
+
+  const personas = await prisma.persona.findMany({
+    where,
+    orderBy: [{ nombre: 'asc' }, { id: 'desc' }],
+    take: q ? 50 : 200
+  });
+
+  const stats = await prisma.venta.groupBy({
+    by: ['personaId'],
+    where: { estado: EstadoVenta.COBRADA, personaId: { in: personas.map((p) => p.id) } },
+    _count: { _all: true },
+    _sum: { total: true }
+  });
+  const statsByPersona = new Map(stats.map((s) => [s.personaId, { cantidadCompras: s._count._all, totalComprado: Number(s._sum.total || 0) }]));
+
+  return personas.map((p) => ({ ...p, ...(statsByPersona.get(p.id) || { cantidadCompras: 0, totalComprado: 0 }) }));
+}
+
+app.get('/clientes', asyncHandler(async (req, res) => {
+  const clientes = await buscarClientesConEstadisticas(req.query.q || '');
+  res.json(clientes);
+}));
+
 app.get('/personas', asyncHandler(async (req, res) => {
   const personas = await prisma.persona.findMany();
   const stats = await prisma.venta.groupBy({
@@ -701,26 +735,8 @@ app.post('/personas', asyncHandler(async (req, res) => {
 app.get('/personas/buscar', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json([]);
-
-  const personas = await prisma.persona.findMany({
-    where: {
-      OR: [
-        { nombre: { contains: q } },
-        { telefono: { contains: q } },
-        { cuitDni: { contains: q } }
-      ]
-    },
-    take: 20,
-    orderBy: [{ telefono: 'asc' }, { id: 'desc' }]
-  });
-  const stats = await prisma.venta.groupBy({
-    by: ['personaId'],
-    where: { estado: EstadoVenta.COBRADA, personaId: { in: personas.map((p) => p.id) } },
-    _count: { _all: true },
-    _sum: { total: true }
-  });
-  const statsByPersona = new Map(stats.map((s) => [s.personaId, { cantidadCompras: s._count._all, totalComprado: Number(s._sum.total || 0) }]));
-  res.json(personas.map((p) => ({ ...p, ...(statsByPersona.get(p.id) || { cantidadCompras: 0, totalComprado: 0 }) })));
+  const personas = await buscarClientesConEstadisticas(q);
+  res.json(personas);
 }));
 
 function validarClienteParaPresupuesto(persona) {
