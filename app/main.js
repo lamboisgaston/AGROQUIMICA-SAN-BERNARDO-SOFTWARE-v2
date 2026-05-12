@@ -1045,6 +1045,7 @@ $('#nuevo-tipo-cliente')?.addEventListener('change', actualizarFormularioTipoCli
 actualizarFormularioTipoCliente();
 
 $('#btn-cerrar').addEventListener('click', async () => {
+  const btnCerrar = $('#btn-cerrar');
   console.log('[cerrar-venta] inicio', { ventaId, venta });
 
   if (!ventaId || !venta?.id) {
@@ -1059,23 +1060,35 @@ $('#btn-cerrar').addEventListener('click', async () => {
     return setMsg('Debe agregar productos');
   }
 
-  console.log('[cerrar-venta] cliente actual', venta?.persona);
-  if (!venta?.persona) {
-    setMsg('Cerrando venta como Consumidor final');
+  const estadoOriginalBoton = btnCerrar?.textContent || 'Cerrar venta';
+  if (btnCerrar) {
+    btnCerrar.disabled = true;
+    btnCerrar.dataset.cerrando = 'true';
+    btnCerrar.textContent = 'Cerrando...';
   }
+
   try {
-    console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId });
     const descuentoValor = Math.max(0, Number($('#descuento').value || 0));
     const descuentoTipo = 'PORCENTAJE';
     const ajusteRedondeo = Number($('#ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#condicion-pago-prevista').value || null;
-    if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !venta?.personaId) {
-      return setMsg('Si hay descuento o ajuste de redondeo, debe seleccionar un cliente');
+    const requiereCliente = descuentoValor > 0 || ajusteRedondeo !== 0;
+
+    if (!venta?.persona) {
+      setMsg('Cerrando venta como Consumidor final');
+    } else {
+      setMsg('Cliente seleccionado. Cerrando venta...');
     }
-    if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) {
-      return setMsg('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
+
+    if (requiereCliente && !venta?.personaId) {
+      throw new Error('Si hay descuento o ajuste de redondeo, debe seleccionar un cliente');
     }
-    const totalFinal = Math.max(0, Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0)) - (Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0)) * (descuentoValor / 100)) + ajusteRedondeo);
+    if (requiereCliente && !condicionPagoPrevista) {
+      throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
+    }
+
+    const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(i.subtotal || 0), 0));
+    const totalFinal = Math.max(0, subtotal - (subtotal * (descuentoValor / 100)) + ajusteRedondeo);
     const payload = {
       personaId: venta?.personaId || null,
       descuentoTipo,
@@ -1084,8 +1097,26 @@ $('#btn-cerrar').addEventListener('click', async () => {
       condicionPagoPrevista,
       totalFinal
     };
-    console.log('Payload venta:', payload);
-    const ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, { method: 'POST', body: JSON.stringify(payload) });
+    console.log('[cerrar-venta] POST /mostrador/ventas/:id/cerrar', { id: ventaId, payload });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let ventaCerrada;
+    try {
+      ventaCerrada = await api(`/mostrador/ventas/${ventaId}/cerrar`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Tiempo de espera agotado (15s) al cerrar la venta');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
@@ -1100,13 +1131,19 @@ $('#btn-cerrar').addEventListener('click', async () => {
     $('#descuento-tipo').value = 'PORCENTAJE';
     $('#ajuste-redondeo').value = '0';
     $('#condicion-pago-prevista').value = '';
-    setMsg(`✅ Venta #${ventaCerrada.id} creada correctamente y enviada a caja`);
+    setMsg(`✅ Venta #${ventaCerrada.id} creada correctamente y enviada a caja`, 'ok');
   } catch (err) {
-    console.log('[cerrar-venta] error backend', err);
+    console.error('[cerrar-venta] error', err);
     const detalle = (typeof err?.body === 'object' && err?.body)
       ? JSON.stringify(err.body)
       : String(err?.body || '');
-    setMsg(`Error al cerrar venta (backend): ${err.message}${detalle ? ` | detalle: ${detalle}` : ''}`);
+    setMsg(`Error al cerrar venta: ${err.message}${detalle ? ` | detalle: ${detalle}` : ''}`, 'error');
+  } finally {
+    if (btnCerrar) {
+      btnCerrar.disabled = false;
+      delete btnCerrar.dataset.cerrando;
+      btnCerrar.textContent = estadoOriginalBoton;
+    }
   }
 });
 
