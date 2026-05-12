@@ -122,7 +122,7 @@ function renderProductoCard(p, opciones = {}) {
     <div class="producto-media">${imagenHtml}</div>
     <div class="producto-info">
       <div class="producto-titulo">${p.nombre || '-'}</div>
-      <div class="producto-meta">Categorías: <strong>${(p.categorias || []).map((c) => c.nombre).join(', ') || p.categoria || '-'}</strong></div>
+      <div class="producto-meta">Categorías: <span class="categoria-badges">${((p.categorias || []).length ? (p.categorias || []).map((c) => `<span class=\"categoria-badge\">${c.nombre}</span>`).join(' ') : `<span class=\"categoria-badge\">${p.categoria || '-'}</span>`)}</span></div>
       <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
       <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
       ${proveedoresTexto ? `<div class="producto-meta">Proveedores: <strong>${proveedoresTexto}</strong></div>` : ''}
@@ -557,19 +557,8 @@ function renderCategoriasProducto(selected = []) {
   sel.innerHTML = opciones;
   const selectedSet = new Set((selected || []).map(String));
   Array.from(sel.options).forEach((opt) => { opt.selected = selectedSet.has(opt.value); });
-  const avisoId = 'prod-categoria-aviso';
-  let aviso = document.getElementById(avisoId);
-  if (!categoriasProducto.length) {
-    if (!aviso) {
-      aviso = document.createElement('p');
-      aviso.id = avisoId;
-      aviso.className = 'msg msg-info';
-      sel.insertAdjacentElement('afterend', aviso);
-    }
-    aviso.textContent = 'Primero debe crear una categoría desde el módulo Categorías.';
-  } else if (aviso) {
-    aviso.remove();
-  }
+  const aviso = document.getElementById('prod-categoria-aviso');
+  if (aviso) aviso.textContent = 'Si no seleccionás categoría, el producto quedará en SIN CATEGORÍA.';
 }
 
 function setModoProducto(nuevoModo) {
@@ -1231,8 +1220,6 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     const categoriaTexto = categoriasProducto.filter((c) => categoriaIds.includes(c.id)).map((c) => c.nombre).join(', ');
 
     if (!nombre) return setMsg('El nombre del producto es obligatorio', 'error');
-    if (categoriasProducto.length > 0 && !categoriaIds.length) return setMsg('Debe seleccionar al menos una categoría', 'error');
-    if (!categoriasProducto.length) return setMsg('Primero debe crear una categoría desde el módulo Categorías.', 'error');
 
     const proveedorIds = Array.from($('#prod-proveedor').selectedOptions || [])
       .map((o) => Number(o.value))

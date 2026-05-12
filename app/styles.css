@@ -133,3 +133,19 @@ details[open] { display: grid; gap: 5px; }
   .producto-media { width: 70px; height: 70px; }
   .producto-acciones { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(120px,1fr)); }
 }
+
+.categoria-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.categoria-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef3ff;
+  border: 1px solid #b9c8ff;
+  font-size: 12px;
+  font-weight: 600;
+}

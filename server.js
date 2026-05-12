@@ -258,12 +258,34 @@ function validarPayloadProducto(payload = {}) {
   if (faltantes.length) {
     return `Faltan campos obligatorios: ${faltantes.join(', ')}`;
   }
-  if (payload.__requiereCategoria && !categoriaIds.length) {
-    return 'Debe seleccionar al menos una categoría';
-  }
   return null;
 }
 
+
+async function getOrCreateSinCategoria() {
+  const nombre = 'SIN CATEGORÍA';
+  const existente = await prisma.categoria.findUnique({ where: { nombre } });
+  if (existente) {
+    if (!existente.activo) {
+      return prisma.categoria.update({ where: { id: existente.id }, data: { activo: true } });
+    }
+    return existente;
+  }
+  return prisma.categoria.create({ data: { nombre, descripcion: 'Categoría por defecto para productos sin categoría explícita', activo: true } });
+}
+
+async function resolverCategoriasProducto(rawCategoriaIds) {
+  const categoriaIds = parseCategoriaIds(rawCategoriaIds);
+  if (!categoriaIds.length) {
+    const sinCategoria = await getOrCreateSinCategoria();
+    return [sinCategoria];
+  }
+  const categorias = await prisma.categoria.findMany({ where: { id: { in: categoriaIds }, activo: true } });
+  if (categorias.length !== categoriaIds.length) {
+    throw new Error('Una o más categorías no existen o están inactivas');
+  }
+  return categorias;
+}
 function parseCategoriaIds(raw = []) {
   return [...new Set((Array.isArray(raw) ? raw : []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
 }
@@ -314,16 +336,19 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
 app.post('/productos', asyncHandler(async (req, res) => {
   try {
     console.log('[producto-guardado][backend] POST /productos payload', req.body);
-    const totalCategoriasActivas = await prisma.categoria.count({ where: { activo: true } });
-    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
+    const errorValidacion = validarPayloadProducto(req.body);
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] POST /productos validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
     }
     const tipoCambioActual = await obtenerTipoCambioActual();
-    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
-    const categorias = await prisma.categoria.findMany({ where: { id: { in: categoriaIds }, activo: true } });
-    if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
+    let categorias;
+    try {
+      categorias = await resolverCategoriasProducto(req.body?.categoriaIds);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    const categoriaIds = categorias.map((c) => c.id);
     const data = normalizarPayloadProducto({ ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
     const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
@@ -341,6 +366,7 @@ app.post('/productos', asyncHandler(async (req, res) => {
 }));
 
 app.get('/categorias', asyncHandler(async (_req, res) => {
+  await getOrCreateSinCategoria();
   const categorias = await prisma.categoria.findMany({
     where: { activo: true },
     orderBy: { nombre: 'asc' }
@@ -349,7 +375,7 @@ app.get('/categorias', asyncHandler(async (_req, res) => {
 }));
 
 app.post('/categorias', asyncHandler(async (req, res) => {
-  const nombre = String(req.body?.nombre || '').trim();
+  const nombre = String(req.body?.nombre || '').trim().toUpperCase();
   const descripcion = String(req.body?.descripcion || '').trim() || null;
   if (!nombre) return res.status(400).json({ error: 'nombre es obligatorio' });
   const existente = await prisma.categoria.findUnique({ where: { nombre } });
@@ -361,10 +387,16 @@ app.post('/categorias', asyncHandler(async (req, res) => {
 app.put('/categorias/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
-  const nombre = req.body?.nombre == null ? undefined : String(req.body.nombre).trim();
+  const nombre = req.body?.nombre == null ? undefined : String(req.body.nombre).trim().toUpperCase();
   const descripcion = req.body?.descripcion == null ? undefined : (String(req.body.descripcion).trim() || null);
   const activo = req.body?.activo == null ? undefined : Boolean(req.body.activo);
   if (nombre !== undefined && !nombre) return res.status(400).json({ error: 'nombre es obligatorio' });
+  const existente = await prisma.categoria.findUnique({ where: { id } });
+  if (!existente) return res.status(404).json({ error: 'Categoría no encontrada' });
+  if (existente.nombre === 'SIN CATEGORÍA') {
+    if (nombre !== undefined && nombre !== 'SIN CATEGORÍA') return res.status(400).json({ error: 'SIN CATEGORÍA no se puede renombrar' });
+    if (activo === false) return res.status(400).json({ error: 'SIN CATEGORÍA no se puede desactivar' });
+  }
   const actualizada = await prisma.categoria.update({
     where: { id },
     data: { ...(nombre !== undefined ? { nombre } : {}), ...(descripcion !== undefined ? { descripcion } : {}), ...(activo !== undefined ? { activo } : {}) }
@@ -377,8 +409,7 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
     if (!id) return res.status(400).json({ error: 'id inválido' });
-    const totalCategoriasActivas = await prisma.categoria.count({ where: { activo: true } });
-    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
+    const errorValidacion = validarPayloadProducto(req.body);
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] PUT /productos/:id validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
@@ -387,9 +418,13 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     const existente = await prisma.producto.findUnique({ where: { id }, include: { categorias: true } });
     if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
 
-    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
-    const categorias = await prisma.categoria.findMany({ where: { id: { in: categoriaIds }, activo: true } });
-    if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
+    let categorias;
+    try {
+      categorias = await resolverCategoriasProducto(req.body?.categoriaIds);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    const categoriaIds = categorias.map((c) => c.id);
     const data = normalizarPayloadProducto({ ...existente, ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
     const proveedorIds = Array.isArray(req.body?.proveedorIds) ? req.body.proveedorIds.map(Number).filter(Number.isInteger) : [];
