@@ -23,6 +23,7 @@ let presupuestoNombreLibre = '';
 let presupuestoItems = [];
 let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
+let eliminados = [];
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -206,7 +207,7 @@ function renderListaClientesMostrador(personas = []) {
   const contenedor = $('#resultados-clientes');
   if (!contenedor) return;
   contenedor.innerHTML = personas.length
-    ? personas.slice(0, 20).map((p) => `<div class="item"><strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | CUIT: ${p.cuitDni || '-'} | Mail: ${p.mail || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+    ? personas.slice(0, 20).map((p) => `<div class="item"><strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | CUIT: ${p.cuitDni || '-'} | Mail: ${p.mail || '-'} <button data-persona="${p.id}">Seleccionar cliente</button> <button data-eliminar-cliente="${p.id}">Eliminar</button></div>`).join('')
     : '<div class="item">No se encontraron clientes</div>';
 }
 
@@ -592,7 +593,7 @@ function renderProductosAdmin() {
   const f = filtroProductosAdmin.toLowerCase();
   const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || ((p.categorias || []).map((c) => c.nombre).join(' ').toLowerCase().includes(f)) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
-    ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button>` })).join('')
+    ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button> <button data-eliminar-producto="${p.id}">Eliminar</button>` })).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
@@ -673,7 +674,7 @@ function renderProveedores() {
   proveedoresFiltrados = proveedores.filter((pr) => !q || [pr.razonSocial, pr.cuit, pr.contactoComercial].filter(Boolean).join(' ').toLowerCase().includes(q));
   if (proveedorSeleccionadoId && !proveedores.some((pr) => pr.id === proveedorSeleccionadoId)) proveedorSeleccionadoId = null;
   $('#proveedores-lista').innerHTML = proveedoresFiltrados.length
-    ? proveedoresFiltrados.map(pr => `<div class="item proveedor-row ${proveedorSeleccionadoId === pr.id ? 'item-seleccionado' : ''}" data-proveedor-select="${pr.id}"><span class="proveedor-meta"><span class="proveedor-id">#${pr.id}</span><b>${pr.razonSocial}</b><small>CUIT: ${pr.cuit || '-'} | Tel: ${pr.telefono || '-'} | Mail: ${pr.mail || '-'}</small></span></div>`).join('')
+    ? proveedoresFiltrados.map(pr => `<div class="item proveedor-row ${proveedorSeleccionadoId === pr.id ? 'item-seleccionado' : ''}" data-proveedor-select="${pr.id}"><span class="proveedor-meta"><span class="proveedor-id">#${pr.id}</span><b>${pr.razonSocial}</b><small>CUIT: ${pr.cuit || '-'} | Tel: ${pr.telefono || '-'} | Mail: ${pr.mail || '-'}</small></span><button data-eliminar-proveedor="${pr.id}">Eliminar</button></div>`).join('')
     : '<div class="item">Sin proveedores</div>';
   const opt = proveedores.map(pr => `<option value="${pr.id}">${pr.razonSocial}</option>`);
   const sel = $('#prod-proveedor');
@@ -729,6 +730,14 @@ function renderStockProductos() {
 async function loadProveedores() {
   proveedores = await api('/proveedores');
   renderProveedores();
+}
+async function loadEliminados() {
+  eliminados = await api('/eliminados');
+  const cont = $('#eliminados-lista');
+  if (!cont) return;
+  cont.innerHTML = eliminados.length
+    ? eliminados.map((it) => `<div class="item"><b>${it.tipo}</b> | ${it.nombre} | ${new Date(it.eliminadoAt).toLocaleString('es-AR')} | ${it.eliminadoPor || '-'} | ${it.motivoEliminacion || '-'} <button data-restaurar-tipo="${it.tipo}" data-restaurar-id="${it.id}">Restaurar</button></div>`).join('')
+    : '<div class="item">Sin eliminados</div>';
 }
 async function cargarStockProducto() {
   const productoId = Number($('#stock-producto').value || 0);
@@ -803,8 +812,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
+  GERENTE: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -867,6 +876,7 @@ async function abrirModulo(modulo) {
       setMsg(`Error al abrir Clientes: ${error.message || error}`, 'warning');
     }
   }
+  if (modulo === 'eliminados') await loadEliminados();
 }
 
 function volverInicio() {
@@ -1007,6 +1017,15 @@ $('#resultados-clientes').addEventListener('click', async (e) => {
     await refreshVenta();
     setMsg('Cliente seleccionado');
   } catch (err) { setMsg(err.message); }
+});
+$('#resultados-clientes').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-eliminar-cliente]');
+  if (!b) return;
+  if (!confirm('¿Eliminar cliente?')) return;
+  const motivoEliminacion = prompt('Motivo de eliminación (opcional):') || '';
+  await api(`/clientes/${Number(b.dataset.eliminarCliente)}`, { method: 'DELETE', body: JSON.stringify({ motivoEliminacion, eliminadoPor: activeRoleName || activeRole || 'sistema' }) });
+  await buscarClienteMostrador();
+  await loadEliminados();
 });
 
 
@@ -1342,7 +1361,16 @@ $('#admin-buscar-producto').addEventListener('input', async (e) => {
     mostrarErrorBusqueda('#productos-admin', error);
   }
 });
-$('#productos-admin').addEventListener('click', (e) => {
+$('#productos-admin').addEventListener('click', async (e) => {
+  const eliminarId = Number(e.target.dataset.eliminarProducto || 0);
+  if (eliminarId) {
+    if (!confirm('¿Eliminar producto?')) return;
+    const motivoEliminacion = prompt('Motivo de eliminación (opcional):') || '';
+    await api(`/productos/${eliminarId}`, { method: 'DELETE', body: JSON.stringify({ motivoEliminacion, eliminadoPor: activeRoleName || activeRole || 'sistema' }) });
+    await loadProductosAll();
+    await loadEliminados();
+    return;
+  }
   const id = e.target.dataset.editarProducto;
   if (!id) return;
   const p = productos.find(x => String(x.id) === String(id));
@@ -1363,6 +1391,12 @@ $('#productos-admin').addEventListener('click', (e) => {
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
   renderResumenPreciosProducto();
   setModoProducto('EDITAR');
+});
+$('#eliminados-lista')?.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-restaurar-id]');
+  if (!b) return;
+  await api(`/eliminados/${b.dataset.restaurarTipo}/${Number(b.dataset.restaurarId)}/restaurar`, { method: 'POST', body: '{}' });
+  await Promise.all([loadEliminados(), loadProductosAll(), loadProveedores(), buscarClienteMostrador()]);
 });
 async function buscarClientePresupuesto() {
   const q = $('#pres-buscar-cliente').value.trim();
@@ -1574,6 +1608,15 @@ $('#proveedores-lista').addEventListener('click', async (e) => {
   proveedorSeleccionadoId = Number(row.dataset.proveedorSelect);
   $('#proveedor-detalle-select').value = row.dataset.proveedorSelect;
   try { await verDetalleProveedor(); } catch (err) { setMsg(err.message); }
+});
+$('#proveedores-lista').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-eliminar-proveedor]');
+  if (!b) return;
+  if (!confirm('¿Eliminar proveedor?')) return;
+  const motivoEliminacion = prompt('Motivo de eliminación (opcional):') || '';
+  await api(`/proveedores/${Number(b.dataset.eliminarProveedor)}`, { method: 'DELETE', body: JSON.stringify({ motivoEliminacion, eliminadoPor: activeRoleName || activeRole || 'sistema' }) });
+  await loadProveedores();
+  await loadEliminados();
 });
 $('#btn-stock-todos').addEventListener('click', async () => { try { await loadStockResumen('/stock'); } catch (err) { setMsg(err.message); } });
 $('#btn-stock-bajo').addEventListener('click', async () => { try { await loadStockResumen('/stock/bajo'); } catch (err) { setMsg(err.message); } });
