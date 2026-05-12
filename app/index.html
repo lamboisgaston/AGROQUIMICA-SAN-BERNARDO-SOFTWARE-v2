@@ -43,6 +43,7 @@
         <article class="dashboard-card" data-module-card="stock"><h3>Stock</h3><p>Movimientos, control y ajuste.</p><button data-abrir-modulo="stock">Entrar</button></article>
         <article class="dashboard-card" data-module-card="remitos"><h3>Remitos</h3><p>Carga de remitos y entrada de mercadería.</p><button data-abrir-modulo="remitos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="reportes"><h3>Reportes</h3><p>Ventas cobradas y calendario de caja.</p><button data-abrir-modulo="reportes">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="eliminados"><h3>Papelera</h3><p>Registros eliminados lógicamente y restauración.</p><button data-abrir-modulo="eliminados">Entrar</button></article>
       </div>
     </section>
     <nav class="menu-principal app-shell hidden">
@@ -428,7 +429,11 @@
         <tbody id="remito-items"></tbody>
       </table>
       <button id="btn-guardar-remito">Guardar remito</button>
-    </section>
+</section>
+<section class="bloque app-shell compact-form" data-modulo="eliminados">
+  <h2>Papelera / Eliminados</h2>
+  <div id="eliminados-lista" class="lista"></div>
+</section>
 
     <script src="/app/main.js"></script>
   

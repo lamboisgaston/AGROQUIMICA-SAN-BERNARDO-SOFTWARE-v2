@@ -422,6 +422,17 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+app.delete('/productos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { motivoEliminacion, eliminadoPor } = req.body || {};
+  const producto = await prisma.producto.update({
+    where: { id },
+    data: { activo: false, eliminado: true, eliminadoAt: new Date(), eliminadoPor: eliminadoPor || 'sistema', motivoEliminacion: motivoEliminacion || null }
+  });
+  res.json(producto);
+}));
+
 app.get('/proveedores', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim();
   const proveedores = await prisma.proveedor.findMany({
@@ -467,6 +478,17 @@ app.get('/proveedores/:id', asyncHandler(async (req, res) => {
     select: { id: true, razonSocial: true, cuit: true, telefono: true, mail: true, direccion: true, contactoComercial: true, observaciones: true }
   });
   if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
+  res.json(proveedor);
+}));
+
+app.delete('/proveedores/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { motivoEliminacion, eliminadoPor } = req.body || {};
+  const proveedor = await prisma.proveedor.update({
+    where: { id },
+    data: { activo: false, eliminado: true, eliminadoAt: new Date(), eliminadoPor: eliminadoPor || 'sistema', motivoEliminacion: motivoEliminacion || null }
+  });
   res.json(proveedor);
 }));
 
@@ -646,14 +668,17 @@ app.put('/config/tipo-cambio', asyncHandler(async (req, res) => {
 
 async function buscarClientesConEstadisticas(query = '') {
   const q = String(query || '').trim();
-  const where = q ? {
+  const where = {
+    eliminado: false,
+    ...(q ? {
     OR: [
       { nombre: { contains: q } },
       { telefono: { contains: q } },
       { cuitDni: { contains: q } },
       { mail: { contains: q } }
     ]
-  } : undefined;
+  } : {})
+  };
 
   const personas = await prisma.persona.findMany({
     where,
@@ -730,6 +755,42 @@ app.post('/personas', asyncHandler(async (req, res) => {
     }
   });
   res.json({ ...persona, advertenciaDuplicado });
+}));
+
+app.delete('/clientes/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { motivoEliminacion, eliminadoPor } = req.body || {};
+  const cliente = await prisma.persona.update({
+    where: { id },
+    data: { activo: false, eliminado: true, eliminadoAt: new Date(), eliminadoPor: eliminadoPor || 'sistema', motivoEliminacion: motivoEliminacion || null }
+  });
+  res.json(cliente);
+}));
+
+app.get('/eliminados', asyncHandler(async (_req, res) => {
+  const [clientes, proveedores, productos] = await Promise.all([
+    prisma.persona.findMany({ where: { eliminado: true }, orderBy: { eliminadoAt: 'desc' } }),
+    prisma.proveedor.findMany({ where: { eliminado: true }, orderBy: { eliminadoAt: 'desc' } }),
+    prisma.producto.findMany({ where: { eliminado: true }, orderBy: { eliminadoAt: 'desc' } })
+  ]);
+  const items = [
+    ...clientes.map((c) => ({ tipo: 'cliente', id: c.id, nombre: c.nombre, eliminadoAt: c.eliminadoAt, eliminadoPor: c.eliminadoPor, motivoEliminacion: c.motivoEliminacion })),
+    ...proveedores.map((p) => ({ tipo: 'proveedor', id: p.id, nombre: p.razonSocial, eliminadoAt: p.eliminadoAt, eliminadoPor: p.eliminadoPor, motivoEliminacion: p.motivoEliminacion })),
+    ...productos.map((p) => ({ tipo: 'producto', id: p.id, nombre: p.nombre, eliminadoAt: p.eliminadoAt, eliminadoPor: p.eliminadoPor, motivoEliminacion: p.motivoEliminacion }))
+  ].sort((a, b) => new Date(b.eliminadoAt || 0) - new Date(a.eliminadoAt || 0));
+  res.json(items);
+}));
+
+app.post('/eliminados/:tipo/:id/restaurar', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  const tipo = String(req.params.tipo || '').toLowerCase();
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const data = { activo: true, eliminado: false, eliminadoAt: null, eliminadoPor: null, motivoEliminacion: null };
+  if (tipo === 'cliente') return res.json(await prisma.persona.update({ where: { id }, data }));
+  if (tipo === 'proveedor') return res.json(await prisma.proveedor.update({ where: { id }, data }));
+  if (tipo === 'producto') return res.json(await prisma.producto.update({ where: { id }, data }));
+  return res.status(400).json({ error: 'tipo inválido' });
 }));
 
 app.get('/personas/buscar', asyncHandler(async (req, res) => {
