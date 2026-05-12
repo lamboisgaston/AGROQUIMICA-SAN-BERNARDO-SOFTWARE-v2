@@ -557,6 +557,19 @@ function renderCategoriasProducto(selected = []) {
   sel.innerHTML = opciones;
   const selectedSet = new Set((selected || []).map(String));
   Array.from(sel.options).forEach((opt) => { opt.selected = selectedSet.has(opt.value); });
+  const avisoId = 'prod-categoria-aviso';
+  let aviso = document.getElementById(avisoId);
+  if (!categoriasProducto.length) {
+    if (!aviso) {
+      aviso = document.createElement('p');
+      aviso.id = avisoId;
+      aviso.className = 'msg msg-info';
+      sel.insertAdjacentElement('afterend', aviso);
+    }
+    aviso.textContent = 'Primero debe crear una categoría desde el módulo Categorías.';
+  } else if (aviso) {
+    aviso.remove();
+  }
 }
 
 function setModoProducto(nuevoModo) {
@@ -782,9 +795,9 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
-  GERENTE: ['clientes','productos','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
-  MOSTRADOR: ['ventas','clientes','productos','presupuestos','stock'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
+  GERENTE: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes'],
+  MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
 let activeRole = null;
@@ -1218,7 +1231,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     const categoriaTexto = categoriasProducto.filter((c) => categoriaIds.includes(c.id)).map((c) => c.nombre).join(', ');
 
     if (!nombre) return setMsg('El nombre del producto es obligatorio', 'error');
-    if (!categoriaIds.length) return setMsg('Debe seleccionar al menos una categoría', 'error');
+    if (categoriasProducto.length > 0 && !categoriaIds.length) return setMsg('Debe seleccionar al menos una categoría', 'error');
+    if (!categoriasProducto.length) return setMsg('Primero debe crear una categoría desde el módulo Categorías.', 'error');
 
     const proveedorIds = Array.from($('#prod-proveedor').selectedOptions || [])
       .map((o) => Number(o.value))

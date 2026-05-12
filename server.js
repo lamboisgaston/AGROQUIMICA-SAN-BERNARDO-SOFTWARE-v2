@@ -258,7 +258,7 @@ function validarPayloadProducto(payload = {}) {
   if (faltantes.length) {
     return `Faltan campos obligatorios: ${faltantes.join(', ')}`;
   }
-  if (!categoriaIds.length) {
+  if (payload.__requiereCategoria && !categoriaIds.length) {
     return 'Debe seleccionar al menos una categoría';
   }
   return null;
@@ -314,7 +314,8 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
 app.post('/productos', asyncHandler(async (req, res) => {
   try {
     console.log('[producto-guardado][backend] POST /productos payload', req.body);
-    const errorValidacion = validarPayloadProducto(req.body);
+    const totalCategoriasActivas = await prisma.categoria.count({ where: { activo: true } });
+    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] POST /productos validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
@@ -376,7 +377,8 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
     if (!id) return res.status(400).json({ error: 'id inválido' });
-    const errorValidacion = validarPayloadProducto(req.body);
+    const totalCategoriasActivas = await prisma.categoria.count({ where: { activo: true } });
+    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] PUT /productos/:id validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
