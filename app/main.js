@@ -206,7 +206,7 @@ function renderListaClientesMostrador(personas = []) {
   const contenedor = $('#resultados-clientes');
   if (!contenedor) return;
   contenedor.innerHTML = personas.length
-    ? personas.slice(0, 20).map((p) => `<div class="item"><strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | CUIT: ${p.cuitDni || '-'} | Mail: ${p.mail || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+    ? personas.slice(0, 20).map((p) => `<div class="item"><strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | CUIT: ${p.cuitDni || '-'} | Mail: ${p.mail || '-'} <button data-persona="${p.id}">Seleccionar cliente</button> <button data-eliminar-cliente="${p.id}">Eliminar</button></div>`).join('')
     : '<div class="item">No se encontraron clientes</div>';
 }
 
@@ -592,7 +592,7 @@ function renderProductosAdmin() {
   const f = filtroProductosAdmin.toLowerCase();
   const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || ((p.categorias || []).map((c) => c.nombre).join(' ').toLowerCase().includes(f)) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
   container.innerHTML = lista.length
-    ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button>` })).join('')
+    ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button><button class="btn-accion-eliminar" data-eliminar-producto="${p.id}">Eliminar</button>` })).join('')
     : '<div class="item">Sin productos</div>';
 }
 function renderPresupuestoProductos() {
@@ -673,7 +673,7 @@ function renderProveedores() {
   proveedoresFiltrados = proveedores.filter((pr) => !q || [pr.razonSocial, pr.cuit, pr.contactoComercial].filter(Boolean).join(' ').toLowerCase().includes(q));
   if (proveedorSeleccionadoId && !proveedores.some((pr) => pr.id === proveedorSeleccionadoId)) proveedorSeleccionadoId = null;
   $('#proveedores-lista').innerHTML = proveedoresFiltrados.length
-    ? proveedoresFiltrados.map(pr => `<div class="item proveedor-row ${proveedorSeleccionadoId === pr.id ? 'item-seleccionado' : ''}" data-proveedor-select="${pr.id}"><span class="proveedor-meta"><span class="proveedor-id">#${pr.id}</span><b>${pr.razonSocial}</b><small>CUIT: ${pr.cuit || '-'} | Tel: ${pr.telefono || '-'} | Mail: ${pr.mail || '-'}</small></span></div>`).join('')
+    ? proveedoresFiltrados.map(pr => `<div class="item proveedor-row ${proveedorSeleccionadoId === pr.id ? 'item-seleccionado' : ''}" data-proveedor-select="${pr.id}"><span class="proveedor-meta"><span class="proveedor-id">#${pr.id}</span><b>${pr.razonSocial}</b><small>CUIT: ${pr.cuit || '-'} | Tel: ${pr.telefono || '-'} | Mail: ${pr.mail || '-'}</small></span><button data-eliminar-proveedor="${pr.id}">Eliminar</button></div>`).join('')
     : '<div class="item">Sin proveedores</div>';
   const opt = proveedores.map(pr => `<option value="${pr.id}">${pr.razonSocial}</option>`);
   const sel = $('#prod-proveedor');
@@ -1019,6 +1019,21 @@ $('#btn-buscar-cliente').addEventListener('click', buscarClienteMostrador);
 $('#buscar-cliente').addEventListener('input', buscarClienteMostrador);
 
 $('#resultados-clientes').addEventListener('click', async (e) => {
+  const eliminar = e.target.closest('button[data-eliminar-cliente]');
+  if (eliminar) {
+    try {
+      const password = prompt('Ingrese contraseña para eliminar');
+      if (password == null) return;
+      const motivo = prompt('Ingrese motivo (opcional)') || '';
+      await api(`/clientes/${eliminar.dataset.eliminarCliente}`, { method: 'DELETE', body: JSON.stringify({ password, motivo }) });
+      await buscarClienteMostrador();
+      await cargarEliminados();
+      setMsg('Cliente eliminado correctamente', 'success');
+    } catch (err) {
+      setMsg(`Error al eliminar cliente: ${err.message}`, 'error');
+    }
+    return;
+  }
   const b = e.target.closest('button[data-persona]');
   if (!b) return;
   try {
@@ -1367,6 +1382,23 @@ $('#admin-buscar-producto').addEventListener('input', async (e) => {
   }
 });
 $('#productos-admin').addEventListener('click', (e) => {
+  const eliminar = e.target.closest('button[data-eliminar-producto]');
+  if (eliminar) {
+    (async () => {
+      try {
+        const password = prompt('Ingrese contraseña para eliminar');
+        if (password == null) return;
+        const motivo = prompt('Ingrese motivo (opcional)') || '';
+        await api(`/productos/${eliminar.dataset.eliminarProducto}`, { method: 'DELETE', body: JSON.stringify({ password, motivo }) });
+        await loadProductosAll();
+        await cargarEliminados();
+        setMsg('Producto eliminado correctamente', 'success');
+      } catch (err) {
+        setMsg(`Error al eliminar producto: ${err.message}`, 'error');
+      }
+    })();
+    return;
+  }
   const id = e.target.dataset.editarProducto;
   if (!id) return;
   const p = productos.find(x => String(x.id) === String(id));
@@ -1593,6 +1625,21 @@ $('#proveedor-detalle-select')?.addEventListener('change', async () => {
   try { await verDetalleProveedor(); } catch (err) { setMsg(err.message); }
 });
 $('#proveedores-lista').addEventListener('click', async (e) => {
+  const eliminar = e.target.closest('button[data-eliminar-proveedor]');
+  if (eliminar) {
+    try {
+      const password = prompt('Ingrese contraseña para eliminar');
+      if (password == null) return;
+      const motivo = prompt('Ingrese motivo (opcional)') || '';
+      await api(`/proveedores/${eliminar.dataset.eliminarProveedor}`, { method: 'DELETE', body: JSON.stringify({ password, motivo }) });
+      await loadProveedores();
+      await cargarEliminados();
+      setMsg('Proveedor eliminado correctamente', 'success');
+    } catch (err) {
+      setMsg(`Error al eliminar proveedor: ${err.message}`, 'error');
+    }
+    return;
+  }
   const row = e.target.closest('[data-proveedor-select]');
   if (!row) return;
   proveedorSeleccionadoId = Number(row.dataset.proveedorSelect);
