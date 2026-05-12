@@ -197,9 +197,17 @@ async function buscarProductos(query) {
 
 async function buscarPersonas(query) {
   const q = (query || '').trim();
-  console.log(`Buscando clientes: ${q}`);
-  if (!q) return [];
-  return api('/personas/buscar?q=' + encodeURIComponent(q));
+  console.log(`Buscando clientes: ${q || '[listado completo]'}`);
+  if (!q) return api('/clientes');
+  return api('/clientes?q=' + encodeURIComponent(q));
+}
+
+function renderListaClientesMostrador(personas = []) {
+  const contenedor = $('#resultados-clientes');
+  if (!contenedor) return;
+  contenedor.innerHTML = personas.length
+    ? personas.slice(0, 20).map((p) => `<div class="item"><strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | CUIT: ${p.cuitDni || '-'} | Mail: ${p.mail || '-'} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
+    : '<div class="item">No se encontraron clientes</div>';
 }
 
 async function buscarProveedores(query) {
@@ -836,7 +844,7 @@ function cambiarUsuario() {
   $('#home-dashboard')?.classList.add('hidden');
   $('#role-selector')?.classList.remove('hidden');
 }
-function abrirModulo(modulo) {
+async function abrirModulo(modulo) {
   if (!activeRole) return;
   const roleSelector = $('#role-selector');
   const home = $('#home-dashboard');
@@ -851,6 +859,14 @@ function abrirModulo(modulo) {
     el.classList.toggle('hidden', !grupos.includes(modulo));
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (modulo === 'clientes') {
+    try {
+      await buscarClienteMostrador();
+    } catch (error) {
+      console.error('[clientes] error al abrir módulo', error);
+      setMsg(`Error al abrir Clientes: ${error.message || error}`, 'warning');
+    }
+  }
 }
 
 function volverInicio() {
@@ -966,13 +982,13 @@ document.querySelectorAll('.btn-redondeo').forEach((btn) => btn.addEventListener
 
 async function buscarClienteMostrador() {
   const q = $('#buscar-cliente').value.trim();
-  if (!q) { $('#resultados-clientes').innerHTML = '<div class="item">Sin resultados</div>'; return; }
   try {
     const personas = await buscarPersonas(q);
-    $('#resultados-clientes').innerHTML = personas.length
-      ? personas.slice(0, 8).map(p => `<div class="item"><strong>📞 ${p.telefono || '-'}</strong> | ${p.nombre || '-'} | ${(p.tipoCliente || 'PERSONAL').toUpperCase()} | Compras: ${Number(p.cantidadCompras || 0)} | Total comprado: ${money(p.totalComprado || 0)} <button data-persona="${p.id}">Seleccionar cliente</button></div>`).join('')
-      : '<div class="item">Sin resultados <button id="btn-crear-desde-busqueda">Crear cliente</button></div>';
-  } catch (error) { mostrarErrorBusqueda('#resultados-clientes', error); }
+    renderListaClientesMostrador(Array.isArray(personas) ? personas : []);
+  } catch (error) {
+    mostrarErrorBusqueda('#resultados-clientes', error);
+    setMsg(`Error al buscar clientes: ${error.message || error}`, 'warning');
+  }
 }
 
 $('#btn-buscar-cliente').addEventListener('click', buscarClienteMostrador);
