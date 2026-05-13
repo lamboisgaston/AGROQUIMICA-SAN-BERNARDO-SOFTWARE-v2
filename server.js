@@ -130,6 +130,7 @@ const usuarios = [
   { usuario: 'operador', password: 'operador123', rol: 'MOSTRADOR' }
 ];
 const registrosEliminados = [];
+const PASSWORD_ELIMINACION = '12345';
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Backend Agroquímica San Bernardo funcionando' });
@@ -150,9 +151,24 @@ app.post('/login', (req, res) => {
   });
 });
 
-app.get('/eliminados', (req, res) => {
-  res.json({ registros: registrosEliminados });
-});
+app.get('/eliminados', asyncHandler(async (_req, res) => {
+  const [clientes, productos, proveedores] = await Promise.all([
+    prisma.persona.findMany({ where: { eliminado: true }, orderBy: { eliminadoAt: 'desc' } }),
+    prisma.producto.findMany({ where: { eliminado: true }, orderBy: { eliminadoAt: 'desc' } }),
+    prisma.proveedor.findMany({ where: { eliminado: true }, orderBy: { eliminadoAt: 'desc' } })
+  ]);
+  res.json({
+    registros: [
+      ...clientes.map((item) => ({ tipo: 'CLIENTE', id: item.id, nombre: item.nombre, fecha: item.eliminadoAt, eliminadoPor: item.eliminadoPor, motivo: item.motivoEliminacion })),
+      ...productos.map((item) => ({ tipo: 'PRODUCTO', id: item.id, nombre: item.nombre, fecha: item.eliminadoAt, eliminadoPor: item.eliminadoPor, motivo: item.motivoEliminacion })),
+      ...proveedores.map((item) => ({ tipo: 'PROVEEDOR', id: item.id, nombre: item.razonSocial, fecha: item.eliminadoAt, eliminadoPor: item.eliminadoPor, motivo: item.motivoEliminacion }))
+    ]
+  });
+}));
+
+function validarPasswordEliminacion(password) {
+  return String(password || '') === PASSWORD_ELIMINACION;
+}
 
 async function obtenerTipoCambioActual() {
   const config = await prisma.configuracionGlobal.upsert({
@@ -304,7 +320,7 @@ app.get('/productos', async (req, res) => {
     const tipoCambioActual = await obtenerTipoCambioActual();
     const q = String(req.query.q || '').trim();
     const productos = await prisma.producto.findMany({
-      where: construirFiltroBusquedaProductos(q),
+      where: { ...(construirFiltroBusquedaProductos(q) || {}), eliminado: false, activo: true },
       include: { proveedores: { include: { proveedor: true } }, categorias: true },
       orderBy: { nombre: 'asc' }
     });
@@ -319,7 +335,7 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
   if (!q) return res.json([]);
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany({
-    where: construirFiltroBusquedaProductos(q),
+    where: { ...(construirFiltroBusquedaProductos(q) || {}), eliminado: false, activo: true },
       include: { proveedores: { include: { proveedor: true } }, categorias: true },
     orderBy: { nombre: 'asc' },
     take: 20
@@ -427,16 +443,29 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+app.delete('/productos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { password, motivo } = req.body || {};
+  if (!validarPasswordEliminacion(password)) return res.status(401).json({ error: 'Contraseña incorrecta para eliminar' });
+  const existente = await prisma.producto.findUnique({ where: { id } });
+  if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
+  await prisma.producto.update({ where: { id }, data: { eliminado: true, activo: false, eliminadoAt: new Date(), eliminadoPor: req.headers['x-usuario'] || 'sistema', motivoEliminacion: String(motivo || '').trim() || null } });
+  res.json({ ok: true });
+}));
+
 app.get('/proveedores', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim();
   const proveedores = await prisma.proveedor.findMany({
     where: q ? {
+      eliminado: false,
+      activo: true,
       OR: [
         { razonSocial: { contains: q } },
         { cuit: { contains: q } },
         { contactoComercial: { contains: q } }
       ]
-    } : undefined,
+    } : { eliminado: false, activo: true },
     select: { id: true, razonSocial: true, cuit: true, telefono: true, mail: true, direccion: true, contactoComercial: true, observaciones: true },
     orderBy: { razonSocial: 'asc' },
     take: q ? 50 : undefined
@@ -464,6 +493,28 @@ app.put('/proveedores/:id', asyncHandler(async (req, res) => {
   res.json(proveedor);
 }));
 
+app.delete('/proveedores/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { password, motivo } = req.body || {};
+  if (!validarPasswordEliminacion(password)) return res.status(401).json({ error: 'Contraseña incorrecta para eliminar' });
+  const existente = await prisma.proveedor.findUnique({ where: { id } });
+  if (!existente) return res.status(404).json({ error: 'Proveedor no encontrado' });
+  await prisma.proveedor.update({ where: { id }, data: { eliminado: true, activo: false, eliminadoAt: new Date(), eliminadoPor: req.headers['x-usuario'] || 'sistema', motivoEliminacion: String(motivo || '').trim() || null } });
+  res.json({ ok: true });
+}));
+
+app.post('/eliminados/restaurar', asyncHandler(async (req, res) => {
+  const tipo = String(req.body?.tipo || '').toUpperCase();
+  const id = parsePositiveInt(req.body?.id);
+  if (!id || !['CLIENTE', 'PRODUCTO', 'PROVEEDOR'].includes(tipo)) return res.status(400).json({ error: 'tipo o id inválido' });
+  const data = { eliminado: false, activo: true, eliminadoAt: null, eliminadoPor: null, motivoEliminacion: null };
+  if (tipo === 'CLIENTE') await prisma.persona.update({ where: { id }, data });
+  if (tipo === 'PRODUCTO') await prisma.producto.update({ where: { id }, data });
+  if (tipo === 'PROVEEDOR') await prisma.proveedor.update({ where: { id }, data });
+  res.json({ ok: true });
+}));
+
 app.get('/proveedores/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
@@ -482,6 +533,8 @@ app.get('/proveedores/:id/productos', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await prisma.producto.findMany({
     where: {
+      eliminado: false,
+      activo: true,
       proveedores: { some: { proveedorId: id } },
       ...(q ? { OR: [{ nombre: { contains: q } }, { categoria: { contains: q } }, { marca: { contains: q } }] } : {})
     },
@@ -605,7 +658,7 @@ app.post('/productos/:id/stock', asyncHandler(async (req, res) => {
 }));
 
 app.get('/stock', asyncHandler(async (_req, res) => {
-  const productos = await prisma.producto.findMany({ include: { proveedores: true }, orderBy: { nombre: 'asc' } });
+  const productos = await prisma.producto.findMany({ where: { eliminado: false, activo: true }, include: { proveedores: true }, orderBy: { nombre: 'asc' } });
   res.json(productos.map(p => ({
     productoId: p.id,
     productoNombre: p.nombre,
@@ -619,12 +672,12 @@ app.get('/stock', asyncHandler(async (_req, res) => {
 }));
 
 app.get('/stock/bajo', asyncHandler(async (_req, res) => {
-  const productos = await prisma.producto.findMany({ where: { stock: { gt: 0 } }, include: { proveedores: true }, orderBy: { nombre: 'asc' } });
+  const productos = await prisma.producto.findMany({ where: { stock: { gt: 0 }, eliminado: false, activo: true }, include: { proveedores: true }, orderBy: { nombre: 'asc' } });
   res.json(productos.filter(p => p.stock <= Number(p.stockMinimo || 0)).map(p => ({ productoId: p.id, productoNombre: p.nombre, cantidadActual: p.stock, stockMinimo: p.stockMinimo || 0, unidad: p.unidad || 'UN', estado: 'BAJO_STOCK' })));
 }));
 
 app.get('/stock/sin-proveedor', asyncHandler(async (_req, res) => {
-  const productos = await prisma.producto.findMany({ where: { proveedores: { none: {} } }, orderBy: { nombre: 'asc' } });
+  const productos = await prisma.producto.findMany({ where: { proveedores: { none: {} }, eliminado: false, activo: true }, orderBy: { nombre: 'asc' } });
   res.json(productos.map(p => ({ productoId: p.id, productoNombre: p.nombre, cantidadActual: p.stock, stockMinimo: p.stockMinimo || 0, unidad: p.unidad || 'UN' })));
 }));
 
@@ -658,7 +711,7 @@ async function buscarClientesConEstadisticas(query = '') {
       { cuitDni: { contains: q } },
       { mail: { contains: q } }
     ]
-  } : undefined;
+  } : { eliminado: false, activo: true };
 
   const personas = await prisma.persona.findMany({
     where,
@@ -680,6 +733,17 @@ async function buscarClientesConEstadisticas(query = '') {
 app.get('/clientes', asyncHandler(async (req, res) => {
   const clientes = await buscarClientesConEstadisticas(req.query.q || '');
   res.json(clientes);
+}));
+
+app.delete('/clientes/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const { password, motivo } = req.body || {};
+  if (!validarPasswordEliminacion(password)) return res.status(401).json({ error: 'Contraseña incorrecta para eliminar' });
+  const existente = await prisma.persona.findUnique({ where: { id } });
+  if (!existente) return res.status(404).json({ error: 'Cliente no encontrado' });
+  await prisma.persona.update({ where: { id }, data: { eliminado: true, activo: false, eliminadoAt: new Date(), eliminadoPor: req.headers['x-usuario'] || 'sistema', motivoEliminacion: String(motivo || '').trim() || null } });
+  res.json({ ok: true });
 }));
 
 app.get('/personas', asyncHandler(async (req, res) => {
