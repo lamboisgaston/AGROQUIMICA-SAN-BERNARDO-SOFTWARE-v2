@@ -30,6 +30,11 @@ model Producto {
   detalleRemitos    DetalleRemitoProveedor[]
   presupuestoItems  PresupuestoItem[]
   categorias        Categoria[]
+  activo            Boolean    @default(true)
+  eliminado         Boolean    @default(false)
+  eliminadoAt       DateTime?
+  eliminadoPor      String?
+  motivoEliminacion String?
 }
 
 model Categoria {
@@ -53,6 +58,11 @@ model Proveedor {
   observaciones      String?
   productos      ProductoProveedor[]
   remitos        RemitoProveedor[]
+  activo            Boolean    @default(true)
+  eliminado         Boolean    @default(false)
+  eliminadoAt       DateTime?
+  eliminadoPor      String?
+  motivoEliminacion String?
 }
 
 model ProductoProveedor {
@@ -125,6 +135,11 @@ model Persona {
   ventas          Venta[]
   presupuestos    Presupuesto[]
   cuentaCorriente CuentaCorriente?
+  activo            Boolean    @default(true)
+  eliminado         Boolean    @default(false)
+  eliminadoAt       DateTime?
+  eliminadoPor      String?
+  motivoEliminacion String?
 }
 
 model Presupuesto {
