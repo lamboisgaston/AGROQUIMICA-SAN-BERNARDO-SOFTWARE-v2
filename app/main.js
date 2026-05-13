@@ -622,21 +622,22 @@ function renderPresupuestoProductos() {
     return { ...it, subtotal: Math.max(0, base - desc) };
   });
   const subtotal = presupuestoItems.reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
-  const descuentoPorcentaje = Math.max(0, Number($('#pres-descuento')?.value || 0));
+  const descuentoInput = $('#pres-descuento');
+  const descuentoBloque = $('#pres-descuento-bloque');
+  const msgDescuento = $('#pres-descuento-msg');
+  const condicion = $('#pres-condicion-pago-prevista')?.value || '';
+  const hayClienteSeleccionado = presupuestoTipoDestinatario === 'EXISTENTE' && Boolean(presupuestoClienteId);
+  const descuentoHabilitado = presupuestoItems.length > 0 && hayClienteSeleccionado;
+  if (descuentoBloque) descuentoBloque.style.display = presupuestoItems.length ? 'block' : 'none';
+  if (descuentoInput) descuentoInput.disabled = !descuentoHabilitado;
+  if (!descuentoHabilitado && descuentoInput) descuentoInput.value = '0';
+  const descuentoPorcentaje = Math.max(0, Number(descuentoInput?.value || 0));
   const importeDescontado = subtotal * (descuentoPorcentaje / 100);
   const ajusteRedondeo = Number($('#pres-ajuste-redondeo')?.value || 0);
   const total = Math.max(0, subtotal - importeDescontado + ajusteRedondeo);
-  const descuentoBloque = $('#pres-descuento-bloque');
-  const descuentoInput = $('#pres-descuento');
-  const msgDescuento = $('#pres-descuento-msg');
-  const condicion = $('#pres-condicion-pago-prevista')?.value || '';
-  const descuentoHabilitado = presupuestoItems.length > 0 && (presupuestoTipoDestinatario === 'EXISTENTE');
-  if (descuentoBloque) descuentoBloque.style.display = presupuestoItems.length ? 'block' : 'none';
-  if (descuentoInput) descuentoInput.disabled = !descuentoHabilitado;
   if (msgDescuento) msgDescuento.textContent = (!presupuestoItems.length || descuentoHabilitado)
     ? ''
-    : 'Para aplicar descuento debe seleccionar o dar de alta un cliente.';
-  if (!descuentoHabilitado && descuentoInput) descuentoInput.value = '0';
+    : 'Para aplicar descuento debe seleccionar un cliente.';
   if (presupuestoTipoDestinatario !== 'EXISTENTE') presupuestoClienteId = null;
   const condicionRequerida = (descuentoPorcentaje > 0 || ajusteRedondeo !== 0);
   $('#pres-condicion-pago-prevista').required = condicionRequerida;
@@ -1481,7 +1482,8 @@ $('#pres-ajuste-redondeo').addEventListener('input', renderPresupuestoProductos)
 $('#pres-condicion-pago-prevista').addEventListener('change', renderPresupuestoProductos);
 function aplicarRedondeoPresupuesto(base) {
   const subtotal = presupuestoItems.reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
-  const descuentoPorcentaje = Math.max(0, Number($('#pres-descuento')?.value || 0));
+  const hayClienteSeleccionado = presupuestoTipoDestinatario === 'EXISTENTE' && Boolean(presupuestoClienteId);
+  const descuentoPorcentaje = hayClienteSeleccionado ? Math.max(0, Number($('#pres-descuento')?.value || 0)) : 0;
   const parcial = Math.max(0, subtotal - (subtotal * (descuentoPorcentaje / 100)));
   const objetivo = Math.round(parcial / base) * base;
   $('#pres-ajuste-redondeo').value = (objetivo - parcial).toFixed(2);
@@ -1507,7 +1509,8 @@ $('#pres-guardar').addEventListener('click', async () => {
     if (presupuestoTipoDestinatario === 'EXISTENTE' && !presupuestoClienteId) throw new Error('Debe seleccionar una persona/empresa');
     if (presupuestoTipoDestinatario === 'LIBRE' && !presupuestoNombreLibre) throw new Error('Debe ingresar nombre manual para presupuesto libre');
     if (!presupuestoItems.length) throw new Error('Debe agregar al menos un producto');
-    const descuentoValor = Math.max(0, Number($('#pres-descuento').value || 0));
+    const hayClienteSeleccionado = presupuestoTipoDestinatario === 'EXISTENTE' && Boolean(presupuestoClienteId);
+    const descuentoValor = hayClienteSeleccionado ? Math.max(0, Number($('#pres-descuento').value || 0)) : 0;
     const ajusteRedondeo = Number($('#pres-ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#pres-condicion-pago-prevista').value || null;
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
