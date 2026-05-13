@@ -963,6 +963,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
     body { font-family: Arial, sans-serif; margin: 24px; color:#111; }
     .wrap { max-width: 900px; margin:0 auto; }
     .head { display:flex; justify-content:space-between; border-bottom:2px solid #222; padding-bottom:10px; }
+    .institutional-signature { margin-top:4px; color:#334155; font-size:11px; line-height:1.25; }
     table { width:100%; border-collapse: collapse; margin-top:16px; }
     th, td { border:1px solid #ccc; padding:8px; }
     th { background:#f2f2f2; }
@@ -977,6 +978,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
     <div class="head">
       <div>
         <h1>Agroquímica y Fumigaciones San Bernardo</h1>
+        <div class="institutional-signature">Creadores de las plataformas de gestión:<br/>www.jardinerosya.com<br/>www.fumigadoresya.com</div>
         <div>Dirección: Chile 1455</div>
       </div>
       <div>
@@ -1048,13 +1050,17 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 
   const drawPageHeader = () => {
     const { left, right, width, top } = getBounds();
-    doc.rect(left, top, width, 64).fill('#f6f6f6');
+    doc.rect(left, top, width, 84).fill('#f6f6f6');
     doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica San Bernardo', left + 12, top + 12, { width: width * 0.55 });
-    doc.fontSize(11).text('Ingeniería Lambois', left + 12, top + 34, { width: width * 0.55 });
+    doc.fontSize(11).text('Ingeniería Lambois', left + 12, top + 32, { width: width * 0.55 });
+    doc.fillColor('#334155').font('Helvetica').fontSize(8).text('Creadores de las plataformas de gestión:', left + 12, top + 46, { width: width * 0.55 });
+    doc.text('www.jardinerosya.com', left + 12, top + 56, { width: width * 0.55 });
+    doc.text('www.fumigadoresya.com', left + 12, top + 66, { width: width * 0.55 });
+    doc.fillColor('#111');
     doc.font('Helvetica').fontSize(11).text(`Presupuesto #${p.id}`, right - 170, top + 12, { width: 160, align: 'right' });
     doc.text(`Fecha: ${fecha}`, right - 170, top + 28, { width: 160, align: 'right' });
     doc.text(`Estado: ${p.estado}`, right - 170, top + 44, { width: 160, align: 'right' });
-    return top + 78;
+    return top + 98;
   };
 
   const ensureSpace = (y, needed, drawTableHeader) => {
@@ -1632,6 +1638,7 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
     <style>
       body { font-family: Arial, sans-serif; margin: 16px; max-width: 420px; }
       h1 { margin: 0 0 8px; font-size: 18px; }
+      .institutional-signature { margin: 0 0 8px; color: #334155; font-size: 11px; line-height: 1.25; }
       p { margin: 4px 0; }
       table { width: 100%; border-collapse: collapse; margin-top: 10px; }
       th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
@@ -1641,6 +1648,7 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   </head>
   <body>
     <h1>${escapeHtml(negocio)}</h1>
+    <p class="institutional-signature">Creadores de las plataformas de gestión:<br/>www.jardinerosya.com<br/>www.fumigadoresya.com</p>
     <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
     <p><strong>Número de venta:</strong> #${venta.id}</p>
     <p><strong>Cliente:</strong> ${escapeHtml(cliente)}</p>
