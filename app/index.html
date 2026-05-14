@@ -135,10 +135,28 @@
 
     <section class="bloque app-shell caja-workbench" data-modulo="caja">
       <div class="caja-header">
-        <h2>Caja</h2>
-        <div class="caja-toolbar"><strong>Pendientes y cobro</strong></div>
+        <h2>CAJA 2.0 - NUEVO DISEÑO</h2>
       </div>
-      <div id="pendientes" class="pendientes-grid">Cargando...</div>
+
+      <div class="caja-resumen-grid">
+        <div class="item"><strong>Total vendido</strong><p id="resumen-total">$0</p></div>
+        <div class="item"><strong>Efectivo</strong><p id="resumen-efectivo">$0</p></div>
+        <div class="item"><strong>Transferencia</strong><p id="resumen-transferencia">$0</p></div>
+        <div class="item"><strong>Cuenta corriente</strong><p id="resumen-cuenta-corriente">$0</p></div>
+        <div class="item"><strong>Caja real</strong><p id="resumen-caja-real">$0</p></div>
+      </div>
+
+      <div class="caja-dos-columnas">
+        <section>
+          <h3>Pendientes de cobro</h3>
+          <div id="pendientes" class="pendientes-grid">Cargando...</div>
+        </section>
+
+        <section>
+          <h3>Cobradas recientes</h3>
+          <div id="cobradas-recientes" class="pendientes-grid">Cargando...</div>
+        </section>
+      </div>
     </section>
 
     <section class="bloque app-shell compact-form" data-modulo="cuenta-corriente">

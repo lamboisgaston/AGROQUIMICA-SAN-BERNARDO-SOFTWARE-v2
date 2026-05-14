@@ -880,6 +880,9 @@ async function abrirModulo(modulo) {
   if (modulo === 'eliminados') {
     await loadEliminados();
   }
+  if (modulo === 'caja') {
+    await loadCaja20();
+  }
 }
 
 async function loadEliminados() {
@@ -1232,6 +1235,85 @@ $('#btn-cc-registrar-pago').addEventListener('click', async () => {
 });
 
 
+
+
+
+async function loadCaja20() {
+  const [pendientes, resumen, cobradas] = await Promise.all([
+    api('/caja/ventas'),
+    api('/caja/resumen'),
+    api('/ventas/cobradas-recientes')
+  ]);
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = money(value || 0);
+  };
+
+  setText('resumen-total', resumen.totalGeneral || resumen.totalVendido || 0);
+  setText('resumen-efectivo', resumen.efectivo || 0);
+  setText('resumen-transferencia', resumen.transferencia || 0);
+  setText('resumen-cuenta-corriente', resumen.cuentaCorriente || 0);
+
+  const cajaReal = Number(resumen.efectivo || 0) + Number(resumen.transferencia || 0) + Number(resumen.tarjeta || 0);
+  setText('resumen-caja-real', cajaReal);
+
+  const pendientesEl = document.getElementById('pendientes');
+  if (pendientesEl) {
+    pendientesEl.innerHTML = pendientes.length
+      ? pendientes.map(v => `
+        <div class="item">
+          <h3>${v.persona?.nombre || 'Consumidor final'}</h3>
+          <p><strong>Total:</strong> ${money(v.total)}</p>
+          <p><strong>Condición prevista:</strong> ${v.condicionPagoPrevista || 'Sin definir'}</p>
+          <p><strong>Venta:</strong> #${v.id}</p>
+          <div class="action-row">
+            <button data-caja20-cobrar="${v.id}" data-medio="EFECTIVO">Efectivo</button>
+            <button data-caja20-cobrar="${v.id}" data-medio="TRANSFERENCIA">Transferencia</button>
+            <button data-caja20-cobrar="${v.id}" data-medio="CUENTA_CORRIENTE">Cuenta corriente</button>
+          </div>
+        </div>
+      `).join('')
+      : '<div class="item">No hay ventas pendientes de cobro.</div>';
+  }
+
+  const cobradasEl = document.getElementById('cobradas-recientes');
+  if (cobradasEl) {
+    cobradasEl.innerHTML = cobradas.length
+      ? cobradas.map(v => `
+        <div class="item">
+          <h3>${v.persona?.nombre || 'Consumidor final'}</h3>
+          <p><strong>Total:</strong> ${money(v.total)}</p>
+          <p><strong>Medio:</strong> ${v.medioPago || 'Sin medio'}</p>
+          <p><strong>Venta:</strong> #${v.id}</p>
+        </div>
+      `).join('')
+      : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
+  }
+}
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-caja20-cobrar]');
+  if (!btn) return;
+
+  const ventaId = btn.dataset.caja20Cobrar;
+  const medio = btn.dataset.medio;
+
+  try {
+    await api(`/caja/cobrar/${ventaId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        medioPago: medio,
+        estadoCobroReal: medio === 'CUENTA_CORRIENTE' ? 'CUENTA_CORRIENTE' : 'PAGADO'
+      })
+    });
+
+    await loadCaja20();
+    setMsg('✅ Venta procesada correctamente');
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
 
 
 $('#caja-fecha').addEventListener('change', async (e) => {
