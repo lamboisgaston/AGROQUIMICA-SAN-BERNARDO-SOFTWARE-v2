@@ -972,20 +972,28 @@ app.get('/pedidos', asyncHandler(async (_req, res) => {
 }));
 
 app.post('/pedidos', asyncHandler(async (req, res) => {
-  const { proveedorId, fecha, tipo, observaciones, estado, items = [] } = req.body || {};
+  const { proveedorId, fecha, tipoPedido, observaciones, estado, items = [] } = req.body || {};
   if (!proveedorId) return res.status(400).json({ error: 'proveedorId es obligatorio' });
   if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe agregar al menos un producto' });
-  const tipoPedido = Object.values(TipoPedido).includes(tipo) ? tipo : TipoPedido.SOLICITUD_PRESUPUESTO;
+  const tipoPedidoNormalizado = Object.values(TipoPedido).includes(tipoPedido) ? tipoPedido : TipoPedido.SOLICITUD_PRESUPUESTO;
   const estadoPedido = Object.values(EstadoPedido).includes(estado) ? estado : EstadoPedido.BORRADOR;
   const proveedor = await prisma.proveedor.findUnique({ where: { id: Number(proveedorId) } });
   if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
+  const itemInvalido = items.find((i) => (
+    !Number.isInteger(Number(i?.productoId))
+    || String(i?.nombre || '').trim() === ''
+    || !Number.isFinite(Number(i?.cantidad))
+    || Number(i?.cantidad) <= 0
+    || String(i?.unidad || '').trim() === ''
+  ));
+  if (itemInvalido) return res.status(400).json({ error: 'Cada item debe incluir productoId, nombre, cantidad y unidad válidos' });
 
   const pedido = await prisma.$transaction(async (tx) => {
     const nuevo = await tx.pedido.create({
       data: {
         proveedorId: Number(proveedorId),
         fecha: fecha ? new Date(fecha) : new Date(),
-        tipo: tipoPedido,
+        tipo: tipoPedidoNormalizado,
         observaciones: (observaciones || '').trim() || null,
         estado: estadoPedido
       }
@@ -1003,6 +1011,17 @@ app.post('/pedidos', asyncHandler(async (req, res) => {
     return tx.pedido.findUnique({ where: { id: nuevo.id }, include: { proveedor: true, items: { include: { producto: true } } } });
   });
   res.status(201).json(pedido);
+}));
+
+app.get('/pedidos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const pedido = await prisma.pedido.findUnique({
+    where: { id },
+    include: { proveedor: true, items: { include: { producto: true } } }
+  });
+  if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+  res.json(pedido);
 }));
 
 app.get('/pedidos/:id/imprimir', asyncHandler(async (req, res) => {

@@ -1913,11 +1913,11 @@ $('#ped-guardar')?.addEventListener('click', async () => {
   try {
     if (!pedidoProveedorId) return setMsg('Debe seleccionar proveedor para guardar pedido formal', 'warning');
     if (!pedidoItems.length) return setMsg('Debe agregar productos al carrito', 'warning');
-    const creado = await api('/pedidos', { method: 'POST', body: JSON.stringify({ proveedorId: pedidoProveedorId, fecha: $('#ped-fecha').value || new Date().toISOString(), tipo: $('#ped-tipo').value, observaciones: $('#ped-observaciones').value, items: pedidoItems }) });
+    const creado = await api('/pedidos', { method: 'POST', body: JSON.stringify({ proveedorId: pedidoProveedorId, fecha: $('#ped-fecha').value || new Date().toISOString(), tipoPedido: $('#ped-tipo').value, observaciones: $('#ped-observaciones').value, items: pedidoItems }) });
     pedidoItems = [];
     renderPedidoProductos();
     await loadPedidos();
-    setMsg(`Pedido #${creado.id} guardado`);
+    setMsg('Pedido guardado correctamente');
   } catch (err) {
     setMsg(err.message, 'error');
   }
