@@ -611,9 +611,21 @@ function renderPedidoProductos() {
   $('#ped-productos').innerHTML = items.join('') || '<div class="item">Sin resultados</div>';
   $('#ped-carrito').innerHTML = pedidoItems.length ? pedidoItems.map((it) => `<div class="item">${it.nombre} | Cantidad: ${it.cantidad} | Unidad: ${it.unidad}</div>`).join('') : '<div class="item">Carrito vacío</div>';
 }
+async function armarMensajePedidoProveedor(pedido) {
+  const tipoTexto = pedido.tipo === 'SOLICITUD_PRESUPUESTO'
+    ? 'solicitud de presupuesto'
+    : 'orden de pedido y envío';
+  return `Hola ${pedido.proveedor?.contactoComercial || ''}, compartimos ${tipoTexto} #${pedido.id} de Agroquímica San Bernardo.
+Ver detalle e imprimir: ${window.location.origin}/pedidos/${pedido.id}/imprimir`;
+}
+
 async function loadPedidos() {
   const lista = await api('/pedidos');
-  $('#ped-lista').innerHTML = (lista || []).map((p) => `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo} <a class="btn-link" href="/pedidos/${p.id}/imprimir" target="_blank">Imprimir</a> <button data-ped-wa="${p.id}">WhatsApp</button> <button data-ped-mail="${p.id}">Email</button></div>`).join('') || '<div class="item">Sin pedidos</div>';
+  $('#ped-lista').innerHTML = (lista || []).map((p) => {
+    const tel = normalizarTelefonoWhatsapp(p.proveedor?.telefono || '');
+    const mail = String(p.proveedor?.mail || '').trim();
+    return `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo} <a class="btn-link" href="/pedidos/${p.id}/imprimir" target="_blank">Imprimir</a> <button data-ped-wa="${p.id}" data-ped-wa-telefono="${tel}" ${tel ? '' : 'disabled'}>WhatsApp</button> <button data-ped-mail="${p.id}" data-ped-mail-destino="${mail}" ${mail ? '' : 'disabled'}>Email</button></div>`;
+  }).join('') || '<div class="item">Sin pedidos</div>';
 }
 function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
   return `Hola, te compartimos el presupuesto #${presupuestoId} de Agroquímica San Bernardo. Total: ${money(total)}. Adjuntamos el PDF del presupuesto.`;
@@ -1888,8 +1900,24 @@ document.addEventListener('click', async (e) => {
   if (add) { const id = Number(add.dataset.pedAdd); const prod = productos.find((p) => p.id === id) || productosPedidoVisibles.find((p) => p.id === id); const it = pedidoItems.find((x) => x.productoId === id); if (it) it.cantidad += 1; else pedidoItems.push({ productoId: id, cantidad: 1, unidad: prod?.unidad || 'UN', nombre: prod?.nombre || `#${id}` }); renderPedidoProductos(); }
   if (del) { const id = Number(del.dataset.pedDel); const it = pedidoItems.find((x) => x.productoId === id); if (it) { it.cantidad -= 1; if (it.cantidad <= 0) pedidoItems = pedidoItems.filter((x) => x.productoId !== id); } renderPedidoProductos(); }
   if (rm) { const id = Number(rm.dataset.pedRm); pedidoItems = pedidoItems.filter((x) => x.productoId !== id); renderPedidoProductos(); }
-  if (wa) { const url = `${window.location.origin}/pedidos/${Number(wa.dataset.pedWa)}/imprimir`; window.open(`https://wa.me/?text=${encodeURIComponent('Adjuntamos pedido a proveedor: ' + url)}`, '_blank'); }
-  if (mail) { const url = `${window.location.origin}/pedidos/${Number(mail.dataset.pedMail)}/imprimir`; window.location.href = `mailto:?subject=${encodeURIComponent('Pedido a proveedor')}&body=${encodeURIComponent('Compartimos el pedido: ' + url)}`; }
+  if (wa) {
+    const pedidoId = Number(wa.dataset.pedWa);
+    const telefono = normalizarTelefonoWhatsapp(wa.dataset.pedWaTelefono || '');
+    if (!telefono) return setMsg('El proveedor no tiene teléfono para WhatsApp', 'warning');
+    const pedido = (await api('/pedidos')).find((x) => x.id === pedidoId);
+    if (!pedido) return setMsg('Pedido no encontrado', 'warning');
+    const msg = armarMensajePedidoProveedor(pedido);
+    window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+  if (mail) {
+    const pedidoId = Number(mail.dataset.pedMail);
+    const destino = String(mail.dataset.pedMailDestino || '').trim();
+    if (!destino) return setMsg('El proveedor no tiene email cargado', 'warning');
+    const pedido = (await api('/pedidos')).find((x) => x.id === pedidoId);
+    if (!pedido) return setMsg('Pedido no encontrado', 'warning');
+    const body = armarMensajePedidoProveedor(pedido);
+    window.location.href = `mailto:${encodeURIComponent(destino)}?subject=${encodeURIComponent(`Pedido #${pedido.id} - Agroquímica San Bernardo`)}&body=${encodeURIComponent(body)}`;
+  }
 });
 renderPresupuestoProductos();
   await loadPresupuestos();
