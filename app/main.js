@@ -1258,6 +1258,7 @@ async function loadCaja20() {
   setText('resumen-total', resumen.totalGeneral || resumen.totalVendido || 0);
   setText('resumen-efectivo', resumen.efectivo || 0);
   setText('resumen-transferencia', resumen.transferencia || 0);
+  setText('resumen-tarjeta', resumen.tarjeta || 0);
   setText('resumen-cuenta-corriente', resumen.cuentaCorriente || 0);
 
   const cajaReal = Number(resumen.efectivo || 0) + Number(resumen.transferencia || 0) + Number(resumen.tarjeta || 0);
@@ -1295,6 +1296,35 @@ async function loadCaja20() {
       `).join('')
       : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
   }
+}
+
+async function cerrarCajaDesdeCaja20() {
+  const fechaCaja = $('#caja-fecha')?.value || undefined;
+  const turno = $('#caja-turno')?.value || 'DIARIO';
+  const resumen = await api('/caja/resumen' + (fechaCaja ? `?fecha=${encodeURIComponent(fechaCaja)}&turno=${encodeURIComponent(turno)}` : `?turno=${encodeURIComponent(turno)}`));
+  const operaciones = Number(resumen.cantidadVentasCobradas || resumen.cantidadOperaciones || 0);
+  const efectivo = Number(resumen.efectivo || 0);
+  const transferencia = Number(resumen.transferencia || 0);
+  const tarjeta = Number(resumen.tarjeta || 0);
+  const cuentaCorriente = Number(resumen.cuentaCorriente || 0);
+  const totalReal = efectivo + transferencia + tarjeta + cuentaCorriente;
+
+  const confirma = window.confirm(
+    `Confirmar cierre de caja\n\n` +
+    `Turno: ${turno}\n` +
+    `Efectivo: ${money(efectivo)}\n` +
+    `Transferencia: ${money(transferencia)}\n` +
+    `Tarjeta: ${money(tarjeta)}\n` +
+    `Cuenta corriente: ${money(cuentaCorriente)}\n` +
+    `Total real: ${money(totalReal)}\n` +
+    `Operaciones: ${operaciones}\n\n` +
+    `¿Desea cerrar caja ahora?`
+  );
+  if (!confirma) return;
+
+  await api('/caja/cerrar', { method: 'POST', body: JSON.stringify({ fechaCaja, turno }) });
+  await Promise.all([loadResumenCaja(), loadCierresCaja(), loadCaja20()]);
+  setMsg('✅ Caja cerrada, caja activa actualizada e historial disponible');
 }
 
 document.addEventListener('click', async (e) => {
@@ -1341,10 +1371,15 @@ $('#btn-ver-caja').addEventListener('click', async () => {
 
 $('#btn-cerrar-caja').addEventListener('click', async () => {
   try {
-    await api('/caja/cerrar', { method: 'POST', body: JSON.stringify({ fechaCaja: $('#caja-fecha').value || undefined, turno: $('#caja-turno')?.value || 'DIARIO' }) });
-    await loadResumenCaja();
-    await loadCierresCaja();
-    setMsg('✅ Caja cerrada correctamente');
+    await cerrarCajaDesdeCaja20();
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
+
+$('#btn-caja20-cerrar')?.addEventListener('click', async () => {
+  try {
+    await cerrarCajaDesdeCaja20();
   } catch (err) {
     setMsg(err.message);
   }
