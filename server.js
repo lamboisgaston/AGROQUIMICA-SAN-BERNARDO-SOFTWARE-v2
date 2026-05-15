@@ -72,8 +72,8 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina(), t
       },
       select: { total: true, medioPago: true }
     }),
-    prisma.cierreCajaDiario.findUnique({
-      where: { fechaCaja_turno: { fechaCaja, turno } },
+    prisma.cierreCajaDiario.findFirst({
+      where: { fechaCaja, turno },
       select: { id: true, fecha: true, fechaCaja: true }
     })
   ]);
@@ -1712,8 +1712,8 @@ app.post('/caja/cerrar', requireCajaRole, asyncHandler(async (req, res) => {
   const rango = obtenerRangoDiaCaja(fechaCaja);
   const inicio = rango.inicio;
 
-  const existente = await prisma.cierreCajaDiario.findUnique({
-    where: { fechaCaja_turno: { fechaCaja, turno } }
+  const existente = await prisma.cierreCajaDiario.findFirst({
+    where: { fechaCaja, turno }
   });
 
   if (existente) {
@@ -1853,7 +1853,14 @@ app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req,
 app.use((err, req, res, next) => {
   console.error('[backend-error]', { method: req.method, path: req.path, message: err.message, stack: err.stack });
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: err.message || 'Error interno del servidor', stack: err.stack, path: req.path, method: req.method });
+  const esRutaCaja = req.path.startsWith('/caja');
+  const esErrorPrisma = typeof err?.name === 'string' && err.name.startsWith('Prisma');
+  const mensaje = (esRutaCaja && esErrorPrisma)
+    ? 'Error interno al procesar la caja'
+    : (err.message || 'Error interno del servidor');
+  const response = { error: mensaje, path: req.path, method: req.method };
+  if (process.env.NODE_ENV !== 'production') response.stack = err.stack;
+  res.status(500).json(response);
 });
 
 app.get('/app', (req, res) => {
