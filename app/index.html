@@ -135,7 +135,15 @@
 
     <section class="bloque app-shell caja-workbench" data-modulo="caja">
       <div class="caja-header">
-        <h2>CAJA 2.0 - NUEVO DISEÑO</h2>
+        <h2>CAJA 2.0 - OPERATIVA</h2>
+      </div>
+
+      <div class="caja-cierre-panel">
+        <div>
+          <p class="caja-cierre-label">Cierre de caja</p>
+          <p class="caja-cierre-meta">Acceso rápido y resumen operativo en tiempo real</p>
+        </div>
+        <button id="btn-caja20-cerrar" class="btn-cierre-principal">Cerrar caja</button>
       </div>
 
       <div class="caja-resumen-grid">
@@ -146,15 +154,15 @@
         <div class="item"><strong>Caja real</strong><p id="resumen-caja-real">$0</p></div>
       </div>
 
-      <div class="caja-dos-columnas">
+      <div class="caja-una-columna">
         <section>
           <h3>Pendientes de cobro</h3>
-          <div id="pendientes" class="pendientes-grid">Cargando...</div>
+          <div id="pendientes" class="pendientes-stack">Cargando...</div>
         </section>
 
         <section>
           <h3>Cobradas recientes</h3>
-          <div id="cobradas-recientes" class="pendientes-grid">Cargando...</div>
+          <div id="cobradas-recientes" class="pendientes-stack">Cargando...</div>
         </section>
       </div>
     </section>
