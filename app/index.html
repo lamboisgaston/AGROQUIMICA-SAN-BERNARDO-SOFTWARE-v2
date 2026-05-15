@@ -164,8 +164,33 @@
           <h3>Cobradas recientes</h3>
           <div id="cobradas-recientes" class="pendientes-stack">Cargando...</div>
         </section>
+
+        <section>
+          <h3>Historial de cierres</h3>
+          <div id="cierres-caja" class="pendientes-stack">Cargando...</div>
+        </section>
       </div>
     </section>
+
+    <dialog id="modal-cierre-caja" class="modal-cierre-caja">
+      <article>
+        <h3>Resumen de cierre de caja</h3>
+        <div class="resumen-cierre-lista">
+          <p>Efectivo: <strong id="modal-cierre-efectivo">$0</strong></p>
+          <p>Transferencia: <strong id="modal-cierre-transferencia">$0</strong></p>
+          <p>Tarjeta: <strong id="modal-cierre-tarjeta">$0</strong></p>
+          <p>Cuenta corriente: <strong id="modal-cierre-cc">$0</strong></p>
+          <p>Total vendido: <strong id="modal-cierre-total-vendido">$0</strong></p>
+          <p>Total cobrado: <strong id="modal-cierre-total-cobrado">$0</strong></p>
+          <p>Pendientes: <strong id="modal-cierre-pendientes">$0</strong></p>
+          <p>Cantidad de operaciones: <strong id="modal-cierre-operaciones">0</strong></p>
+        </div>
+        <div class="action-row">
+          <button id="btn-cancelar-cierre" type="button">Cancelar</button>
+          <button id="btn-confirmar-cierre" class="btn-primary" type="button">Confirmar cierre</button>
+        </div>
+      </article>
+    </dialog>
 
     <section class="bloque app-shell compact-form" data-modulo="cuenta-corriente">
       <h2>6) Cuenta corriente</h2>
@@ -208,7 +233,7 @@
       <button id="btn-ver-caja">Ver caja</button>
       <button id="btn-cerrar-caja">Cerrar caja</button>
       <h3>Cierres anteriores</h3>
-      <div id="cierres-caja" class="lista">Sin cierres</div>
+      <div id="cierres-caja-reportes" class="lista">Sin cierres</div>
     </section>
 
     <section class="bloque app-shell compact-form productos-modulo" data-modulo="productos">

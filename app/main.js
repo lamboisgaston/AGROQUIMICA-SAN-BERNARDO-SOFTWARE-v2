@@ -397,13 +397,15 @@ async function loadCierresCaja() {
   const turno = $('#caja-turno')?.value || 'DIARIO';
   const cierres = await api(`/caja/cierres?turno=${encodeURIComponent(turno)}`);
   const container = $('#cierres-caja');
+  const containerReportes = $('#cierres-caja-reportes');
 
   if (!cierres.length) {
-    container.innerHTML = '<div class="item">Sin cierres</div>';
+    if (container) container.innerHTML = '<div class="item">Sin cierres</div>';
+    if (containerReportes) containerReportes.innerHTML = '<div class="item">Sin cierres</div>';
     return;
   }
 
-  container.innerHTML = cierres.map(c => `
+  const htmlCierres = cierres.map(c => `
     <div class="item">
       <strong>${c.fechaCaja || new Date(c.fecha).toLocaleDateString()}</strong>
       | Turno ${c.turno || 'DIARIO'}
@@ -417,6 +419,8 @@ async function loadCierresCaja() {
       <button class="btn-eliminar-cierre" data-id="${c.id}">Eliminar cierre de prueba</button>
     </div>
   `).join('');
+  if (container) container.innerHTML = htmlCierres;
+  if (containerReportes) containerReportes.innerHTML = htmlCierres;
 
 
   document.querySelectorAll('.btn-ver-cierre').forEach(btn => {
@@ -1298,6 +1302,8 @@ async function loadCaja20() {
   }
 }
 
+let cierreCajaPendiente = null;
+
 async function cerrarCajaDesdeCaja20() {
   const fechaCaja = $('#caja-fecha')?.value || undefined;
   const turno = $('#caja-turno')?.value || 'DIARIO';
@@ -1307,22 +1313,28 @@ async function cerrarCajaDesdeCaja20() {
   const transferencia = Number(resumen.transferencia || 0);
   const tarjeta = Number(resumen.tarjeta || 0);
   const cuentaCorriente = Number(resumen.cuentaCorriente || 0);
-  const totalReal = efectivo + transferencia + tarjeta + cuentaCorriente;
+  const totalVendido = Number(resumen.totalGeneral || resumen.totalVendido || 0);
+  const totalCobrado = efectivo + transferencia + tarjeta + cuentaCorriente;
+  const pendientes = Math.max(0, totalVendido - totalCobrado);
 
-  const confirma = window.confirm(
-    `Confirmar cierre de caja\n\n` +
-    `Turno: ${turno}\n` +
-    `Efectivo: ${money(efectivo)}\n` +
-    `Transferencia: ${money(transferencia)}\n` +
-    `Tarjeta: ${money(tarjeta)}\n` +
-    `Cuenta corriente: ${money(cuentaCorriente)}\n` +
-    `Total real: ${money(totalReal)}\n` +
-    `Operaciones: ${operaciones}\n\n` +
-    `¿Desea cerrar caja ahora?`
-  );
-  if (!confirma) return;
+  cierreCajaPendiente = { fechaCaja, turno };
+  $('#modal-cierre-efectivo').textContent = money(efectivo);
+  $('#modal-cierre-transferencia').textContent = money(transferencia);
+  $('#modal-cierre-tarjeta').textContent = money(tarjeta);
+  $('#modal-cierre-cc').textContent = money(cuentaCorriente);
+  $('#modal-cierre-total-vendido').textContent = money(totalVendido);
+  $('#modal-cierre-total-cobrado').textContent = money(totalCobrado);
+  $('#modal-cierre-pendientes').textContent = money(pendientes);
+  $('#modal-cierre-operaciones').textContent = String(operaciones);
 
-  await api('/caja/cerrar', { method: 'POST', body: JSON.stringify({ fechaCaja, turno }) });
+  $('#modal-cierre-caja')?.showModal();
+}
+
+async function confirmarCierreCajaPendiente() {
+  if (!cierreCajaPendiente) return;
+  await api('/caja/cerrar', { method: 'POST', body: JSON.stringify(cierreCajaPendiente) });
+  $('#modal-cierre-caja')?.close();
+  cierreCajaPendiente = null;
   await Promise.all([loadResumenCaja(), loadCierresCaja(), loadCaja20()]);
   setMsg('✅ Caja cerrada, caja activa actualizada e historial disponible');
 }
@@ -1383,6 +1395,19 @@ $('#btn-caja20-cerrar')?.addEventListener('click', async () => {
   } catch (err) {
     setMsg(err.message);
   }
+});
+
+$('#btn-confirmar-cierre')?.addEventListener('click', async () => {
+  try {
+    await confirmarCierreCajaPendiente();
+  } catch (err) {
+    setMsg(err.message);
+  }
+});
+
+$('#btn-cancelar-cierre')?.addEventListener('click', () => {
+  $('#modal-cierre-caja')?.close();
+  cierreCajaPendiente = null;
 });
 
 $('#ventas-cobradas-fecha').addEventListener('change', (e) => {
