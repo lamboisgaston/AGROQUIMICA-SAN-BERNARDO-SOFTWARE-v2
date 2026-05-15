@@ -480,9 +480,11 @@ app.get('/proveedores', asyncHandler(async (req, res) => {
       eliminado: false,
       activo: true,
       OR: [
-        { razonSocial: { contains: q } },
-        { cuit: { contains: q } },
-        { contactoComercial: { contains: q } }
+        { razonSocial: { contains: q, mode: 'insensitive' } },
+        { cuit: { contains: q, mode: 'insensitive' } },
+        { contactoComercial: { contains: q, mode: 'insensitive' } },
+        { telefono: { contains: q, mode: 'insensitive' } },
+        { mail: { contains: q, mode: 'insensitive' } }
       ]
     } : { eliminado: false, activo: true },
     select: { id: true, razonSocial: true, cuit: true, telefono: true, mail: true, direccion: true, contactoComercial: true, observaciones: true },
