@@ -260,8 +260,7 @@ async function agregarProductoAlCarrito(productoId) {
     console.log('Producto agregado al carrito:', producto || { id: productoId });
     await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId, cantidad: 1 }) });
     await refreshVenta();
-    await loadCaja();
-    await loadResumenCaja();
+    await loadCaja20();
     $('#buscar-producto').value = '';
     indiceProductoSeleccionado = -1;
     renderProductos();
@@ -455,85 +454,9 @@ function getEstadoCobroOptions() {
 }
 
 async function loadCaja() {
-  const ventas = await api('/caja/ventas');
-  const ventasRecientesCobradas = await api('/ventas/cobradas-recientes');
-  $('#pendientes').innerHTML = ventas.length
-    ? ventas.map(v => {
-      const tieneCondicionPrevista = Boolean(v.condicionPagoPrevista);
-      const bloquePrevisto = tieneCondicionPrevista
-        ? `<strong>Previsto: ${v.condicionPagoPrevista}</strong>`
-        : '<strong>Previsto: -</strong>';
-      return `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${bloquePrevisto} | Total: ${money(v.total)} | <label>Estado cobro real: <select id="estado-cobro-${v.id}">${getEstadoCobroOptions()}</select></label>${v.personaId ? '' : ' <small>Cuenta corriente solo para clientes registrados</small>'} <button class="btn-cobrar" data-id="${v.id}" data-condicion-prevista="${v.condicionPagoPrevista || ''}">Confirmar en caja</button></div>`;
-    }).join('')
-    : 'No hay ventas pendientes';
-
-  const recientesHtml = ventasRecientesCobradas.length
-    ? ventasRecientesCobradas.map(v => `<div class="item">Venta #${v.id} | ${v.persona?.nombre || 'Consumidor final'} | ${money(v.total)} <button class="btn-ver-ticket" data-id="${v.id}">Ver ticket</button></div>`).join('')
-    : '<div class="item">Sin ventas cobradas recientes</div>';
-
-  $('#pendientes').innerHTML += `<h3>Ventas cobradas recientes</h3>${recientesHtml}`;
-
-  document.querySelectorAll('.btn-cobrar').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const ventaId = btn.dataset.id;
-      const seleccionCaja = document.querySelector(`#estado-cobro-${ventaId}`)?.value || 'EFECTIVO';
-      const mediosPagoPermitidos = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
-      const estadoCobroReal = mediosPagoPermitidos.includes(seleccionCaja)
-        ? 'PAGADO'
-        : seleccionCaja;
-      const formaPago = mediosPagoPermitidos.includes(seleccionCaja)
-        ? seleccionCaja
-        : undefined;
-      const medioPagoReal = formaPago;
-      const prevista = btn.dataset.condicionPrevista || '';
-      const payload = {
-        estadoCobroReal,
-        medioPagoReal,
-        formaPago
-      };
-
-      console.error('[caja] payload enviado para confirmar venta', { ventaId, payload, prevista });
-
-      try {
-        const res = await fetch(`/caja/cobrar/${ventaId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-        console.log('Respuesta:', data);
-
-        if (!res.ok) {
-          const backendError = data?.error || data?.message || 'Error desconocido';
-          alert('Error al cobrar: ' + backendError);
-          setMsg(`❌ ${backendError}`, 'error');
-          return;
-        }
-
-        alert('Venta confirmada en caja');
-        setMsg(`✅ Venta #${data.id} confirmada en caja. <button class=\"btn-ver-ticket-inline\" data-id=\"${data.id}\">Ver ticket</button>`);
-        await loadCaja();
-        const ticketBtn = document.querySelector('.btn-ver-ticket-inline');
-        if (ticketBtn) {
-          ticketBtn.addEventListener('click', () => {
-            window.open(`/ventas/${ticketBtn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
-          });
-        }
-
-      } catch (err) {
-        console.error(err);
-        alert('Error de conexión');
-      }
-    });
-  });
-
-  document.querySelectorAll('.btn-ver-ticket').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
-    });
-  });
+  await loadCaja20();
 }
+
 
 async function loadVentasCobradas() {
   const query = fechaVentasCobradasSeleccionada ? `?fecha=${encodeURIComponent(fechaVentasCobradasSeleccionada)}` : '';
@@ -1014,8 +937,7 @@ $('#carrito').addEventListener('click', async (e) => {
   try {
     await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, { method: 'PUT', body: JSON.stringify({ cantidad: Math.max(0, cantidad) }) });
     await refreshVenta();
-    await loadCaja();
-    await loadResumenCaja();
+    await loadCaja20();
   } catch (err) { setMsg(err.message); }
 });
 
@@ -1185,8 +1107,7 @@ $('#btn-cerrar').addEventListener('click', async () => {
     $('#venta-activa').textContent = 'Sin venta activa';
     renderCarrito();
     renderClienteActivo();
-    await loadCaja();
-    await loadResumenCaja();
+    await loadCaja20();
     logFlujo('caja actualizada');
     $('#descuento').value = '0';
     $('#descuento-tipo').value = 'PORCENTAJE';
@@ -1289,17 +1210,22 @@ async function loadCaja20() {
 
   const cobradasEl = document.getElementById('cobradas-recientes');
   if (cobradasEl) {
+    const cobradasOrdenadas = [...cobradas].sort((a, b) => {
+      const fechaA = new Date(a.cobradaAt || a.updatedAt || a.createdAt || 0).getTime();
+      const fechaB = new Date(b.cobradaAt || b.updatedAt || b.createdAt || 0).getTime();
+      if (fechaA !== fechaB) return fechaB - fechaA;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
     cobradasEl.innerHTML = cobradas.length
-      ? cobradas.map(v => `
-        <div class="item">
-          <h3>${v.persona?.nombre || 'Consumidor final'}</h3>
-          <p><strong>Total:</strong> ${money(v.total)}</p>
-          <p><strong>Medio:</strong> ${v.medioPago || 'Sin medio'}</p>
-          <p><strong>Venta:</strong> #${v.id}</p>
+      ? `<div class="cobradas-lista-compacta">${cobradasOrdenadas.map(v => `
+        <div class="item item-compacto">
+          <strong>#${v.id}</strong> · ${v.persona?.nombre || 'Consumidor final'} · ${v.medioPago || 'Sin medio'} · ${money(v.total)}
         </div>
-      `).join('')
+      `).join('')}</div>`
       : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
   }
+
+  await loadCierresCaja();
 }
 
 let cierreCajaPendiente = null;
@@ -1335,7 +1261,7 @@ async function confirmarCierreCajaPendiente() {
   await api('/caja/cerrar', { method: 'POST', body: JSON.stringify(cierreCajaPendiente) });
   $('#modal-cierre-caja')?.close();
   cierreCajaPendiente = null;
-  await Promise.all([loadResumenCaja(), loadCierresCaja(), loadCaja20()]);
+  await loadCaja20();
   setMsg('✅ Caja cerrada, caja activa actualizada e historial disponible');
 }
 
@@ -1915,10 +1841,8 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadPresupuestos();
   renderCarrito();
   renderClienteActivo();
-  await loadCaja();
+  await loadCaja20();
   await loadVentasCobradas();
-  await loadResumenCaja();
-  await loadCierresCaja();
   renderPanelCuentaCorriente(null);
   limpiarFormularioProducto();
   renderRemitoItems();
