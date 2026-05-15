@@ -29,6 +29,7 @@ model Producto {
   proveedores       ProductoProveedor[]
   detalleRemitos    DetalleRemitoProveedor[]
   presupuestoItems  PresupuestoItem[]
+  pedidoItems       PedidoItem[]
   categorias        Categoria[]
   activo            Boolean    @default(true)
   eliminado         Boolean    @default(false)
