@@ -448,7 +448,8 @@ function getEstadoCobroOptions() {
 async function loadCaja() {
   const ventas = await api('/caja/ventas');
   const ventasRecientesCobradas = await api('/ventas/cobradas-recientes');
-  $('#pendientes').innerHTML = ventas.length
+  $('#pendientes').innerHTML = '<div class="caja-banner">CAJA 2.0 - NUEVO DISEÑO</div>' ;
+  $('#pendientes').innerHTML += ventas.length
     ? ventas.map(v => {
       const tieneCondicionPrevista = Boolean(v.condicionPagoPrevista);
       const bloquePrevisto = tieneCondicionPrevista
