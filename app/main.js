@@ -604,12 +604,14 @@ function normalizarTelefonoWhatsapp(telefono) {
 
 function renderPedidoProductos() {
   const origen = productosPedidoVisibles.length ? productosPedidoVisibles : productos;
-  const items = origen.slice(0, 20).map((p) => {
+  const items = origen.slice(0, 30).map((p) => {
     const it = pedidoItems.find((x) => x.productoId === p.id);
-    return `<div class="item">${p.nombre} (${p.unidad || 'UN'}) <button data-ped-add="${p.id}">+</button> ${it ? `<strong>${it.cantidad}</strong> <button data-ped-del="${p.id}">-</button> <button data-ped-rm="${p.id}">Quitar</button>` : ''}</div>`;
+    return `<div class="item">${p.nombre} (${p.unidad || 'UN'}) <button data-ped-add="${p.id}">Agregar</button> ${it ? `<strong>${it.cantidad}</strong> <button data-ped-del="${p.id}">-</button> <button data-ped-rm="${p.id}">Quitar</button>` : ''}</div>`;
   });
   $('#ped-productos').innerHTML = items.join('') || '<div class="item">Sin resultados</div>';
-  $('#ped-carrito').innerHTML = pedidoItems.length ? pedidoItems.map((it) => `<div class="item">${it.nombre} | Cantidad: ${it.cantidad} | Unidad: ${it.unidad}</div>`).join('') : '<div class="item">Carrito vacío</div>';
+  $('#ped-carrito').innerHTML = pedidoItems.length
+    ? pedidoItems.map((it) => `<div class="item">${it.nombre} | Cantidad: ${it.cantidad} | Unidad: ${it.unidad}</div>`).join('')
+    : '<div class="item">Carrito vacío</div>';
 }
 async function armarMensajePedidoProveedor(pedido) {
   const tipoTexto = pedido.tipo === 'SOLICITUD_PRESUPUESTO'
@@ -1388,6 +1390,8 @@ $('#btn-guardar-tipo-cambio').addEventListener('click', async () => {
     await api('/config/tipo-cambio', { method: 'PUT', body: JSON.stringify({ tipoCambioActual: nuevo }) });
     await loadTipoCambio();
     await loadProductosAll();
+  productosPedidoVisibles = productos.slice(0, 30);
+  renderPedidoProductos();
     setMsg('Tipo de cambio actualizado');
   } catch (err) { setMsg(err.message); }
 });
@@ -1436,6 +1440,8 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
     console.log('[producto-guardado][frontend] respuesta ok', productoGuardado);
 
     await loadProductosAll();
+  productosPedidoVisibles = productos.slice(0, 30);
+  renderPedidoProductos();
     filtroProductosAdmin = '';
     $('#admin-buscar-producto').value = '';
     renderProductosAdmin();
@@ -1524,6 +1530,8 @@ $('#productos-admin').addEventListener('click', async (e) => {
   try {
     await eliminarConPassword(`/productos/${b.dataset.eliminarProducto}`, 'Producto');
     await loadProductosAll();
+  productosPedidoVisibles = productos.slice(0, 30);
+  renderPedidoProductos();
     await loadEliminados();
   } catch (err) { setMsg(`Error al eliminar producto: ${err.message}`, 'error'); }
 });
@@ -1781,6 +1789,8 @@ $('#btn-registrar-stock').addEventListener('click', async () => {
       })
     });
     await loadProductosAll();
+  productosPedidoVisibles = productos.slice(0, 30);
+  renderPedidoProductos();
     await cargarStockProducto();
     setMsg('Movimiento de stock registrado');
   } catch (err) { setMsg(err.message); }
@@ -1850,6 +1860,8 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
       })
     });
     await loadProductosAll();
+  productosPedidoVisibles = productos.slice(0, 30);
+  renderPedidoProductos();
     await cargarStockProducto();
     remitoDetalles = [];
     renderRemitoItems();
@@ -1864,6 +1876,8 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadTipoCambio();
   await loadProveedores();
   await loadProductosAll();
+  productosPedidoVisibles = productos.slice(0, 30);
+  renderPedidoProductos();
   await loadStockResumen('/stock');
   setModoProducto('AGREGAR');
   
@@ -1872,22 +1886,41 @@ $('#ped-tipo')?.addEventListener('change', (e) => {
     ? 'Solicitamos presupuesto de los siguientes productos/insumos'
     : 'Confirmamos orden de pedido y solicitamos envío de los siguientes productos/insumos';
 });
-$('#ped-btn-buscar-proveedor')?.addEventListener('click', async () => {
+async function buscarProveedoresPedido() {
   const q = $('#ped-buscar-proveedor').value.trim();
   const lista = await api('/proveedores?q=' + encodeURIComponent(q));
-  $('#ped-proveedores').innerHTML = (lista || []).map((p) => `<div class="item">${p.razonSocial} <button data-ped-prov="${p.id}" data-ped-prov-nombre="${p.razonSocial}">Seleccionar</button></div>`).join('') || '<div class="item">Sin resultados</div>';
+  $('#ped-proveedores').innerHTML = (lista || []).map((p) => `<div class="item ${pedidoProveedorId === p.id ? 'item-seleccionado' : ''}">
+      <span><b>${p.razonSocial}</b><br><small>CUIT: ${p.cuit || '-'} | Tel: ${p.telefono || '-'} | Mail: ${p.mail || '-'}</small></span>
+      <button data-ped-prov="${p.id}" data-ped-prov-nombre="${p.razonSocial}">Seleccionar</button>
+    </div>`).join('') || '<div class="item">Sin resultados</div>';
+}
+$('#ped-btn-buscar-proveedor')?.addEventListener('click', buscarProveedoresPedido);
+$('#ped-buscar-proveedor')?.addEventListener('input', () => {
+  const q = $('#ped-buscar-proveedor').value.trim();
+  if (q.length >= 2 || q.length === 0) buscarProveedoresPedido().catch((err) => setMsg(err.message, 'error'));
 });
 $('#ped-btn-buscar-producto')?.addEventListener('click', async () => {
   const q = $('#ped-buscar-producto').value.trim().toLowerCase();
-  productosPedidoVisibles = q ? await buscarProductos(q) : [];
+  productosPedidoVisibles = q ? await buscarProductos(q) : productos.slice(0, 30);
+  renderPedidoProductos();
+});
+$('#ped-buscar-producto')?.addEventListener('input', async () => {
+  const q = $('#ped-buscar-producto').value.trim().toLowerCase();
+  productosPedidoVisibles = q ? await buscarProductos(q) : productos.slice(0, 30);
   renderPedidoProductos();
 });
 $('#ped-guardar')?.addEventListener('click', async () => {
-  if (!pedidoProveedorId) throw new Error('Debe seleccionar proveedor');
-  if (!pedidoItems.length) throw new Error('Debe agregar productos');
-  const creado = await api('/pedidos', { method: 'POST', body: JSON.stringify({ proveedorId: pedidoProveedorId, fecha: $('#ped-fecha').value || new Date().toISOString(), tipo: $('#ped-tipo').value, observaciones: $('#ped-observaciones').value, items: pedidoItems }) });
-  pedidoItems = []; renderPedidoProductos(); await loadPedidos();
-  setMsg(`Pedido #${creado.id} guardado`);
+  try {
+    if (!pedidoProveedorId) return setMsg('Debe seleccionar proveedor para guardar pedido formal', 'warning');
+    if (!pedidoItems.length) return setMsg('Debe agregar productos al carrito', 'warning');
+    const creado = await api('/pedidos', { method: 'POST', body: JSON.stringify({ proveedorId: pedidoProveedorId, fecha: $('#ped-fecha').value || new Date().toISOString(), tipo: $('#ped-tipo').value, observaciones: $('#ped-observaciones').value, items: pedidoItems }) });
+    pedidoItems = [];
+    renderPedidoProductos();
+    await loadPedidos();
+    setMsg(`Pedido #${creado.id} guardado`);
+  } catch (err) {
+    setMsg(err.message, 'error');
+  }
 });
 document.addEventListener('click', async (e) => {
   const pp = e.target.closest('[data-ped-prov]');
@@ -1896,7 +1929,7 @@ document.addEventListener('click', async (e) => {
   const rm = e.target.closest('[data-ped-rm]');
   const wa = e.target.closest('[data-ped-wa]');
   const mail = e.target.closest('[data-ped-mail]');
-  if (pp) { pedidoProveedorId = Number(pp.dataset.pedProv); $('#ped-proveedor-activo').textContent = pp.dataset.pedProvNombre; }
+  if (pp) { pedidoProveedorId = Number(pp.dataset.pedProv); $('#ped-proveedor-activo').textContent = `${pp.dataset.pedProvNombre} (#${pedidoProveedorId})`; await buscarProveedoresPedido(); }
   if (add) { const id = Number(add.dataset.pedAdd); const prod = productos.find((p) => p.id === id) || productosPedidoVisibles.find((p) => p.id === id); const it = pedidoItems.find((x) => x.productoId === id); if (it) it.cantidad += 1; else pedidoItems.push({ productoId: id, cantidad: 1, unidad: prod?.unidad || 'UN', nombre: prod?.nombre || `#${id}` }); renderPedidoProductos(); }
   if (del) { const id = Number(del.dataset.pedDel); const it = pedidoItems.find((x) => x.productoId === id); if (it) { it.cantidad -= 1; if (it.cantidad <= 0) pedidoItems = pedidoItems.filter((x) => x.productoId !== id); } renderPedidoProductos(); }
   if (rm) { const id = Number(rm.dataset.pedRm); pedidoItems = pedidoItems.filter((x) => x.productoId !== id); renderPedidoProductos(); }
