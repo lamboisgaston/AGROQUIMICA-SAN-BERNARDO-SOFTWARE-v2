@@ -25,7 +25,7 @@ let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
 
 async function api(url, options = {}) {
-  const response = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+  const response = await fetch(url, { headers: { 'Content-Type': 'application/json', 'x-user-role': activeRole || '' }, ...options });
 
   const rawText = await response.text();
   let data = null;
@@ -373,7 +373,9 @@ async function refreshVenta() {
 
 async function loadResumenCaja() {
   const query = fechaCajaSeleccionada ? `?fecha=${encodeURIComponent(fechaCajaSeleccionada)}` : '';
-  const resumen = await api('/caja/resumen' + query);
+  const turno = $('#caja-turno')?.value || 'DIARIO';
+  const separador = query ? '&' : '?';
+  const resumen = await api('/caja/resumen' + query + `${separador}turno=${encodeURIComponent(turno)}`);
   $('#cierre-efectivo').textContent = money(resumen.EFECTIVO);
   $('#cierre-transferencia').textContent = money(resumen.TRANSFERENCIA);
   $('#cierre-tarjeta').textContent = money(resumen.TARJETA);
@@ -392,7 +394,8 @@ function setFechaCajaHoy() {
 
 
 async function loadCierresCaja() {
-  const cierres = await api('/caja/cierres');
+  const turno = $('#caja-turno')?.value || 'DIARIO';
+  const cierres = await api(`/caja/cierres?turno=${encodeURIComponent(turno)}`);
   const container = $('#cierres-caja');
 
   if (!cierres.length) {
@@ -403,6 +406,8 @@ async function loadCierresCaja() {
   container.innerHTML = cierres.map(c => `
     <div class="item">
       <strong>${c.fechaCaja || new Date(c.fecha).toLocaleDateString()}</strong>
+      | Turno ${c.turno || 'DIARIO'}
+      | Cerró ${c.cerradoPorRol || '-'}
       | Total ${money(c.totalGeneral)}
       | Efectivo ${money(c.totalEfectivo)}
       | Transferencia ${money(c.totalTransferencia)}
@@ -1336,7 +1341,7 @@ $('#btn-ver-caja').addEventListener('click', async () => {
 
 $('#btn-cerrar-caja').addEventListener('click', async () => {
   try {
-    await api('/caja/cerrar', { method: 'POST', body: '{}' });
+    await api('/caja/cerrar', { method: 'POST', body: JSON.stringify({ fechaCaja: $('#caja-fecha').value || undefined, turno: $('#caja-turno')?.value || 'DIARIO' }) });
     await loadResumenCaja();
     await loadCierresCaja();
     setMsg('✅ Caja cerrada correctamente');

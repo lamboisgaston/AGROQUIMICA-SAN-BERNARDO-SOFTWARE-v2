@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 
 const app = express();
@@ -60,7 +60,7 @@ function obtenerRangoDiaCaja(fechaCaja) {
   return { inicio, fin };
 }
 
-async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
+async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina(), turno = "DIARIO") {
   const rango = obtenerRangoDiaCaja(fechaCaja);
   if (!rango) throw new Error('fecha inválida, use YYYY-MM-DD');
   const { inicio, fin } = rango;
@@ -73,7 +73,7 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
       select: { total: true, medioPago: true }
     }),
     prisma.cierreCajaDiario.findUnique({
-      where: { fechaCaja },
+      where: { fechaCaja_turno: { fechaCaja, turno } },
       select: { id: true, fecha: true, fechaCaja: true }
     })
   ]);
@@ -94,6 +94,7 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
 
   return {
     ...resumen,
+    turno,
     totalGeneral: resumen.EFECTIVO + resumen.TRANSFERENCIA + resumen.TARJETA + resumen.CUENTA_CORRIENTE,
     estado: cierre ? 'CERRADO' : 'ABIERTO',
     cierre
@@ -102,6 +103,24 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina()) {
 
 
 
+
+const ROLES_CIERRE_CAJA = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE', 'CAJA']);
+
+function obtenerRolRequest(req) {
+  return String(req.headers['x-user-role'] || req.body?.rol || req.query?.rol || '').trim().toUpperCase();
+}
+
+function requireCajaRole(req, res, next) {
+  const rol = obtenerRolRequest(req);
+  if (!ROLES_CIERRE_CAJA.has(rol)) return res.status(403).json({ error: 'Rol no autorizado para operaciones de caja' });
+  req.userRole = rol;
+  next();
+}
+
+function normalizarTurnoCaja(turno) {
+  const t = String(turno || 'DIARIO').trim().toUpperCase();
+  return ['MANANA', 'TARDE', 'NOCHE', 'DIARIO'].includes(t) ? t : null;
+}
 function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuentoValor = 0, ajusteRedondeo = 0) {
   const subtotal = items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
   const valor = Math.max(0, Number(descuentoValor || 0));
@@ -1672,34 +1691,43 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   res.send(html);
 }));
 
-app.get('/caja/resumen', asyncHandler(async (req, res) => {
+app.get('/caja/resumen', requireCajaRole, asyncHandler(async (req, res) => {
   const fechaCaja = String(req.query.fecha || obtenerFechaCajaArgentina());
   if (!parsearFechaCaja(fechaCaja)) {
     return res.status(400).json({ error: 'fecha inválida, use YYYY-MM-DD' });
   }
-  const resumen = await calcularResumenCajaDia(fechaCaja);
+  const turno = normalizarTurnoCaja(req.query.turno || 'DIARIO');
+  if (!turno) return res.status(400).json({ error: 'turno inválido' });
+  const resumen = await calcularResumenCajaDia(fechaCaja, turno);
   res.json(resumen);
 }));
 
-app.post('/caja/cerrar', asyncHandler(async (req, res) => {
-  const fechaCaja = obtenerFechaCajaArgentina();
+app.post('/caja/cerrar', requireCajaRole, asyncHandler(async (req, res) => {
+  const fechaCaja = String(req.body?.fechaCaja || obtenerFechaCajaArgentina());
+  if (!parsearFechaCaja(fechaCaja)) {
+    return res.status(400).json({ error: 'fechaCaja inválida, use YYYY-MM-DD' });
+  }
+  const turno = normalizarTurnoCaja(req.body?.turno || 'DIARIO');
+  if (!turno) return res.status(400).json({ error: 'turno inválido' });
   const rango = obtenerRangoDiaCaja(fechaCaja);
   const inicio = rango.inicio;
 
   const existente = await prisma.cierreCajaDiario.findUnique({
-    where: { fechaCaja }
+    where: { fechaCaja_turno: { fechaCaja, turno } }
   });
 
   if (existente) {
-    return res.status(400).json({ error: 'La caja del día ya fue cerrada' });
+    return res.status(400).json({ error: 'La caja para ese día/turno ya fue cerrada' });
   }
 
-  const resumen = await calcularResumenCajaDia(fechaCaja);
+  const resumen = await calcularResumenCajaDia(fechaCaja, turno);
 
   const cierre = await prisma.cierreCajaDiario.create({
     data: {
       fecha: inicio,
       fechaCaja,
+      turno,
+      cerradoPorRol: req.userRole || 'SIN_ROL',
       totalEfectivo: resumen.EFECTIVO,
       totalTransferencia: resumen.TRANSFERENCIA,
       totalTarjeta: resumen.TARJETA,
@@ -1712,9 +1740,12 @@ app.post('/caja/cerrar', asyncHandler(async (req, res) => {
 }));
 
 
-app.get('/caja/cierres', asyncHandler(async (req, res) => {
+app.get('/caja/cierres', requireCajaRole, asyncHandler(async (req, res) => {
+  const turno = normalizarTurnoCaja(req.query.turno || 'DIARIO');
+  if (!turno) return res.status(400).json({ error: 'turno inválido' });
   const cierres = await prisma.cierreCajaDiario.findMany({
-    orderBy: [{ fechaCaja: 'desc' }, { fecha: 'desc' }]
+    where: { turno },
+    orderBy: [{ fechaCaja: 'desc' }, { createdAt: 'desc' }]
   });
 
   const cierresConFechaVisible = cierres.map(cierre => ({
@@ -1725,7 +1756,7 @@ app.get('/caja/cierres', asyncHandler(async (req, res) => {
   res.json(cierresConFechaVisible);
 }));
 
-app.delete('/caja/cierres/:id', asyncHandler(async (req, res) => {
+app.delete('/caja/cierres/:id', requireCajaRole, asyncHandler(async (req, res) => {
   const cierreId = parsePositiveInt(req.params.id);
   if (!cierreId) return res.status(400).json({ error: 'id de cierre inválido' });
 
