@@ -58,11 +58,47 @@ model Proveedor {
   observaciones      String?
   productos      ProductoProveedor[]
   remitos        RemitoProveedor[]
+  pedidos        Pedido[]
   activo            Boolean    @default(true)
   eliminado         Boolean    @default(false)
   eliminadoAt       DateTime?
   eliminadoPor      String?
   motivoEliminacion String?
+}
+
+model Pedido {
+  id           Int          @id @default(autoincrement())
+  proveedorId  Int
+  proveedor    Proveedor    @relation(fields: [proveedorId], references: [id])
+  fecha        DateTime     @default(now())
+  tipo         TipoPedido
+  observaciones String?
+  estado       EstadoPedido @default(BORRADOR)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  items        PedidoItem[]
+}
+
+model PedidoItem {
+  id         Int      @id @default(autoincrement())
+  pedidoId   Int
+  productoId Int
+  cantidad   Int
+  unidad     String
+  pedido     Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto   Producto  @relation(fields: [productoId], references: [id])
+}
+
+enum TipoPedido {
+  SOLICITUD_PRESUPUESTO
+  ORDEN_PEDIDO_ENVIO
+}
+
+enum EstadoPedido {
+  BORRADOR
+  ENVIADO
+  CONFIRMADO
+  CANCELADO
 }
 
 model ProductoProveedor {

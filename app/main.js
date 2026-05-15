@@ -23,6 +23,9 @@ let presupuestoNombreLibre = '';
 let presupuestoItems = [];
 let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
+let pedidoProveedorId = null;
+let pedidoItems = [];
+let productosPedidoVisibles = [];
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json', 'x-user-role': activeRole || '' }, ...options });
@@ -598,6 +601,20 @@ function normalizarTelefonoWhatsapp(telefono) {
   return String(telefono || '').replace(/[\s\-()]/g, '');
 }
 
+
+function renderPedidoProductos() {
+  const origen = productosPedidoVisibles.length ? productosPedidoVisibles : productos;
+  const items = origen.slice(0, 20).map((p) => {
+    const it = pedidoItems.find((x) => x.productoId === p.id);
+    return `<div class="item">${p.nombre} (${p.unidad || 'UN'}) <button data-ped-add="${p.id}">+</button> ${it ? `<strong>${it.cantidad}</strong> <button data-ped-del="${p.id}">-</button> <button data-ped-rm="${p.id}">Quitar</button>` : ''}</div>`;
+  });
+  $('#ped-productos').innerHTML = items.join('') || '<div class="item">Sin resultados</div>';
+  $('#ped-carrito').innerHTML = pedidoItems.length ? pedidoItems.map((it) => `<div class="item">${it.nombre} | Cantidad: ${it.cantidad} | Unidad: ${it.unidad}</div>`).join('') : '<div class="item">Carrito vacío</div>';
+}
+async function loadPedidos() {
+  const lista = await api('/pedidos');
+  $('#ped-lista').innerHTML = (lista || []).map((p) => `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo} <a class="btn-link" href="/pedidos/${p.id}/imprimir" target="_blank">Imprimir</a> <button data-ped-wa="${p.id}">WhatsApp</button> <button data-ped-mail="${p.id}">Email</button></div>`).join('') || '<div class="item">Sin pedidos</div>';
+}
 function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
   return `Hola, te compartimos el presupuesto #${presupuestoId} de Agroquímica San Bernardo. Total: ${money(total)}. Adjuntamos el PDF del presupuesto.`;
 }
@@ -745,8 +762,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
+  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -1837,8 +1854,48 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
   await loadProductosAll();
   await loadStockResumen('/stock');
   setModoProducto('AGREGAR');
-  renderPresupuestoProductos();
+  
+$('#ped-tipo')?.addEventListener('change', (e) => {
+  $('#ped-texto-principal').textContent = e.target.value === 'SOLICITUD_PRESUPUESTO'
+    ? 'Solicitamos presupuesto de los siguientes productos/insumos'
+    : 'Confirmamos orden de pedido y solicitamos envío de los siguientes productos/insumos';
+});
+$('#ped-btn-buscar-proveedor')?.addEventListener('click', async () => {
+  const q = $('#ped-buscar-proveedor').value.trim();
+  const lista = await api('/proveedores?q=' + encodeURIComponent(q));
+  $('#ped-proveedores').innerHTML = (lista || []).map((p) => `<div class="item">${p.razonSocial} <button data-ped-prov="${p.id}" data-ped-prov-nombre="${p.razonSocial}">Seleccionar</button></div>`).join('') || '<div class="item">Sin resultados</div>';
+});
+$('#ped-btn-buscar-producto')?.addEventListener('click', async () => {
+  const q = $('#ped-buscar-producto').value.trim().toLowerCase();
+  productosPedidoVisibles = q ? await buscarProductos(q) : [];
+  renderPedidoProductos();
+});
+$('#ped-guardar')?.addEventListener('click', async () => {
+  if (!pedidoProveedorId) throw new Error('Debe seleccionar proveedor');
+  if (!pedidoItems.length) throw new Error('Debe agregar productos');
+  const creado = await api('/pedidos', { method: 'POST', body: JSON.stringify({ proveedorId: pedidoProveedorId, fecha: $('#ped-fecha').value || new Date().toISOString(), tipo: $('#ped-tipo').value, observaciones: $('#ped-observaciones').value, items: pedidoItems }) });
+  pedidoItems = []; renderPedidoProductos(); await loadPedidos();
+  setMsg(`Pedido #${creado.id} guardado`);
+});
+document.addEventListener('click', async (e) => {
+  const pp = e.target.closest('[data-ped-prov]');
+  const add = e.target.closest('[data-ped-add]');
+  const del = e.target.closest('[data-ped-del]');
+  const rm = e.target.closest('[data-ped-rm]');
+  const wa = e.target.closest('[data-ped-wa]');
+  const mail = e.target.closest('[data-ped-mail]');
+  if (pp) { pedidoProveedorId = Number(pp.dataset.pedProv); $('#ped-proveedor-activo').textContent = pp.dataset.pedProvNombre; }
+  if (add) { const id = Number(add.dataset.pedAdd); const prod = productos.find((p) => p.id === id) || productosPedidoVisibles.find((p) => p.id === id); const it = pedidoItems.find((x) => x.productoId === id); if (it) it.cantidad += 1; else pedidoItems.push({ productoId: id, cantidad: 1, unidad: prod?.unidad || 'UN', nombre: prod?.nombre || `#${id}` }); renderPedidoProductos(); }
+  if (del) { const id = Number(del.dataset.pedDel); const it = pedidoItems.find((x) => x.productoId === id); if (it) { it.cantidad -= 1; if (it.cantidad <= 0) pedidoItems = pedidoItems.filter((x) => x.productoId !== id); } renderPedidoProductos(); }
+  if (rm) { const id = Number(rm.dataset.pedRm); pedidoItems = pedidoItems.filter((x) => x.productoId !== id); renderPedidoProductos(); }
+  if (wa) { const url = `${window.location.origin}/pedidos/${Number(wa.dataset.pedWa)}/imprimir`; window.open(`https://wa.me/?text=${encodeURIComponent('Adjuntamos pedido a proveedor: ' + url)}`, '_blank'); }
+  if (mail) { const url = `${window.location.origin}/pedidos/${Number(mail.dataset.pedMail)}/imprimir`; window.location.href = `mailto:?subject=${encodeURIComponent('Pedido a proveedor')}&body=${encodeURIComponent('Compartimos el pedido: ' + url)}`; }
+});
+renderPresupuestoProductos();
   await loadPresupuestos();
+  if ($('#ped-fecha')) $('#ped-fecha').value = new Date().toISOString().slice(0, 10);
+  renderPedidoProductos();
+  await loadPedidos();
   renderCarrito();
   renderClienteActivo();
   await loadCaja20();

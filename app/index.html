@@ -37,6 +37,7 @@
         <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>Alta y gestión de categorías de productos.</p><button data-abrir-modulo="categorias">Entrar</button></article>
         <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="pedidos"><h3>Pedidos</h3><p>Notas a proveedores para cotización o pedido.</p><button data-abrir-modulo="pedidos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
         <article class="dashboard-card" data-module-card="cuenta-corriente"><h3>Cuenta corriente</h3><p>Saldo y pagos de clientes.</p><button data-abrir-modulo="cuenta-corriente">Entrar</button></article>
@@ -403,6 +404,30 @@
   </div>
 </section>
 
+
+<section class="bloque app-shell compact-form" data-modulo="pedidos">
+  <h2>12) Pedidos a proveedores</h2>
+  <label>Proveedor</label>
+  <input id="ped-buscar-proveedor" placeholder="Buscar proveedor por razón social o CUIT" />
+  <button id="ped-btn-buscar-proveedor">Buscar proveedor</button>
+  <div id="ped-proveedores" class="lista"></div>
+  <p>Proveedor seleccionado: <strong id="ped-proveedor-activo">Ninguno</strong></p>
+  <label>Fecha <input id="ped-fecha" type="date" /></label>
+  <label>Tipo de pedido
+    <select id="ped-tipo">
+      <option value="SOLICITUD_PRESUPUESTO">Solicitud de presupuesto</option>
+      <option value="ORDEN_PEDIDO_ENVIO">Orden de pedido y envío</option>
+    </select>
+  </label>
+  <p id="ped-texto-principal" class="muted">Solicitamos presupuesto de los siguientes productos/insumos</p>
+  <input id="ped-observaciones" placeholder="Observaciones" />
+  <input id="ped-buscar-producto" placeholder="Buscar producto" />
+  <button id="ped-btn-buscar-producto">Buscar producto</button>
+  <div id="ped-productos" class="lista"></div>
+  <h3>Carrito</h3><div id="ped-carrito" class="lista"></div>
+  <button id="ped-guardar" class="btn-primary">Guardar pedido</button>
+  <h3>Pedidos guardados</h3><div id="ped-lista" class="lista"></div>
+</section>
 <section class="bloque app-shell compact-form" data-modulo="proveedores">
       <h2 id="proveedores-panel">10) Proveedores</h2>
       <div class="proveedores-workbench">

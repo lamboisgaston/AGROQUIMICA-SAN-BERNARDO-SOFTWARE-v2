@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 
 const app = express();
@@ -960,6 +960,65 @@ app.post('/presupuestos/:id/dar-alta-persona', asyncHandler(async (req, res) => 
   res.json({ presupuesto: actualizado, persona, contacto: { mail: String(req.body.mail).trim(), telefonoEmergencia: String(req.body.telefonoEmergencia).trim() } });
 }));
 
+
+app.get('/pedidos', asyncHandler(async (_req, res) => {
+  const pedidos = await prisma.pedido.findMany({
+    include: { proveedor: true, items: { include: { producto: true } } },
+    orderBy: { id: 'desc' }
+  });
+  res.json(pedidos);
+}));
+
+app.post('/pedidos', asyncHandler(async (req, res) => {
+  const { proveedorId, fecha, tipo, observaciones, estado, items = [] } = req.body || {};
+  if (!proveedorId) return res.status(400).json({ error: 'proveedorId es obligatorio' });
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe agregar al menos un producto' });
+  const tipoPedido = Object.values(TipoPedido).includes(tipo) ? tipo : TipoPedido.SOLICITUD_PRESUPUESTO;
+  const estadoPedido = Object.values(EstadoPedido).includes(estado) ? estado : EstadoPedido.BORRADOR;
+  const proveedor = await prisma.proveedor.findUnique({ where: { id: Number(proveedorId) } });
+  if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
+
+  const pedido = await prisma.$transaction(async (tx) => {
+    const nuevo = await tx.pedido.create({
+      data: {
+        proveedorId: Number(proveedorId),
+        fecha: fecha ? new Date(fecha) : new Date(),
+        tipo: tipoPedido,
+        observaciones: (observaciones || '').trim() || null,
+        estado: estadoPedido
+      }
+    });
+    for (const i of items) {
+      await tx.pedidoItem.create({
+        data: {
+          pedidoId: nuevo.id,
+          productoId: Number(i.productoId),
+          cantidad: Number(i.cantidad || 0),
+          unidad: String(i.unidad || '').trim() || 'UN'
+        }
+      });
+    }
+    return tx.pedido.findUnique({ where: { id: nuevo.id }, include: { proveedor: true, items: { include: { producto: true } } } });
+  });
+  res.status(201).json(pedido);
+}));
+
+app.get('/pedidos/:id/imprimir', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  const p = await prisma.pedido.findUnique({ where: { id }, include: { proveedor: true, items: { include: { producto: true } } } });
+  if (!p) return res.status(404).json({ error: 'Pedido no encontrado' });
+  const textoPrincipal = p.tipo === 'SOLICITUD_PRESUPUESTO'
+    ? 'Solicitamos presupuesto de los siguientes productos/insumos'
+    : 'Confirmamos orden de pedido y solicitamos envío de los siguientes productos/insumos';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Pedido #${p.id}</title></head><body>
+  <h2>Pedido #${p.id}</h2><p><strong>Proveedor:</strong> ${escapeHtml(p.proveedor?.razonSocial || '-')}</p>
+  <p><strong>Fecha:</strong> ${new Date(p.fecha).toLocaleDateString('es-AR')}</p>
+  <p><strong>Estado:</strong> ${escapeHtml(p.estado)}</p><p>${textoPrincipal}</p>
+  <table border="1" cellpadding="6" cellspacing="0"><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th></tr>
+  ${p.items.map((it)=>`<tr><td>${escapeHtml(it.producto?.nombre || '-')}</td><td>${it.cantidad}</td><td>${escapeHtml(it.unidad || '-')}</td></tr>`).join('')}
+  </table><p><strong>Observaciones:</strong> ${escapeHtml(p.observaciones || '-')}</p></body></html>`);
+}));
 app.post('/presupuestos/:id/rechazar', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
