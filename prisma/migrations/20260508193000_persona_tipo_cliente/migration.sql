@@ -17,6 +17,6 @@ CREATE TABLE "new_Persona" (
 INSERT INTO "new_Persona" ("cuitDni", "id", "mail", "nombre", "telefono", "tipo") SELECT "cuitDni", "id", "mail", "nombre", "telefono", "tipo" FROM "Persona";
 DROP TABLE "Persona";
 ALTER TABLE "new_Persona" RENAME TO "Persona";
-CREATE UNIQUE INDEX "CuentaCorriente_personaId_key" ON "CuentaCorriente"("personaId");
+CREATE UNIQUE INDEX IF NOT EXISTS "CuentaCorriente_personaId_key" ON "CuentaCorriente"("personaId");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;

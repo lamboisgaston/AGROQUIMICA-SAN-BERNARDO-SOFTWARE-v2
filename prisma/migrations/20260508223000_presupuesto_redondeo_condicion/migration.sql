@@ -1,3 +1,2 @@
-ALTER TABLE "Presupuesto"
-ADD COLUMN "ajusteRedondeo" DOUBLE PRECISION NOT NULL DEFAULT 0,
-ADD COLUMN "condicionPagoPrevista" "CondicionPagoPrevista";
+ALTER TABLE "Presupuesto" ADD COLUMN "ajusteRedondeo" REAL NOT NULL DEFAULT 0;
+ALTER TABLE "Presupuesto" ADD COLUMN "condicionPagoPrevista" TEXT;
