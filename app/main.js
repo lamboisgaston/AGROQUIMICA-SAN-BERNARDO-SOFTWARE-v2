@@ -610,7 +610,13 @@ function renderPedidoProductos() {
   });
   $('#ped-productos').innerHTML = items.join('') || '<div class="item">Sin resultados</div>';
   $('#ped-carrito').innerHTML = pedidoItems.length
-    ? pedidoItems.map((it) => `<div class="item">${it.nombre} | Cantidad: ${it.cantidad} | Unidad: ${it.unidad}</div>`).join('')
+    ? `<table style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th><th>Obs.</th><th>Acciones</th></tr></thead><tbody>${pedidoItems.map((it, idx) => `<tr>
+      <td>${it.nombre}</td>
+      <td><input type="number" min="0" step="0.01" data-ped-index="${idx}" data-ped-field="cantidad" value="${Number(it.cantidad || 0)}" style="width:88px"></td>
+      <td><input type="text" data-ped-index="${idx}" data-ped-field="unidad" value="${it.unidad || 'UN'}" style="width:82px"></td>
+      <td><input type="text" data-ped-index="${idx}" data-ped-field="observacion" value="${it.observacion || ''}" placeholder="Opcional" style="width:100%"></td>
+      <td><button data-ped-rm="${it.productoId}">Quitar</button></td>
+    </tr>`).join('')}</tbody></table>`
     : '<div class="item">Carrito vacío</div>';
 }
 async function armarMensajePedidoProveedor(pedido) {
@@ -626,7 +632,7 @@ async function loadPedidos() {
   $('#ped-lista').innerHTML = (lista || []).map((p) => {
     const tel = normalizarTelefonoWhatsapp(p.proveedor?.telefono || '');
     const mail = String(p.proveedor?.mail || '').trim();
-    return `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo} <a class="btn-link" href="/pedidos/${p.id}/imprimir" target="_blank">Imprimir</a> <button data-ped-wa="${p.id}" data-ped-wa-telefono="${tel}" ${tel ? '' : 'disabled'}>WhatsApp</button> <button data-ped-mail="${p.id}" data-ped-mail-destino="${mail}" ${mail ? '' : 'disabled'}>Email</button></div>`;
+    return `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo} <a class="btn-link" href="/pedidos/${p.id}/imprimir" target="_blank">Imprimir</a> <a class="btn-link" href="/pedidos/${p.id}/pdf" target="_blank">PDF</a> <button data-ped-wa="${p.id}" data-ped-wa-telefono="${tel}" ${tel ? '' : 'disabled'}>WhatsApp</button> <button data-ped-mail="${p.id}" data-ped-mail-destino="${mail}" ${mail ? '' : 'disabled'}>Email</button></div>`;
   }).join('') || '<div class="item">Sin pedidos</div>';
 }
 function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
@@ -1922,6 +1928,21 @@ $('#ped-guardar')?.addEventListener('click', async () => {
     setMsg(err.message, 'error');
   }
 });
+$('#ped-carrito')?.addEventListener('input', (e) => {
+  const input = e.target.closest('[data-ped-index][data-ped-field]');
+  if (!input) return;
+  const idx = Number(input.dataset.pedIndex);
+  const field = input.dataset.pedField;
+  if (!pedidoItems[idx]) return;
+  if (field === 'cantidad') {
+    const valor = Number(input.value || 0);
+    pedidoItems[idx].cantidad = Number.isFinite(valor) ? Math.max(0, valor) : 0;
+    if (pedidoItems[idx].cantidad <= 0) pedidoItems = pedidoItems.filter((_, i) => i !== idx);
+  } else {
+    pedidoItems[idx][field] = String(input.value || '').trim();
+  }
+  renderPedidoProductos();
+});
 document.addEventListener('click', async (e) => {
   const pp = e.target.closest('[data-ped-prov]');
   const add = e.target.closest('[data-ped-add]');
@@ -1939,7 +1960,7 @@ document.addEventListener('click', async (e) => {
     if (!telefono) return setMsg('El proveedor no tiene teléfono para WhatsApp', 'warning');
     const pedido = (await api('/pedidos')).find((x) => x.id === pedidoId);
     if (!pedido) return setMsg('Pedido no encontrado', 'warning');
-    const msg = armarMensajePedidoProveedor(pedido);
+    const msg = await armarMensajePedidoProveedor(pedido);
     window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(msg)}`, '_blank');
   }
   if (mail) {
@@ -1948,7 +1969,7 @@ document.addEventListener('click', async (e) => {
     if (!destino) return setMsg('El proveedor no tiene email cargado', 'warning');
     const pedido = (await api('/pedidos')).find((x) => x.id === pedidoId);
     if (!pedido) return setMsg('Pedido no encontrado', 'warning');
-    const body = armarMensajePedidoProveedor(pedido);
+    const body = await armarMensajePedidoProveedor(pedido);
     window.location.href = `mailto:${encodeURIComponent(destino)}?subject=${encodeURIComponent(`Pedido #${pedido.id} - Agroquímica San Bernardo`)}&body=${encodeURIComponent(body)}`;
   }
 });
