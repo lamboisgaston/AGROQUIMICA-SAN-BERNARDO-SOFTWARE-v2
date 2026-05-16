@@ -859,9 +859,9 @@ app.get('/presupuestos/:id', asyncHandler(async (req, res) => {
 }));
 
 async function guardarPresupuesto(req, res, id = null) {
-  const { clienteId, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, ajusteRedondeo, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
+  const { clienteId, personaId: personaIdBody, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, ajusteRedondeo, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
   const tipo = Object.values(TipoDestinatarioPresupuesto).includes(tipoDestinatario) ? tipoDestinatario : TipoDestinatarioPresupuesto.EXISTENTE;
-  const personaId = parsePositiveInt(clienteId);
+  const personaId = parsePositiveInt(clienteId ?? personaIdBody);
   const nombreLibreLimpio = String(nombreLibre || '').trim();
 
   let persona = null;
