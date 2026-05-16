@@ -632,7 +632,12 @@ async function loadPedidos() {
   $('#ped-lista').innerHTML = (lista || []).map((p) => {
     const tel = normalizarTelefonoWhatsapp(p.proveedor?.telefono || '');
     const mail = String(p.proveedor?.mail || '').trim();
-    return `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo} <a class="btn-link" href="/pedidos/${p.id}/imprimir" target="_blank">Imprimir</a> <a class="btn-link" href="/pedidos/${p.id}/pdf" target="_blank">PDF</a> <button data-ped-wa="${p.id}" data-ped-wa-telefono="${tel}" ${tel ? '' : 'disabled'}>WhatsApp</button> <button data-ped-mail="${p.id}" data-ped-mail-destino="${mail}" ${mail ? '' : 'disabled'}>Email</button></div>`;
+    return `<div class="item">#${p.id} | ${p.proveedor?.razonSocial || '-'} | ${p.estado} | ${p.tipo}
+      <button data-ped-print="${p.id}">Imprimir</button>
+      <button data-ped-pdf="${p.id}">Descargar PDF</button>
+      <button data-ped-wa="${p.id}" data-ped-wa-telefono="${tel}" ${tel ? '' : 'disabled'}>WhatsApp</button>
+      <button data-ped-mail="${p.id}" data-ped-mail-destino="${mail}" ${mail ? '' : 'disabled'}>Email</button>
+    </div>`;
   }).join('') || '<div class="item">Sin pedidos</div>';
 }
 function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
@@ -851,6 +856,10 @@ async function abrirModulo(modulo) {
   }
   if (modulo === 'caja') {
     await loadCaja20();
+  }
+  if (modulo === 'pedidos') {
+    await Promise.all([loadPedidos(), buscarProveedoresPedido()]);
+    renderPedidoProductos();
   }
 }
 
@@ -1950,10 +1959,14 @@ document.addEventListener('click', async (e) => {
   const rm = e.target.closest('[data-ped-rm]');
   const wa = e.target.closest('[data-ped-wa]');
   const mail = e.target.closest('[data-ped-mail]');
+  const print = e.target.closest('[data-ped-print]');
+  const pdf = e.target.closest('[data-ped-pdf]');
   if (pp) { pedidoProveedorId = Number(pp.dataset.pedProv); $('#ped-proveedor-activo').textContent = `${pp.dataset.pedProvNombre} (#${pedidoProveedorId})`; await buscarProveedoresPedido(); }
   if (add) { const id = Number(add.dataset.pedAdd); const prod = productos.find((p) => p.id === id) || productosPedidoVisibles.find((p) => p.id === id); const it = pedidoItems.find((x) => x.productoId === id); if (it) it.cantidad += 1; else pedidoItems.push({ productoId: id, cantidad: 1, unidad: prod?.unidad || 'UN', nombre: prod?.nombre || `#${id}` }); renderPedidoProductos(); }
   if (del) { const id = Number(del.dataset.pedDel); const it = pedidoItems.find((x) => x.productoId === id); if (it) { it.cantidad -= 1; if (it.cantidad <= 0) pedidoItems = pedidoItems.filter((x) => x.productoId !== id); } renderPedidoProductos(); }
   if (rm) { const id = Number(rm.dataset.pedRm); pedidoItems = pedidoItems.filter((x) => x.productoId !== id); renderPedidoProductos(); }
+  if (print) window.open(`/pedidos/${Number(print.dataset.pedPrint)}/imprimir`, '_blank', 'noopener,noreferrer');
+  if (pdf) window.open(`/pedidos/${Number(pdf.dataset.pedPdf)}/pdf`, '_blank', 'noopener,noreferrer');
   if (wa) {
     const pedidoId = Number(wa.dataset.pedWa);
     const telefono = normalizarTelefonoWhatsapp(wa.dataset.pedWaTelefono || '');
