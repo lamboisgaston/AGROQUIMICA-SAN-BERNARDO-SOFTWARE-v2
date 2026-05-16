@@ -238,6 +238,16 @@ function numeroSeguro(valor, fallback = 0) {
 }
 
 function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
+  const precioDirecto = producto.precioPesosCalculado ?? producto.precioVentaPesos ?? producto.precioFinalPesos ?? producto.precioVenta ?? producto.precio;
+  if (Number(precioDirecto) > 0) {
+    const precio = Number(numeroSeguro(precioDirecto).toFixed(2));
+    return {
+      costoCompraPesos: precio,
+      costoTotalPesos: precio,
+      precioVentaPesos: precio
+    };
+  }
+
   const monedaCosto = producto.monedaCosto || (producto.precioUsd != null ? 'USD' : 'ARS');
   const costoBaseFuente = producto.costoBase ?? producto.precioUsd ?? 0;
   const costoCompraPesos = monedaCosto === 'USD'
@@ -731,14 +741,16 @@ app.put('/config/tipo-cambio', asyncHandler(async (req, res) => {
 
 async function buscarClientesConEstadisticas(query = '') {
   const q = String(query || '').trim();
+  const whereBase = { eliminado: false, activo: true, tipo: 'CLIENTE' };
   const where = q ? {
+    ...whereBase,
     OR: [
       { nombre: { contains: q } },
       { telefono: { contains: q } },
       { cuitDni: { contains: q } },
       { mail: { contains: q } }
     ]
-  } : { eliminado: false, activo: true };
+  } : whereBase;
 
   const personas = await prisma.persona.findMany({
     where,
@@ -774,7 +786,7 @@ app.delete('/clientes/:id', asyncHandler(async (req, res) => {
 }));
 
 app.get('/personas', asyncHandler(async (req, res) => {
-  const personas = await prisma.persona.findMany();
+  const personas = await prisma.persona.findMany({ where: { eliminado: false, activo: true, tipo: 'CLIENTE' } });
   const stats = await prisma.venta.groupBy({
     by: ['personaId'],
     where: { estado: EstadoVenta.COBRADA, personaId: { not: null } },

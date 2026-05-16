@@ -11,7 +11,9 @@ async function main() {
   await prisma.persona.createMany({
     data: [
       { nombre: 'Alejandro Pablo', telefono: '0001', tipo: 'GERENTE' },
-      { nombre: 'Gaston', telefono: '0002', tipo: 'ADMINISTRADOR_GENERAL' }
+      { nombre: 'Gaston', telefono: '0002', tipo: 'ADMINISTRADOR_GENERAL' },
+      { nombre: 'Cliente Mostrador Demo', telefono: '11111111', tipo: 'CLIENTE', tipoCliente: 'PERSONAL', activo: true, eliminado: false },
+      { nombre: 'Ferreteria Demo SRL', telefono: '22222222', cuitDni: '30-12345678-9', mail: 'compras@demo.local', tipo: 'CLIENTE', tipoCliente: 'EMPRESA', activo: true, eliminado: false }
     ],
     skipDuplicates: true
   });
