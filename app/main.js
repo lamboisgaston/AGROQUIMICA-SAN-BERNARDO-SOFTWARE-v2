@@ -864,6 +864,7 @@ async function abrirModulo(modulo) {
 }
 
 async function inicializarModuloPedidos() {
+  setMsg('PEDIDOS-NUEVO-FLUJO', 'info');
   const tareas = [loadPedidos(), buscarProveedoresPedido()];
   const resultados = await Promise.allSettled(tareas);
   resultados.forEach((resultado) => {
