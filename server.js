@@ -158,7 +158,7 @@ const registrosEliminados = [];
 const PASSWORD_ELIMINACION = '12345';
 
 app.get('/', (req, res) => {
-  res.json({ mensaje: 'Backend Agroquímica San Bernardo funcionando' });
+  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
 });
 
 app.post('/login', (req, res) => {
