@@ -1,2 +1,2 @@
 -- DropIndex
-DROP INDEX "MovimientoStock_productoId_createdAt_idx";
+DROP INDEX IF EXISTS "MovimientoStock_productoId_createdAt_idx";
