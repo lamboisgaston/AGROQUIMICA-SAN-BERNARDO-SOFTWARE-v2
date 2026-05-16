@@ -8,7 +8,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "seed": "node prisma/seed.js",
-    "start": "npx prisma generate && npx prisma migrate deploy && node server.js"
+    "start": "npx prisma generate && npx prisma migrate deploy && node server.js",
+    "import:productos": "python importar_productos_desde_xlsx.py"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
