@@ -30,6 +30,10 @@ function formatMoney(value) {
   return '$' + Number(value || 0).toFixed(2);
 }
 
+function enumValuesSafe(enumObj) {
+  return enumObj && typeof enumObj === 'object' ? Object.values(enumObj) : [];
+}
+
 const TIMEZONE_CAJA = 'America/Argentina/Salta';
 
 function obtenerFechaCajaArgentina(fecha = new Date()) {
@@ -975,8 +979,10 @@ app.post('/pedidos', asyncHandler(async (req, res) => {
   const { proveedorId, fecha, tipoPedido, observaciones, estado, items = [] } = req.body || {};
   if (!proveedorId) return res.status(400).json({ error: 'proveedorId es obligatorio' });
   if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Debe agregar al menos un producto' });
-  const tipoPedidoNormalizado = Object.values(TipoPedido).includes(tipoPedido) ? tipoPedido : TipoPedido.SOLICITUD_PRESUPUESTO;
-  const estadoPedido = Object.values(EstadoPedido).includes(estado) ? estado : EstadoPedido.BORRADOR;
+  const tiposPedido = enumValuesSafe(TipoPedido);
+  const estadosPedido = enumValuesSafe(EstadoPedido);
+  const tipoPedidoNormalizado = tiposPedido.includes(tipoPedido) ? tipoPedido : (TipoPedido?.SOLICITUD_PRESUPUESTO || 'SOLICITUD_PRESUPUESTO');
+  const estadoPedido = estadosPedido.includes(estado) ? estado : (EstadoPedido?.BORRADOR || 'BORRADOR');
   const proveedor = await prisma.proveedor.findUnique({ where: { id: Number(proveedorId) } });
   if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
   const itemInvalido = items.find((i) => (
@@ -1108,6 +1114,44 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
 </body>
 </html>`);
 }));
+
+app.get('/pedidos/:id/pdf', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const p = await prisma.pedido.findUnique({ where: { id }, include: { proveedor: true, items: { include: { producto: true } } } });
+  if (!p) return res.status(404).send('No encontrado');
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="pedido-${p.id}.pdf"`);
+  const doc = new PDFDocument({ margin: 48, size: 'A4' });
+  doc.pipe(res);
+
+  const fecha = new Date(p.fecha || p.createdAt).toLocaleDateString('es-AR');
+  doc.font('Helvetica-Bold').fontSize(18).text(`Pedido #${p.id}`);
+  doc.moveDown(0.3).font('Helvetica').fontSize(11);
+  doc.text(`Proveedor: ${p.proveedor?.razonSocial || '-'}`);
+  doc.text(`Fecha: ${fecha}`);
+  doc.text(`Tipo: ${p.tipo || '-'}`);
+  doc.text(`Estado: ${p.estado || '-'}`);
+  doc.moveDown(0.7);
+
+  doc.font('Helvetica-Bold').text('Producto', 48, doc.y, { width: 260 });
+  doc.text('Cantidad', 320, doc.y - 14, { width: 80, align: 'right' });
+  doc.text('Unidad', 410, doc.y - 14, { width: 90, align: 'right' });
+  doc.moveDown(0.2).strokeColor('#999').lineWidth(0.8).moveTo(48, doc.y).lineTo(548, doc.y).stroke();
+  doc.moveDown(0.4).font('Helvetica');
+
+  (p.items || []).forEach((it) => {
+    doc.text(it.producto?.nombre || `#${it.productoId}`, 48, doc.y, { width: 260 });
+    doc.text(String(Number(it.cantidad || 0)), 320, doc.y - 14, { width: 80, align: 'right' });
+    doc.text(String(it.unidad || '-'), 410, doc.y - 14, { width: 90, align: 'right' });
+    doc.moveDown(0.4);
+  });
+
+  doc.moveDown(0.8).font('Helvetica-Bold').text('Observaciones: ', { continued: true }).font('Helvetica').text(p.observaciones || '-');
+  doc.end();
+}));
+
 
 
 app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
