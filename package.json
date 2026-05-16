@@ -4,11 +4,11 @@
   "description": "Backend mínimo con Express + Prisma + SQLite",
   "main": "server.js",
   "scripts": {
-    "dev": "npx prisma migrate deploy && node server.js",
+    "dev": "npx prisma generate && npx prisma migrate deploy && node server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "seed": "node prisma/seed.js",
-    "start": "npx prisma migrate deploy && node server.js"
+    "start": "npx prisma generate && npx prisma migrate deploy && node server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
