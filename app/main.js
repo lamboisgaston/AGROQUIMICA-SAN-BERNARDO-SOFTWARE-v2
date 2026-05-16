@@ -858,9 +858,20 @@ async function abrirModulo(modulo) {
     await loadCaja20();
   }
   if (modulo === 'pedidos') {
-    await Promise.all([loadPedidos(), buscarProveedoresPedido()]);
+    await inicializarModuloPedidos();
     renderPedidoProductos();
   }
+}
+
+async function inicializarModuloPedidos() {
+  const tareas = [loadPedidos(), buscarProveedoresPedido()];
+  const resultados = await Promise.allSettled(tareas);
+  resultados.forEach((resultado) => {
+    if (resultado.status === 'rejected') {
+      console.error('[pedidos] error al inicializar módulo', resultado.reason);
+      setMsg(`Pedidos: ${resultado.reason?.message || resultado.reason || 'error inesperado'}`, 'warning');
+    }
+  });
 }
 
 async function loadEliminados() {
@@ -1990,7 +2001,7 @@ renderPresupuestoProductos();
   await loadPresupuestos();
   if ($('#ped-fecha')) $('#ped-fecha').value = new Date().toISOString().slice(0, 10);
   renderPedidoProductos();
-  await loadPedidos();
+  await inicializarModuloPedidos();
   renderCarrito();
   renderClienteActivo();
   await loadCaja20();
