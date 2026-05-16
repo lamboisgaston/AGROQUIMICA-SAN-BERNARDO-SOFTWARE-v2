@@ -26,6 +26,22 @@ let productosPresupuestoVisibles = [];
 let pedidoProveedorId = null;
 let pedidoItems = [];
 let productosPedidoVisibles = [];
+const VENTA_ACTIVA_STORAGE_KEY = 'venta_activa_id';
+
+function setVentaActivaId(id) {
+  const parsed = Number(id);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    localStorage.setItem(VENTA_ACTIVA_STORAGE_KEY, String(parsed));
+  } else {
+    localStorage.removeItem(VENTA_ACTIVA_STORAGE_KEY);
+  }
+}
+
+function getVentaActivaId() {
+  const raw = localStorage.getItem(VENTA_ACTIVA_STORAGE_KEY);
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json', 'x-user-role': activeRole || '' }, ...options });
@@ -256,6 +272,7 @@ async function agregarProductoAlCarrito(productoId) {
   if (!ventaId) {
     const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
     ventaId = v.id;
+    setVentaActivaId(ventaId);
   }
   if (!productoId) return setMsg('Producto inválido');
   try {
@@ -1034,6 +1051,7 @@ $('#resultados-clientes').addEventListener('click', async (e) => {
     if (!ventaId) {
       const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
       ventaId = v.id;
+      setVentaActivaId(ventaId);
     }
     console.log('Seleccionado cliente:', b.dataset.persona);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: Number(b.dataset.persona) }) });
@@ -1079,6 +1097,7 @@ $('#btn-crear-cliente').addEventListener('click', async () => {
     if (!ventaId) {
       const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
       ventaId = v.id;
+      setVentaActivaId(ventaId);
     }
     console.log('Seleccionado cliente:', persona.id);
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: persona.id }) });
@@ -1100,6 +1119,7 @@ $('#btn-consumidor-final')?.addEventListener('click', async () => {
     if (!ventaId) {
       const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
       ventaId = v.id;
+      setVentaActivaId(ventaId);
     }
     await api(`/mostrador/ventas/${ventaId}/persona`, { method: 'PUT', body: JSON.stringify({ personaId: null }) });
     await refreshVenta();
@@ -1161,6 +1181,7 @@ $('#btn-cerrar').addEventListener('click', async () => {
     logFlujo('venta cerrada', { id: ventaCerrada.id, estado: ventaCerrada.estado });
 
     ventaId = null;
+    setVentaActivaId(null);
     venta = null;
     $('#venta-activa').textContent = 'Sin venta activa';
     renderCarrito();
@@ -1897,6 +1918,7 @@ $('#btn-guardar-remito').addEventListener('click', async () => {
 });
 
 (async function init() {
+  ventaId = getVentaActivaId();
   setFechaCajaHoy();
   fechaVentasCobradasSeleccionada = fechaCajaSeleccionada;
   $('#ventas-cobradas-fecha').value = fechaVentasCobradasSeleccionada;
@@ -2003,6 +2025,15 @@ renderPresupuestoProductos();
   if ($('#ped-fecha')) $('#ped-fecha').value = new Date().toISOString().slice(0, 10);
   renderPedidoProductos();
   await inicializarModuloPedidos();
+  if (ventaId) {
+    try {
+      await refreshVenta();
+    } catch (_error) {
+      ventaId = null;
+      venta = null;
+      setVentaActivaId(null);
+    }
+  }
   renderCarrito();
   renderClienteActivo();
   await loadCaja20();
