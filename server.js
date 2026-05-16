@@ -4,6 +4,8 @@ const PDFDocument = require('pdfkit');
 
 const app = express();
 const prisma = new PrismaClient();
+const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
+console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
 
 app.use(express.json());
 
