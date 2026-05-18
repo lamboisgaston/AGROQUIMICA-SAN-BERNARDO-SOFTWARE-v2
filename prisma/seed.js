@@ -2,6 +2,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
+  console.warn('⚠️ Seed en modo seguro: no borra datos ni hace reset.');
+  console.warn('⚠️ Solo aplica upserts/inserciones idempotentes sobre DATABASE_URL actual.');
+
   await prisma.configuracionGlobal.upsert({
     where: { id: 1 },
     update: {},
