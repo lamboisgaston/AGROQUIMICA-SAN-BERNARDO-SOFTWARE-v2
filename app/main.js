@@ -901,7 +901,7 @@ async function loadEstadoSistema() {
   const panel = $('#estado-sistema-panel');
   if (!panel) return;
   panel.classList.add('estado-sistema-grid');
-  panel.innerHTML = '<div class="item">Cargando diagnóstico...</div>';
+  panel.innerHTML = '<div class="item">Cargando Centro de Control...</div>';
   try {
     const data = await api('/api/estado-sistema');
     const valorNumerico = (value) => Number(value || 0);
@@ -910,39 +910,55 @@ async function loadEstadoSistema() {
       if (valor >= alertaDesde) return 'amarillo';
       return 'verde';
     };
+    const estadoPorConteoBase = (valor) => {
+      if (valor <= 0) return 'rojo';
+      if (valor <= 5) return 'amarillo';
+      return 'verde';
+    };
     const tarjetas = [
-      { etiqueta: 'Productos', valor: valorNumerico(data?.conteos?.productos), estado: 'verde' },
-      { etiqueta: 'Ventas', valor: valorNumerico(data?.conteos?.ventas), estado: 'verde' },
-      { etiqueta: 'Presupuestos', valor: valorNumerico(data?.conteos?.presupuestos), estado: 'verde' },
+      { etiqueta: 'Productos', icono: '📦', valor: valorNumerico(data?.conteos?.productos), estado: estadoPorConteoBase(valorNumerico(data?.conteos?.productos)) },
+      { etiqueta: 'Ventas', icono: '🧾', valor: valorNumerico(data?.conteos?.ventas), estado: estadoPorConteoBase(valorNumerico(data?.conteos?.ventas)) },
+      { etiqueta: 'Presupuestos', icono: '📑', valor: valorNumerico(data?.conteos?.presupuestos), estado: estadoPorConteoBase(valorNumerico(data?.conteos?.presupuestos)) },
+      {
+        etiqueta: 'Productos sin costo',
+        icono: '💸',
+        valor: valorNumerico(data?.auditoriaDatos?.productosSinCosto),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinCosto), 1, 5)
+      },
+      {
+        etiqueta: 'Productos sin imagen',
+        icono: '🖼️',
+        valor: valorNumerico(data?.auditoriaDatos?.productosSinImagen),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinImagen), 1, 10)
+      },
       {
         etiqueta: 'Stock bajo',
+        icono: '📉',
         valor: valorNumerico(data?.alertasOperativas?.productosConStockBajo),
         estado: estadoPorSemaforo(valorNumerico(data?.alertasOperativas?.productosConStockBajo), 1, 10)
       },
       {
-        etiqueta: 'Productos sin precio',
-        valor: valorNumerico(data?.auditoriaDatos?.productosSinPrecio),
-        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinPrecio), 1, 5)
-      },
-      {
-        etiqueta: 'Productos sin categoría',
-        valor: valorNumerico(data?.auditoriaDatos?.productosSinCategoria),
-        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinCategoria), 1, 5)
-      },
-      {
         etiqueta: 'Ventas borrador antiguas',
+        icono: '⏳',
         valor: valorNumerico(data?.auditoriaDatos?.ventasBorradorAntiguas),
         estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.ventasBorradorAntiguas), 1, 3)
       },
       {
-        etiqueta: 'Presupuestos pendientes',
-        valor: valorNumerico(data?.auditoriaDatos?.presupuestosPendientes),
-        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.presupuestosPendientes), 1, 8)
+        etiqueta: 'Clientes duplicados',
+        icono: '👥',
+        valor: valorNumerico(data?.auditoriaDatos?.clientesDuplicados?.length),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.clientesDuplicados?.length), 1, 3)
+      },
+      {
+        etiqueta: 'Productos duplicados',
+        icono: '🧪',
+        valor: valorNumerico(data?.auditoriaDatos?.productosDuplicados?.length),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosDuplicados?.length), 1, 3)
       }
     ];
     panel.innerHTML = tarjetas.map((item) => `
       <article class="estado-sistema-card estado-${item.estado}">
-        <p class="estado-sistema-label">${item.etiqueta}</p>
+        <p class="estado-sistema-label"><span class="estado-sistema-icono" aria-hidden="true">${item.icono}</span>${item.etiqueta}</p>
         <strong class="estado-sistema-value">${item.valor}</strong>
       </article>
     `).join('');
