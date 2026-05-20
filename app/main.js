@@ -904,17 +904,44 @@ async function loadEstadoSistema() {
   panel.innerHTML = '<div class="item">Cargando diagnóstico...</div>';
   try {
     const data = await api('/api/estado-sistema');
+    const valorNumerico = (value) => Number(value || 0);
+    const estadoPorSemaforo = (valor, alertaDesde = 1, problemaDesde = 5) => {
+      if (valor >= problemaDesde) return 'rojo';
+      if (valor >= alertaDesde) return 'amarillo';
+      return 'verde';
+    };
     const tarjetas = [
-      { etiqueta: 'Estado base de datos', valor: data?.estadoBaseDatos || '-' },
-      { etiqueta: 'Productos', valor: Number(data?.conteos?.productos || 0) },
-      { etiqueta: 'Personas / clientes', valor: Number(data?.conteos?.personasClientes || 0) },
-      { etiqueta: 'Ventas', valor: Number(data?.conteos?.ventas || 0) },
-      { etiqueta: 'Presupuestos', valor: Number(data?.conteos?.presupuestos || 0) },
-      { etiqueta: 'Movimientos de caja', valor: data?.conteos?.movimientosCaja == null ? 'No disponible (modelo inexistente)' : Number(data?.conteos?.movimientosCaja || 0) },
-      { etiqueta: 'Última lectura', valor: data?.ultimaLectura || '-' }
+      { etiqueta: 'Productos', valor: valorNumerico(data?.conteos?.productos), estado: 'verde' },
+      { etiqueta: 'Ventas', valor: valorNumerico(data?.conteos?.ventas), estado: 'verde' },
+      { etiqueta: 'Presupuestos', valor: valorNumerico(data?.conteos?.presupuestos), estado: 'verde' },
+      {
+        etiqueta: 'Stock bajo',
+        valor: valorNumerico(data?.alertasOperativas?.productosConStockBajo),
+        estado: estadoPorSemaforo(valorNumerico(data?.alertasOperativas?.productosConStockBajo), 1, 10)
+      },
+      {
+        etiqueta: 'Productos sin precio',
+        valor: valorNumerico(data?.auditoriaDatos?.productosSinPrecio),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinPrecio), 1, 5)
+      },
+      {
+        etiqueta: 'Productos sin categoría',
+        valor: valorNumerico(data?.auditoriaDatos?.productosSinCategoria),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinCategoria), 1, 5)
+      },
+      {
+        etiqueta: 'Ventas borrador antiguas',
+        valor: valorNumerico(data?.auditoriaDatos?.ventasBorradorAntiguas),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.ventasBorradorAntiguas), 1, 3)
+      },
+      {
+        etiqueta: 'Presupuestos pendientes',
+        valor: valorNumerico(data?.auditoriaDatos?.presupuestosPendientes),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.presupuestosPendientes), 1, 8)
+      }
     ];
     panel.innerHTML = tarjetas.map((item) => `
-      <article class="estado-sistema-card">
+      <article class="estado-sistema-card estado-${item.estado}">
         <p class="estado-sistema-label">${item.etiqueta}</p>
         <strong class="estado-sistema-value">${item.valor}</strong>
       </article>
