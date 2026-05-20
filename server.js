@@ -199,6 +199,16 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
     ultimaVenta: null,
     ultimoPresupuesto: null
   };
+  const auditoriaDatos = {
+    productosSinCategoria: null,
+    productosSinPrecio: null,
+    productosSinCosto: null,
+    productosSinImagen: null,
+    productosDuplicados: [],
+    clientesDuplicados: [],
+    ventasBorradorAntiguas: null,
+    presupuestosPendientes: null
+  };
 
   try {
     const [productos, personas, ventas, presupuestos] = await Promise.all([
@@ -311,6 +321,131 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
       }
     }
 
+    if (modeloProductoDisponible) {
+      try {
+        auditoriaDatos.productosSinCategoria = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { categoria: null },
+              { categoria: '' }
+            ]
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.productosSinCategoria = null;
+      }
+
+      try {
+        auditoriaDatos.productosSinPrecio = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { precioVenta: null },
+              { precioVenta: { lte: 0 } }
+            ]
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.productosSinPrecio = null;
+      }
+
+      try {
+        auditoriaDatos.productosSinCosto = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { costoBase: null },
+              { costoBase: { lte: 0 } }
+            ]
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.productosSinCosto = null;
+      }
+
+      try {
+        auditoriaDatos.productosSinImagen = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { imagenUrl: null },
+              { imagenUrl: '' },
+              { imagen: null },
+              { imagen: '' }
+            ]
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.productosSinImagen = null;
+      }
+
+      try {
+        const productos = await prisma.producto.findMany({
+          where: { eliminado: false },
+          select: { id: true, nombre: true, codigo: true }
+        });
+        const mapaProductos = new Map();
+        for (const item of productos) {
+          const clave = String(item.codigo || item.nombre || '').trim().toLowerCase();
+          if (!clave) continue;
+          if (!mapaProductos.has(clave)) mapaProductos.set(clave, []);
+          mapaProductos.get(clave).push({ id: item.id, nombre: item.nombre ?? null, codigo: item.codigo ?? null });
+        }
+        auditoriaDatos.productosDuplicados = Array.from(mapaProductos.values())
+          .filter((grupo) => grupo.length > 1)
+          .slice(0, 20);
+      } catch (_error) {
+        auditoriaDatos.productosDuplicados = [];
+      }
+    }
+
+    if (Boolean(prisma.persona)) {
+      try {
+        const clientes = await prisma.persona.findMany({
+          where: { eliminado: false },
+          select: { id: true, nombre: true, documento: true, cuit: true }
+        });
+        const mapaClientes = new Map();
+        for (const item of clientes) {
+          const clave = String(item.documento || item.cuit || item.nombre || '').trim().toLowerCase();
+          if (!clave) continue;
+          if (!mapaClientes.has(clave)) mapaClientes.set(clave, []);
+          mapaClientes.get(clave).push({ id: item.id, nombre: item.nombre ?? null, documento: item.documento ?? null, cuit: item.cuit ?? null });
+        }
+        auditoriaDatos.clientesDuplicados = Array.from(mapaClientes.values())
+          .filter((grupo) => grupo.length > 1)
+          .slice(0, 20);
+      } catch (_error) {
+        auditoriaDatos.clientesDuplicados = [];
+      }
+    }
+
+    if (modeloVentaDisponible) {
+      try {
+        const hace30Dias = new Date();
+        hace30Dias.setDate(hace30Dias.getDate() - 30);
+        auditoriaDatos.ventasBorradorAntiguas = await prisma.venta.count({
+          where: {
+            estado: 'BORRADOR',
+            createdAt: { lt: hace30Dias }
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.ventasBorradorAntiguas = null;
+      }
+    }
+
+    if (modeloPresupuestoDisponible) {
+      try {
+        auditoriaDatos.presupuestosPendientes = await prisma.presupuesto.count({
+          where: { estado: { in: ['PENDIENTE', 'PENDIENTE_APROBACION'] } }
+        });
+      } catch (_error) {
+        auditoriaDatos.presupuestosPendientes = null;
+      }
+    }
+
     return res.json({
       sistema: 'Agroquímica San Bernardo',
       estadoBaseDatos: 'OK',
@@ -329,6 +464,7 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
         movimientoCajaDisponible: hayMovimientoCaja
       },
       alertasOperativas,
+      auditoriaDatos,
       ultimaLectura: new Date().toISOString(),
       duracionLecturaMs: Date.now() - inicioLectura.getTime()
     });
@@ -350,6 +486,16 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
       },
       modelos: {
         movimientoCajaDisponible: hayMovimientoCaja
+      },
+      auditoriaDatos: {
+        productosSinCategoria: null,
+        productosSinPrecio: null,
+        productosSinCosto: null,
+        productosSinImagen: null,
+        productosDuplicados: [],
+        clientesDuplicados: [],
+        ventasBorradorAntiguas: null,
+        presupuestosPendientes: null
       },
       ultimaLectura: new Date().toISOString(),
       duracionLecturaMs: Date.now() - inicioLectura.getTime()
