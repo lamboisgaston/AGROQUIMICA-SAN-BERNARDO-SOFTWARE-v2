@@ -211,17 +211,56 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
   };
 
   try {
-    const [productos, personas, ventas, presupuestos] = await Promise.all([
-      prisma.producto.count({ where: { eliminado: false } }),
-      prisma.persona.count({ where: { eliminado: false } }),
-      prisma.venta.count(),
-      prisma.presupuesto.count()
-    ]);
-
-    const movimientosCaja = hayMovimientoCaja ? await prisma.movimientoCaja.count() : null;
     const modeloProductoDisponible = Boolean(prisma.producto);
+    const modeloPersonaDisponible = Boolean(prisma.persona);
     const modeloVentaDisponible = Boolean(prisma.venta);
     const modeloPresupuestoDisponible = Boolean(prisma.presupuesto);
+
+    let productos = null;
+    let personas = null;
+    let ventas = null;
+    let presupuestos = null;
+    let movimientosCaja = hayMovimientoCaja ? null : null;
+
+    if (modeloProductoDisponible) {
+      try {
+        productos = await prisma.producto.count({ where: { eliminado: false } });
+      } catch (_error) {
+        productos = null;
+      }
+    }
+
+    if (modeloPersonaDisponible) {
+      try {
+        personas = await prisma.persona.count({ where: { eliminado: false } });
+      } catch (_error) {
+        personas = null;
+      }
+    }
+
+    if (modeloVentaDisponible) {
+      try {
+        ventas = await prisma.venta.count();
+      } catch (_error) {
+        ventas = null;
+      }
+    }
+
+    if (modeloPresupuestoDisponible) {
+      try {
+        presupuestos = await prisma.presupuesto.count();
+      } catch (_error) {
+        presupuestos = null;
+      }
+    }
+
+    if (hayMovimientoCaja) {
+      try {
+        movimientosCaja = await prisma.movimientoCaja.count();
+      } catch (_error) {
+        movimientosCaja = null;
+      }
+    }
 
     if (modeloProductoDisponible) {
       try {
@@ -400,7 +439,7 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
       }
     }
 
-    if (Boolean(prisma.persona)) {
+    if (modeloPersonaDisponible) {
       try {
         const clientes = await prisma.persona.findMany({
           where: { eliminado: false },
