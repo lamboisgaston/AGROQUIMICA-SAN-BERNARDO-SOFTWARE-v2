@@ -900,18 +900,25 @@ async function inicializarModuloPedidos() {
 async function loadEstadoSistema() {
   const panel = $('#estado-sistema-panel');
   if (!panel) return;
-  panel.innerHTML = 'Cargando diagnóstico...';
+  panel.classList.add('estado-sistema-grid');
+  panel.innerHTML = '<div class="item">Cargando diagnóstico...</div>';
   try {
     const data = await api('/api/estado-sistema');
-    panel.innerHTML = `
-      <div class="item"><strong>Conexión DB:</strong> ${data?.estadoBaseDatos || '-'}</div>
-      <div class="item"><strong>Productos:</strong> ${Number(data?.conteos?.productos || 0)}</div>
-      <div class="item"><strong>Personas / clientes:</strong> ${Number(data?.conteos?.personasClientes || 0)}</div>
-      <div class="item"><strong>Ventas:</strong> ${Number(data?.conteos?.ventas || 0)}</div>
-      <div class="item"><strong>Presupuestos:</strong> ${Number(data?.conteos?.presupuestos || 0)}</div>
-      <div class="item"><strong>Movimientos de caja:</strong> ${data?.conteos?.movimientosCaja == null ? 'No disponible (modelo inexistente)' : Number(data?.conteos?.movimientosCaja || 0)}</div>
-      <div class="item"><strong>Última lectura:</strong> ${data?.ultimaLectura || '-'}</div>
-    `;
+    const tarjetas = [
+      { etiqueta: 'Estado base de datos', valor: data?.estadoBaseDatos || '-' },
+      { etiqueta: 'Productos', valor: Number(data?.conteos?.productos || 0) },
+      { etiqueta: 'Personas / clientes', valor: Number(data?.conteos?.personasClientes || 0) },
+      { etiqueta: 'Ventas', valor: Number(data?.conteos?.ventas || 0) },
+      { etiqueta: 'Presupuestos', valor: Number(data?.conteos?.presupuestos || 0) },
+      { etiqueta: 'Movimientos de caja', valor: data?.conteos?.movimientosCaja == null ? 'No disponible (modelo inexistente)' : Number(data?.conteos?.movimientosCaja || 0) },
+      { etiqueta: 'Última lectura', valor: data?.ultimaLectura || '-' }
+    ];
+    panel.innerHTML = tarjetas.map((item) => `
+      <article class="estado-sistema-card">
+        <p class="estado-sistema-label">${item.etiqueta}</p>
+        <strong class="estado-sistema-value">${item.valor}</strong>
+      </article>
+    `).join('');
   } catch (error) {
     panel.innerHTML = `<div class="item">Error al leer estado del sistema: ${error.message || error}</div>`;
   }
