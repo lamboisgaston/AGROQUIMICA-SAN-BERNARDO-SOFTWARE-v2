@@ -141,6 +141,33 @@ details[open] { display: grid; gap: 5px; }
 .btn-accion-editar { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
 .btn-accion-precio { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
 
+.estado-sistema-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  max-height: none;
+  border: 0;
+  background: transparent;
+}
+.estado-sistema-card {
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fbff;
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+}
+.estado-sistema-label {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+}
+.estado-sistema-value {
+  font-size: 16px;
+  color: #0f172a;
+}
+
 @media (max-width: 900px) {
   .producto-card { grid-template-columns: 70px minmax(0,1fr); }
   .producto-media { width: 70px; height: 70px; }
