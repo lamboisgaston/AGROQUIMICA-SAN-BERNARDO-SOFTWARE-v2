@@ -2407,37 +2407,68 @@ app.get('/cuenta-corriente/resumen', asyncHandler(async (req, res) => {
 app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req, res) => {
   const personaId = parsePositiveInt(req.params.personaId);
   if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
-  const { monto, descripcion } = req.body;
+  const { monto, medioPago, fecha, observacion } = req.body;
 
-  if (!monto || Number(monto) <= 0) {
-    return res.status(400).json({ error: 'monto (>0) es obligatorio' });
-  }
+  if (!monto || Number(monto) <= 0) return res.status(400).json({ error: 'monto (>0) es obligatorio' });
+  if (!['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'].includes(String(medioPago || ''))) return res.status(400).json({ error: 'medioPago inválido' });
+  if (!fecha) return res.status(400).json({ error: 'fecha es obligatoria' });
 
-  const cuenta = await prisma.cuentaCorriente.findUnique({ where: { personaId } });
+  const cuenta = await prisma.cuentaCorriente.findUnique({ where: { personaId }, include: { persona: true } });
   if (!cuenta) return res.status(404).json({ error: 'Cuenta corriente no encontrada' });
-  if (Number(monto) > cuenta.saldo) {
-    return res.status(400).json({ error: 'El pago no puede ser mayor al saldo actual' });
-  }
+  if (Number(monto) > cuenta.saldo) return res.status(400).json({ error: 'El pago no puede ser mayor al saldo actual' });
 
+  const saldoAnterior = Number(cuenta.saldo);
   const cuentaActualizada = await prisma.$transaction(async tx => {
-    const updated = await tx.cuentaCorriente.update({
-      where: { id: cuenta.id },
-      data: { saldo: { decrement: Number(monto) } }
+    const updated = await tx.cuentaCorriente.update({ where: { id: cuenta.id }, data: { saldo: { decrement: Number(monto) } } });
+    const movimiento = await tx.movimientoCuentaCorriente.create({
+      data: { cuentaCorrienteId: cuenta.id, tipo: 'CREDITO', monto: Number(monto), descripcion: observacion || 'Pago de cuenta corriente' }
     });
-
-    await tx.movimientoCuentaCorriente.create({
+    const recibo = await tx.reciboPagoCuentaCorriente.create({
       data: {
-        cuentaCorrienteId: cuenta.id,
-        tipo: 'CREDITO',
-        monto: Number(monto),
-        descripcion: descripcion || 'Pago de cuenta corriente'
+        movimientoId: movimiento.id,
+        personaId,
+        montoPagado: Number(monto),
+        medioPago,
+        fechaPago: new Date(fecha),
+        observacion: observacion || null,
+        saldoAnterior,
+        saldoPosterior: Number(updated.saldo)
       }
     });
-
-    return updated;
+    return { updated, recibo };
   });
 
-  res.json(cuentaActualizada);
+  res.json({ ...cuentaActualizada.updated, recibo: { id: cuentaActualizada.recibo.id, personaNombre: cuenta.persona?.nombre || 'Cliente', monto: cuentaActualizada.recibo.montoPagado, medioPago: cuentaActualizada.recibo.medioPago, fechaPago: cuentaActualizada.recibo.fechaPago, saldoAnterior: cuentaActualizada.recibo.saldoAnterior, saldoPosterior: cuentaActualizada.recibo.saldoPosterior } });
+}));
+
+async function obtenerReciboCc(reciboId) {
+  return prisma.reciboPagoCuentaCorriente.findUnique({ where: { id: reciboId }, include: { persona: true } });
+}
+
+function htmlReciboCc(recibo, forPrint = false) {
+  return `<!doctype html><html lang="es"><head><meta charset="UTF-8"/><title>Recibo #${recibo.id}</title><style>body{font-family:Arial,sans-serif;margin:16px;max-width:460px;}p{margin:4px 0;}@media print{button{display:none;}}</style></head><body><h2>Recibo de pago #${recibo.id}</h2><p><strong>Persona:</strong> ${escapeHtml(recibo.persona?.nombre || '-')}</p><p><strong>Monto pagado:</strong> $${Number(recibo.montoPagado).toFixed(2)}</p><p><strong>Medio de pago:</strong> ${escapeHtml(recibo.medioPago)}</p><p><strong>Fecha:</strong> ${new Date(recibo.fechaPago).toLocaleString('es-AR')}</p><p><strong>Saldo anterior:</strong> $${Number(recibo.saldoAnterior).toFixed(2)}</p><p><strong>Saldo posterior:</strong> $${Number(recibo.saldoPosterior).toFixed(2)}</p><p><strong>Observación:</strong> ${escapeHtml(recibo.observacion || '-')}</p>${forPrint ? '<script>window.print()</script>' : '<button onclick="window.print()">Imprimir</button>'}</body></html>`;
+}
+
+app.get('/cuenta-corriente/recibos/:reciboId/ver', asyncHandler(async (req, res) => {
+  const reciboId = parsePositiveInt(req.params.reciboId);
+  const recibo = await obtenerReciboCc(reciboId);
+  if (!recibo) return res.status(404).send('Recibo no encontrado');
+  res.set('Content-Type', 'text/html; charset=utf-8').send(htmlReciboCc(recibo, false));
+}));
+
+app.get('/cuenta-corriente/recibos/:reciboId/imprimir', asyncHandler(async (req, res) => {
+  const reciboId = parsePositiveInt(req.params.reciboId);
+  const recibo = await obtenerReciboCc(reciboId);
+  if (!recibo) return res.status(404).send('Recibo no encontrado');
+  res.set('Content-Type', 'text/html; charset=utf-8').send(htmlReciboCc(recibo, true));
+}));
+
+app.get('/cuenta-corriente/recibos/:reciboId/whatsapp', asyncHandler(async (req, res) => {
+  const reciboId = parsePositiveInt(req.params.reciboId);
+  const recibo = await obtenerReciboCc(reciboId);
+  if (!recibo) return res.status(404).send('Recibo no encontrado');
+  const msg = `Recibo #${recibo.id} - ${recibo.persona?.nombre || 'Cliente'} | Pago: $${Number(recibo.montoPagado).toFixed(2)} | Medio: ${recibo.medioPago} | Fecha: ${new Date(recibo.fechaPago).toLocaleDateString('es-AR')} | Saldo anterior: $${Number(recibo.saldoAnterior).toFixed(2)} | Saldo posterior: $${Number(recibo.saldoPosterior).toFixed(2)}`;
+  res.redirect(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }));
 
 app.use((err, req, res, next) => {

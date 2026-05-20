@@ -360,9 +360,7 @@ function renderResumenCuentaCorriente(listado) {
         <strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | Deuda: ${money(p.deudaTotal || 0)} | Movimientos: ${Number(p.movimientosPendientes || 0)} | Último: ${p.ultimoMovimientoAt ? new Date(p.ultimoMovimientoAt).toLocaleString('es-AR') : '-'}
         <div class="action-row">
           <button data-cc-persona="${p.personaId}">Ver detalle</button>
-          <button data-cc-generar-recibo="${p.personaId}">Generar recibo</button>
-          <button data-cc-imprimir-recibo="${p.personaId}">Imprimir recibo</button>
-          <button data-cc-enviar-recibo="${p.personaId}">Enviar recibo</button>
+          <button data-cc-registrar-pago-persona="${p.personaId}">Registrar pago</button>
         </div>
       </div>
     `).join('')
@@ -1352,26 +1350,42 @@ $('#cc-resumen-personas')?.addEventListener('click', async (e) => {
     return;
   }
 
-  const generar = e.target.closest('button[data-cc-generar-recibo]');
-  if (generar) return setMsg('Generación de recibo pendiente: por ahora registre el pago desde esta pantalla.');
-  const imprimir = e.target.closest('button[data-cc-imprimir-recibo]');
-  if (imprimir) return setMsg('Impresión de recibo pendiente: todavía no existe endpoint de impresión para cuenta corriente.');
-  const enviar = e.target.closest('button[data-cc-enviar-recibo]');
-  if (enviar) return setMsg('Envío de recibo pendiente: no se detectó integración WhatsApp para cuenta corriente.');
+  const registrarPagoPersona = e.target.closest('button[data-cc-registrar-pago-persona]');
+  if (registrarPagoPersona) {
+    try {
+      const cuenta = await cargarCuentaCorrientePersona(Number(registrarPagoPersona.dataset.ccRegistrarPagoPersona));
+      renderPanelCuentaCorriente(cuenta);
+      document.getElementById('cc-pago-monto')?.focus();
+    } catch (error) {
+      setMsg(error.message);
+    }
+    return;
+  }
 });
 
 $('#btn-cc-registrar-pago').addEventListener('click', async () => {
   const personaId = cuentaCorrienteMostrada?.personaId;
   if (!personaId) return setMsg('Seleccione un cliente para registrar pago');
   const monto = Number($('#cc-pago-monto').value);
+  const medioPago = $('#cc-pago-medio').value;
+  const fecha = $('#cc-pago-fecha').value;
+  const observacion = $('#cc-pago-observacion').value.trim();
   if (!monto || monto <= 0) return setMsg('Ingrese un monto válido');
+  if (!fecha) return setMsg('Seleccione la fecha del pago');
   try {
-    await api(`/cuenta-corriente/personas/${personaId}/pagos`, { method: 'POST', body: JSON.stringify({ monto }) });
+    const payload = { monto, medioPago, fecha, observacion };
+    const result = await api(`/cuenta-corriente/personas/${personaId}/pagos`, { method: 'POST', body: JSON.stringify(payload) });
     const cuenta = await cargarCuentaCorrientePersona(personaId);
     renderPanelCuentaCorriente(cuenta);
     await renderCuentaCorrienteClienteActivo();
     await loadResumenCuentaCorriente();
-    setMsg('Pago registrado (HABER) y saldo actualizado');
+    const recibo = result?.recibo;
+    const view = document.getElementById('cc-recibo-view');
+    if (view && recibo) {
+      const whatsapp = `/cuenta-corriente/recibos/${recibo.id}/whatsapp`;
+      view.innerHTML = `<div class="item"><strong>Recibo #${recibo.id}</strong> | ${recibo.personaNombre} | ${money(recibo.monto)} | ${new Date(recibo.fechaPago).toLocaleString('es-AR')}<div class="action-row"><button onclick="window.open('/cuenta-corriente/recibos/${recibo.id}/ver','_blank')">Ver</button><button onclick="window.open('/cuenta-corriente/recibos/${recibo.id}/imprimir','_blank')">Imprimir</button><button onclick="window.open('${whatsapp}','_blank')">WhatsApp</button></div></div>`;
+    }
+    setMsg('Pago registrado, saldo actualizado y recibo generado');
   } catch (e) { setMsg(e.message); }
 });
 
@@ -2177,3 +2191,6 @@ renderPresupuestoProductos();
 })();
 
 $('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema);
+
+
+if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }

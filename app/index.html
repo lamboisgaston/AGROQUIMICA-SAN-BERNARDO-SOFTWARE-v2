@@ -205,10 +205,18 @@
       <p>Saldo total: <strong id="cc-saldo" class="estado-monto estado-cero">$0.00</strong></p>
       <div id="cc-movimientos" class="lista"></div>
       <small>Movimientos: DEBE (aumenta deuda) / HABER (baja deuda)</small>
-      <div>
+      <div class="cc-pago-form">
         <input id="cc-pago-monto" type="number" min="0.01" step="0.01" placeholder="Monto a pagar" />
+        <select id="cc-pago-medio">
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TRANSFERENCIA">Transferencia</option>
+          <option value="TARJETA">Tarjeta</option>
+        </select>
+        <input id="cc-pago-fecha" type="date" />
+        <input id="cc-pago-observacion" type="text" placeholder="Observación (opcional)" />
         <button id="btn-cc-registrar-pago">Registrar pago</button>
       </div>
+      <div id="cc-recibo-view" class="lista"></div>
     </section>
 
     
