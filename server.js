@@ -120,11 +120,6 @@ function requireDiagnosticoRole(req, res, next) {
   next();
 }
 
-function requireDiagnosticoRoleOnlyInProduction(req, res, next) {
-  if (process.env.NODE_ENV !== 'production') return next();
-  return requireDiagnosticoRole(req, res, next);
-}
-
 const ROLES_CIERRE_CAJA = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE', 'CAJA']);
 
 function obtenerRolRequest(req) {
@@ -192,7 +187,7 @@ app.post('/login', (req, res) => {
 });
 
 
-app.get('/api/estado-sistema', requireDiagnosticoRoleOnlyInProduction, asyncHandler(async (_req, res) => {
+app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDiagnosticoRole : (_req, _res, next) => next(), asyncHandler(async (_req, res) => {
   const inicioLectura = new Date();
   const hayMovimientoCaja = Boolean(prisma.movimientoCaja);
 
