@@ -527,6 +527,7 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
         movimientoCajaDisponible: hayMovimientoCaja
       },
       alertasOperativas,
+      auditoriaDatos: {},
       auditoriaDatos,
       ultimaLectura: new Date().toISOString(),
       duracionLecturaMs: Date.now() - inicioLectura.getTime()
