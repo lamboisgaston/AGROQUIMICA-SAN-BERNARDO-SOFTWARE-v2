@@ -390,31 +390,55 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
       }
 
       try {
-        auditoriaDatos.productosSinCosto = await prisma.producto.count({
-          where: {
-            eliminado: false,
-            OR: [
-              { costoBase: null },
-              { costoBase: { lte: 0 } }
-            ]
-          }
-        });
+        try {
+          auditoriaDatos.productosSinCosto = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { costoBase: null },
+                { costoBase: { lte: 0 } }
+              ]
+            }
+          });
+        } catch (_errorCostoBase) {
+          auditoriaDatos.productosSinCosto = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { precioUsd: null },
+                { precioUsd: { lte: 0 } }
+              ]
+            }
+          });
+        }
       } catch (_error) {
         auditoriaDatos.productosSinCosto = null;
       }
 
       try {
-        auditoriaDatos.productosSinImagen = await prisma.producto.count({
-          where: {
-            eliminado: false,
-            OR: [
-              { imagenUrl: null },
-              { imagenUrl: '' },
-              { imagen: null },
-              { imagen: '' }
-            ]
-          }
-        });
+        try {
+          auditoriaDatos.productosSinImagen = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { imagenUrl: null },
+                { imagenUrl: '' },
+                { imagen: null },
+                { imagen: '' }
+              ]
+            }
+          });
+        } catch (_errorImagenCompleta) {
+          auditoriaDatos.productosSinImagen = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { imagenUrl: null },
+                { imagenUrl: '' }
+              ]
+            }
+          });
+        }
       } catch (_error) {
         auditoriaDatos.productosSinImagen = null;
       }
