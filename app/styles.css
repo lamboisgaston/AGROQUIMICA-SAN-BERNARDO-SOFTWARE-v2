@@ -167,6 +167,18 @@ details[open] { display: grid; gap: 5px; }
   font-size: 16px;
   color: #0f172a;
 }
+.estado-sistema-card.estado-verde {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.estado-sistema-card.estado-amarillo {
+  border-color: #fcd34d;
+  background: #fefce8;
+}
+.estado-sistema-card.estado-rojo {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
 
 @media (max-width: 900px) {
   .producto-card { grid-template-columns: 70px minmax(0,1fr); }
