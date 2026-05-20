@@ -190,6 +190,15 @@ app.post('/login', (req, res) => {
 app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDiagnosticoRole : (_req, _res, next) => next(), asyncHandler(async (_req, res) => {
   const inicioLectura = new Date();
   const hayMovimientoCaja = Boolean(prisma.movimientoCaja);
+  const alertasOperativas = {
+    productosSinCategoria: null,
+    productosSinPrecio: null,
+    productosConStockBajo: null,
+    ventasPendientes: null,
+    presupuestosRecientes: null,
+    ultimaVenta: null,
+    ultimoPresupuesto: null
+  };
 
   try {
     const [productos, personas, ventas, presupuestos] = await Promise.all([
@@ -200,6 +209,107 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
     ]);
 
     const movimientosCaja = hayMovimientoCaja ? await prisma.movimientoCaja.count() : null;
+    const modeloProductoDisponible = Boolean(prisma.producto);
+    const modeloVentaDisponible = Boolean(prisma.venta);
+    const modeloPresupuestoDisponible = Boolean(prisma.presupuesto);
+
+    if (modeloProductoDisponible) {
+      try {
+        alertasOperativas.productosSinCategoria = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { categoria: null },
+              { categoria: '' }
+            ]
+          }
+        });
+      } catch (_error) {
+        alertasOperativas.productosSinCategoria = null;
+      }
+
+      try {
+        alertasOperativas.productosSinPrecio = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { precioVenta: null },
+              { precioVenta: { lte: 0 } }
+            ]
+          }
+        });
+      } catch (_error) {
+        alertasOperativas.productosSinPrecio = null;
+      }
+
+      try {
+        const productosConStock = await prisma.producto.findMany({
+          where: { eliminado: false },
+          select: { stock: true, stockMinimo: true }
+        });
+        alertasOperativas.productosConStockBajo = productosConStock.filter((item) => {
+          const stock = Number(item.stock ?? 0);
+          const stockMinimo = Number(item.stockMinimo ?? 0);
+          return stock <= stockMinimo;
+        }).length;
+      } catch (_error) {
+        alertasOperativas.productosConStockBajo = null;
+      }
+    }
+
+    if (modeloVentaDisponible) {
+      try {
+        alertasOperativas.ventasPendientes = await prisma.venta.count({
+          where: { estado: { not: 'COBRADA' } }
+        });
+      } catch (_error) {
+        alertasOperativas.ventasPendientes = null;
+      }
+
+      try {
+        const ultimaVenta = await prisma.venta.findFirst({
+          orderBy: { createdAt: 'desc' }
+        });
+        alertasOperativas.ultimaVenta = ultimaVenta
+          ? {
+              id: ultimaVenta.id,
+              estado: ultimaVenta.estado ?? null,
+              total: ultimaVenta.total ?? null,
+              createdAt: ultimaVenta.createdAt ?? null
+            }
+          : null;
+      } catch (_error) {
+        alertasOperativas.ultimaVenta = null;
+      }
+    }
+
+    if (modeloPresupuestoDisponible) {
+      try {
+        const desde = new Date();
+        desde.setDate(desde.getDate() - 7);
+        alertasOperativas.presupuestosRecientes = await prisma.presupuesto.count({
+          where: { createdAt: { gte: desde } }
+        });
+      } catch (_error) {
+        alertasOperativas.presupuestosRecientes = null;
+      }
+
+      try {
+        const ultimoPresupuesto = await prisma.presupuesto.findFirst({
+          orderBy: { createdAt: 'desc' }
+        });
+        alertasOperativas.ultimoPresupuesto = ultimoPresupuesto
+          ? {
+              id: ultimoPresupuesto.id,
+              estado: ultimoPresupuesto.estado ?? null,
+              total: ultimoPresupuesto.total ?? null,
+              createdAt: ultimoPresupuesto.createdAt ?? null
+            }
+          : null;
+      } catch (_error) {
+        alertasOperativas.ultimoPresupuesto = null;
+      }
+    }
 
     return res.json({
       sistema: 'Agroquímica San Bernardo',
@@ -218,6 +328,7 @@ app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDi
       modelos: {
         movimientoCajaDisponible: hayMovimientoCaja
       },
+      alertasOperativas,
       ultimaLectura: new Date().toISOString(),
       duracionLecturaMs: Date.now() - inicioLectura.getTime()
     });
