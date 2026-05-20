@@ -804,8 +804,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -878,7 +878,11 @@ async function abrirModulo(modulo) {
     await inicializarModuloPedidos();
     renderPedidoProductos();
   }
+  if (modulo === 'estado-sistema') {
+    await loadEstadoSistema();
+  }
 }
+
 
 async function inicializarModuloPedidos() {
   setMsg('PEDIDOS-NUEVO-FLUJO', 'info');
@@ -890,6 +894,27 @@ async function inicializarModuloPedidos() {
       setMsg(`Pedidos: ${resultado.reason?.message || resultado.reason || 'error inesperado'}`, 'warning');
     }
   });
+}
+
+
+async function loadEstadoSistema() {
+  const panel = $('#estado-sistema-panel');
+  if (!panel) return;
+  panel.innerHTML = 'Cargando diagnóstico...';
+  try {
+    const data = await api('/api/estado-sistema');
+    panel.innerHTML = `
+      <div class="item"><strong>Conexión DB:</strong> ${data?.estadoBaseDatos || '-'}</div>
+      <div class="item"><strong>Productos:</strong> ${Number(data?.conteos?.productos || 0)}</div>
+      <div class="item"><strong>Personas / clientes:</strong> ${Number(data?.conteos?.personasClientes || 0)}</div>
+      <div class="item"><strong>Ventas:</strong> ${Number(data?.conteos?.ventas || 0)}</div>
+      <div class="item"><strong>Presupuestos:</strong> ${Number(data?.conteos?.presupuestos || 0)}</div>
+      <div class="item"><strong>Movimientos de caja:</strong> ${data?.conteos?.movimientosCaja == null ? 'No disponible (modelo inexistente)' : Number(data?.conteos?.movimientosCaja || 0)}</div>
+      <div class="item"><strong>Última lectura:</strong> ${data?.ultimaLectura || '-'}</div>
+    `;
+  } catch (error) {
+    panel.innerHTML = `<div class="item">Error al leer estado del sistema: ${error.message || error}</div>`;
+  }
 }
 
 async function loadEliminados() {
@@ -2043,3 +2068,5 @@ renderPresupuestoProductos();
   renderRemitoItems();
   $('#buscar-producto').focus();
 })();
+
+$('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema);
