@@ -347,6 +347,39 @@ async function cargarCuentaCorrientePersona(personaId) {
   return api(`/cuenta-corriente/personas/${personaId}`);
 }
 
+async function cargarResumenCuentaCorriente() {
+  return api('/cuenta-corriente/resumen');
+}
+
+function renderResumenCuentaCorriente(listado) {
+  const container = $('#cc-resumen-personas');
+  if (!container) return;
+  container.innerHTML = listado.length
+    ? listado.map((p) => `
+      <div class="item">
+        <strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | Deuda: ${money(p.deudaTotal || 0)} | Movimientos: ${Number(p.movimientosPendientes || 0)} | Último: ${p.ultimoMovimientoAt ? new Date(p.ultimoMovimientoAt).toLocaleString('es-AR') : '-'}
+        <div class="action-row">
+          <button data-cc-persona="${p.personaId}">Ver detalle</button>
+          <button data-cc-generar-recibo="${p.personaId}">Generar recibo</button>
+          <button data-cc-imprimir-recibo="${p.personaId}">Imprimir recibo</button>
+          <button data-cc-enviar-recibo="${p.personaId}">Enviar recibo</button>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="item">No hay personas con deuda pendiente.</div>';
+}
+
+async function loadResumenCuentaCorriente() {
+  const container = $('#cc-resumen-personas');
+  if (container) container.innerHTML = '<div class="item">Cargando resumen...</div>';
+  try {
+    const listado = await cargarResumenCuentaCorriente();
+    renderResumenCuentaCorriente(listado);
+  } catch (error) {
+    if (container) container.innerHTML = `<div class="item">Error: ${error.message}</div>`;
+  }
+}
+
 async function renderCuentaCorrienteClienteActivo() {
   const personaId = venta?.personaId;
   if (!personaId) {
@@ -881,6 +914,9 @@ async function abrirModulo(modulo) {
   if (modulo === 'estado-sistema') {
     await loadEstadoSistema();
   }
+  if (modulo === 'cuenta-corriente') {
+    await loadResumenCuentaCorriente();
+  }
 }
 
 
@@ -1304,6 +1340,26 @@ $('#cc-resultados-clientes').addEventListener('click', async (e) => {
   } catch (e2) { setMsg(e2.message); }
 });
 
+$('#cc-resumen-personas')?.addEventListener('click', async (e) => {
+  const verDetalle = e.target.closest('button[data-cc-persona]');
+  if (verDetalle) {
+    try {
+      const cuenta = await cargarCuentaCorrientePersona(Number(verDetalle.dataset.ccPersona));
+      renderPanelCuentaCorriente(cuenta);
+    } catch (error) {
+      setMsg(error.message);
+    }
+    return;
+  }
+
+  const generar = e.target.closest('button[data-cc-generar-recibo]');
+  if (generar) return setMsg('Generación de recibo pendiente: por ahora registre el pago desde esta pantalla.');
+  const imprimir = e.target.closest('button[data-cc-imprimir-recibo]');
+  if (imprimir) return setMsg('Impresión de recibo pendiente: todavía no existe endpoint de impresión para cuenta corriente.');
+  const enviar = e.target.closest('button[data-cc-enviar-recibo]');
+  if (enviar) return setMsg('Envío de recibo pendiente: no se detectó integración WhatsApp para cuenta corriente.');
+});
+
 $('#btn-cc-registrar-pago').addEventListener('click', async () => {
   const personaId = cuentaCorrienteMostrada?.personaId;
   if (!personaId) return setMsg('Seleccione un cliente para registrar pago');
@@ -1314,6 +1370,7 @@ $('#btn-cc-registrar-pago').addEventListener('click', async () => {
     const cuenta = await cargarCuentaCorrientePersona(personaId);
     renderPanelCuentaCorriente(cuenta);
     await renderCuentaCorrienteClienteActivo();
+    await loadResumenCuentaCorriente();
     setMsg('Pago registrado (HABER) y saldo actualizado');
   } catch (e) { setMsg(e.message); }
 });

@@ -2343,6 +2343,67 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
   res.json({ ...cuenta, persona: { ...cuenta.persona, cantidadCompras: comprasStats._count._all || 0, totalComprado: Number(comprasStats._sum.total || 0) } });
 }));
 
+app.get('/cuenta-corriente/resumen', asyncHandler(async (req, res) => {
+  const cuentas = await prisma.cuentaCorriente.findMany({
+    include: {
+      persona: true,
+      movimientos: {
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, createdAt: true }
+      }
+    }
+  });
+
+  const cuentasByPersona = new Map(cuentas.map((c) => [c.personaId, c]));
+  const ventasCc = await prisma.venta.findMany({
+    where: { medioPago: 'CUENTA_CORRIENTE', personaId: { not: null } },
+    include: { persona: true },
+    orderBy: { updatedAt: 'desc' }
+  });
+
+  const resumenMap = new Map();
+
+  const ensureEntry = (personaId, persona) => {
+    if (!resumenMap.has(personaId)) {
+      resumenMap.set(personaId, {
+        personaId,
+        clienteId: personaId,
+        nombre: persona?.nombre || 'Sin nombre',
+        telefono: persona?.telefono || null,
+        deudaTotal: 0,
+        movimientosPendientes: 0,
+        ultimoMovimientoAt: null
+      });
+    }
+    return resumenMap.get(personaId);
+  };
+
+  for (const cuenta of cuentas) {
+    const item = ensureEntry(cuenta.personaId, cuenta.persona);
+    item.deudaTotal = Number(cuenta.saldo || 0);
+    item.movimientosPendientes = cuenta.movimientos.length;
+    item.ultimoMovimientoAt = cuenta.movimientos[0]?.createdAt || null;
+  }
+
+  for (const venta of ventasCc) {
+    const personaId = Number(venta.personaId);
+    if (!personaId) continue;
+    if (cuentasByPersona.has(personaId)) continue;
+    const item = ensureEntry(personaId, venta.persona);
+    item.deudaTotal += Number(venta.total || 0);
+    item.movimientosPendientes += 1;
+    if (!item.ultimoMovimientoAt || new Date(venta.updatedAt) > new Date(item.ultimoMovimientoAt)) {
+      item.ultimoMovimientoAt = venta.updatedAt;
+    }
+  }
+
+  const resumen = Array.from(resumenMap.values())
+    .filter((item) => Number(item.deudaTotal) > 0)
+    .sort((a, b) => Number(a.deudaTotal) - Number(b.deudaTotal));
+
+  res.json(resumen);
+}));
+
 app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req, res) => {
   const personaId = parsePositiveInt(req.params.personaId);
   if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
