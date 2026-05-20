@@ -110,6 +110,16 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina(), t
 
 
 
+
+const ROLES_DIAGNOSTICO = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE']);
+
+function requireDiagnosticoRole(req, res, next) {
+  const rol = obtenerRolRequest(req);
+  if (!ROLES_DIAGNOSTICO.has(rol)) return res.status(403).json({ error: 'Rol no autorizado para diagnóstico del sistema' });
+  req.userRole = rol;
+  next();
+}
+
 const ROLES_CIERRE_CAJA = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE', 'CAJA']);
 
 function obtenerRolRequest(req) {
@@ -175,6 +185,66 @@ app.post('/login', (req, res) => {
     rol: encontrado.rol
   });
 });
+
+
+app.get('/api/estado-sistema', requireDiagnosticoRole, asyncHandler(async (_req, res) => {
+  const inicioLectura = new Date();
+  const hayMovimientoCaja = Boolean(prisma.movimientoCaja);
+
+  try {
+    const [productos, personas, ventas, presupuestos] = await Promise.all([
+      prisma.producto.count({ where: { eliminado: false } }),
+      prisma.persona.count({ where: { eliminado: false } }),
+      prisma.venta.count(),
+      prisma.presupuesto.count()
+    ]);
+
+    const movimientosCaja = hayMovimientoCaja ? await prisma.movimientoCaja.count() : null;
+
+    return res.json({
+      sistema: 'Agroquímica San Bernardo',
+      estadoBaseDatos: 'OK',
+      baseDatos: {
+        conectada: true,
+        proveedor: 'Prisma'
+      },
+      conteos: {
+        productos,
+        personasClientes: personas,
+        ventas,
+        presupuestos,
+        movimientosCaja
+      },
+      modelos: {
+        movimientoCajaDisponible: hayMovimientoCaja
+      },
+      ultimaLectura: new Date().toISOString(),
+      duracionLecturaMs: Date.now() - inicioLectura.getTime()
+    });
+  } catch (error) {
+    return res.status(503).json({
+      sistema: 'Agroquímica San Bernardo',
+      estadoBaseDatos: 'ERROR',
+      baseDatos: {
+        conectada: false,
+        proveedor: 'Prisma',
+        detalle: error.message || String(error)
+      },
+      conteos: {
+        productos: null,
+        personasClientes: null,
+        ventas: null,
+        presupuestos: null,
+        movimientosCaja: hayMovimientoCaja ? null : null
+      },
+      modelos: {
+        movimientoCajaDisponible: hayMovimientoCaja
+      },
+      ultimaLectura: new Date().toISOString(),
+      duracionLecturaMs: Date.now() - inicioLectura.getTime()
+    });
+  }
+}));
 
 app.get('/eliminados', asyncHandler(async (_req, res) => {
   const [clientes, productos, proveedores] = await Promise.all([
