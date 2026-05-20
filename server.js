@@ -114,14 +114,15 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina(), t
 const ROLES_DIAGNOSTICO = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE']);
 
 function requireDiagnosticoRole(req, res, next) {
-  if (process.env.NODE_ENV !== 'production') {
-    return next();
-  }
-
   const rol = obtenerRolRequest(req);
   if (!ROLES_DIAGNOSTICO.has(rol)) return res.status(403).json({ error: 'Rol no autorizado para diagnóstico del sistema' });
   req.userRole = rol;
   next();
+}
+
+function requireDiagnosticoRoleOnlyInProduction(req, res, next) {
+  if (process.env.NODE_ENV !== 'production') return next();
+  return requireDiagnosticoRole(req, res, next);
 }
 
 const ROLES_CIERRE_CAJA = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE', 'CAJA']);
@@ -191,7 +192,7 @@ app.post('/login', (req, res) => {
 });
 
 
-app.get('/api/estado-sistema', requireDiagnosticoRole, asyncHandler(async (_req, res) => {
+app.get('/api/estado-sistema', requireDiagnosticoRoleOnlyInProduction, asyncHandler(async (_req, res) => {
   const inicioLectura = new Date();
   const hayMovimientoCaja = Boolean(prisma.movimientoCaja);
 
