@@ -137,15 +137,26 @@ function renderProductoCard(p, opciones = {}) {
   const imagenHtml = imagen
     ? `<img src="${imagen}" alt="${p.nombre || 'Producto'}" class="producto-card-img" loading="lazy" />`
     : '<div class="producto-card-placeholder">Sin foto</div>';
-  const precio = money(p.precioPesosCalculado || p.precioVentaPesos || p.precioFinalPesos || 0);
+  const esPrecampania = Boolean(p._precampania);
+  const precio = money(p.precioPesosCalculado || p.precioVentaPesos || p.precioFinalPesos || p.precioFinal || p.precioUsd || 0);
   const stock = Number(p.stock ?? 0);
+  const metaHtml = esPrecampania
+    ? `
+      <div class="producto-meta">Categoría: <strong>${p.categoria || '-'}</strong> · Envase: <strong>${p.envase || '-'}</strong></div>
+      <div class="producto-meta">Precio USD: <strong>${money(p.precioUsd || 0)}</strong> · Precio final: <strong>${money(p.precioFinal || 0)}</strong></div>
+      <div class="producto-meta">Estado: <strong>${p.estado || '-'}</strong> · Margen: <strong>${Number(p.margenPorcentaje || 0).toFixed(2)}%</strong></div>
+      ${p.gananciaEstimada != null ? `<div class="producto-meta">Ganancia estimada: <strong>${money(p.gananciaEstimada)}</strong></div>` : ''}
+    `
+    : `
+      <div class="producto-meta">Categorías: <strong>${(p.categorias || []).map((c) => c.nombre).join(', ') || p.categoria || '-'}</strong></div>
+      <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
+      <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
+    `;
   return `<div class="item producto-card ${seleccionado ? 'item-seleccionado' : ''}">
     <div class="producto-media">${imagenHtml}</div>
     <div class="producto-info">
       <div class="producto-titulo">${p.nombre || '-'}</div>
-      <div class="producto-meta">Categorías: <strong>${(p.categorias || []).map((c) => c.nombre).join(', ') || p.categoria || '-'}</strong></div>
-      <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
-      <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
+      ${metaHtml}
       ${proveedoresTexto ? `<div class="producto-meta">Proveedores: <strong>${proveedoresTexto}</strong></div>` : ''}
       ${mostrarCosto ? `<div class="producto-meta">Costo compra: <strong>${p.monedaCompra || p.monedaCosto || 'ARS'} ${money(p.costoCompra ?? p.costoBase)}</strong> · Convertido: <strong>${money(p.costoCompraPesos)}</strong></div>` : ''}
     </div>
@@ -258,7 +269,20 @@ async function renderProductos() {
   try {
     const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
     const lista = tipoOperacion === 'PRECAMPAÑA'
-      ? productosListaComercial.filter((p) => (p.nombreProducto || '').toLowerCase().includes(q.toLowerCase())).map((p) => ({ id: p.id, nombre: p.nombreProducto, precioVenta: p.precioNeto || p.precioSugeridoPublico || 0, stock: '-', _precampania: true }))
+      ? productosListaComercial
+        .filter((p) => (p.nombreProducto || '').toLowerCase().includes(q.toLowerCase()))
+        .map((p) => ({
+          id: p.id,
+          nombre: p.nombreProducto,
+          categoria: p.categoria,
+          envase: p.envase,
+          precioUsd: Number(p.precioUsd || p.precioNeto || 0),
+          precioFinal: Number(p.precioFinal || p.precioSugeridoPublico || p.precioNeto || 0),
+          estado: p.estado,
+          margenPorcentaje: Number(p.margenPorcentaje || 0),
+          gananciaEstimada: p.gananciaEstimada == null ? null : Number(p.gananciaEstimada),
+          _precampania: true
+        }))
       : await buscarProductos(q);
     resultadosProductosVisibles = lista;
     if (lista.length === 0) indiceProductoSeleccionado = -1;
@@ -287,7 +311,23 @@ async function agregarProductoAlCarrito(productoId) {
       const listaComercialId = Number($('#lista-comercial-select').value || 0);
       const calc = await api('/api/precios-precampaña/calcular', { method: 'POST', body: JSON.stringify({ listaComercialId, productoListaComercialId: Number(productoId) }) });
       $('#precio-precampania-detalle').innerHTML = `<div class="item">Base: ${money(calc.precioBase)} | Final: ${money(calc.precioFinal)} | Reglas: ${(calc.reglasAplicadas || []).map(r => `${r.nombre}(${r.valor}%)`).join(', ') || 'sin reglas'}</div>`;
-      return setMsg('Producto PRECAMPAÑA calculado. Próximo paso: persistir ítems de lista comercial en carrito.');
+      await api(`/mostrador/ventas/${ventaId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({
+          productoId,
+          cantidad: 1,
+          precioUnitario: Number(calc.precioFinal || 0),
+          tipoOperacion: 'PRECAMPAÑA',
+          productoListaComercialId: Number(productoId)
+        })
+      });
+      await refreshVenta();
+      await loadCaja20();
+      $('#buscar-producto').value = '';
+      indiceProductoSeleccionado = -1;
+      renderProductos();
+      $('#buscar-producto').focus();
+      return setMsg(`Producto PRECAMPAÑA agregado con precio final ${money(calc.precioFinal)}.`);
     }
     const producto = resultadosProductosVisibles.find((p) => Number(p.id) === Number(productoId)) || productos.find((p) => Number(p.id) === Number(productoId));
     console.log('Producto agregado al carrito:', producto || { id: productoId });
