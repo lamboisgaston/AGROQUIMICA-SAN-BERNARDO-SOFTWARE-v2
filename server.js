@@ -1760,7 +1760,7 @@ app.post('/api/listas-comerciales', asyncHandler(async (req, res) => {
 app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
   const listaComercialId = parsePositiveInt(req.params.id);
   if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
-  const productos = await prisma.productoListaComercial.findMany({ where: { listaComercialId, activo: true }, orderBy: { nombreProducto: 'asc' } });
+  const productos = await prisma.productoListaComercial.findMany({ where: { listaComercialId, activo: true }, orderBy: { createdAt: 'asc' } });
   res.json(productos);
 }));
 
