@@ -28,6 +28,31 @@ function calcular(precioUsd, tipoCambio) {
   return { precioPesos, conFlete, precioFinal, margen20 };
 }
 
+function normalizarCategoriaSubcategoria(p) {
+  const nombreProducto = String(p.nombreProducto || '').trim();
+  let categoria = String(p.categoria || 'SIN_CATEGORIA').trim();
+  let subcategoria = p.subcategoria ? String(p.subcategoria).trim() : null;
+
+  if (categoria.includes('/')) {
+    const [cat, subcat] = categoria.split('/').map((v) => v.trim()).filter(Boolean);
+    if (cat) categoria = cat;
+    if (!subcategoria && subcat) subcategoria = subcat;
+  }
+
+  const alfalfas = new Set(['Brava', 'Armona', 'Pampa Flor', 'Vector', 'Sirosal', 'CUF 101', 'Aurora']);
+  if (alfalfas.has(nombreProducto)) {
+    categoria = 'Pasturas';
+    subcategoria = 'Alfalfas';
+  }
+
+  if (nombreProducto === 'Raigrás Anual Tetraploide Macho') {
+    categoria = 'Pasturas';
+    subcategoria = 'Gramíneas Forrajeras Templadas';
+  }
+
+  return { categoria, subcategoria };
+}
+
 function cargarCatalogo() {
   const raw = fs.readFileSync(DATASET_PATH, 'utf8');
   const json = JSON.parse(raw);
@@ -68,33 +93,34 @@ async function main() {
   const auditoria = { total: 0, porCategoria: {}, conPrecio: 0, consultar: 0, agotado: 0, sinStock: 0, sinPrecio: 0 };
 
   for (const [idx, p] of productos.entries()) {
+    const { categoria, subcategoria } = normalizarCategoriaSubcategoria(p);
     const precioUsd = Number(p.precioUsd || 0);
     const estado = normalizarEstado(p.estado, precioUsd);
     const disponible = estado === 'DISPONIBLE' && precioUsd > 0;
     const calc = disponible ? calcular(precioUsd, tipoCambio) : null;
 
     auditoria.total += 1;
-    auditoria.porCategoria[p.categoria] = (auditoria.porCategoria[p.categoria] || 0) + 1;
+    auditoria.porCategoria[categoria] = (auditoria.porCategoria[categoria] || 0) + 1;
     if (disponible) auditoria.conPrecio += 1;
     if (estado === 'CONSULTAR') auditoria.consultar += 1;
     if (estado === 'AGOTADO') auditoria.agotado += 1;
     if (estado === 'SIN_STOCK') auditoria.sinStock += 1;
     if (!disponible) auditoria.sinPrecio += 1;
 
-    if (!categoriaOrdenMap.has(p.categoria)) categoriaOrdenMap.set(p.categoria, categoriaOrdenMap.size + 1);
-    const subKey = `${p.categoria}::${p.subcategoria || ''}`;
+    if (!categoriaOrdenMap.has(categoria)) categoriaOrdenMap.set(categoria, categoriaOrdenMap.size + 1);
+    const subKey = `${categoria}::${subcategoria || ''}`;
     if (!subcategoriaOrdenMap.has(subKey)) subcategoriaOrdenMap.set(subKey, subcategoriaOrdenMap.size + 1);
 
     const metadataOriginal = {
       pagina: p.pagina ?? null,
-      categoria: p.categoria,
-      subcategoria: p.subcategoria || null,
+      categoria,
+      subcategoria: subcategoria || null,
       nombreProducto: p.nombreProducto,
       envase: p.envase || null,
       caracteristicas: p.caracteristicas || null,
       precioUsd: disponible ? precioUsd : null,
       estado,
-      categoriaOrden: Number(p.categoriaOrden || categoriaOrdenMap.get(p.categoria)),
+      categoriaOrden: Number(p.categoriaOrden || categoriaOrdenMap.get(categoria)),
       subcategoriaOrden: Number(p.subcategoriaOrden || subcategoriaOrdenMap.get(subKey)),
       ordenCatalogo: Number(p.ordenCatalogo || (idx + 1)),
       precioFinal: calc?.precioFinal ?? null,
