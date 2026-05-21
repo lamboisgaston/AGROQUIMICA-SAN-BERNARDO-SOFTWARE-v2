@@ -384,11 +384,41 @@ function extraerMetaGuasch(skuExterno = '') {
   }
 }
 
+function normalizarCategoriaGuasch(item) {
+  const nombre = String(item.nombre || '').trim();
+  let categoria = String(item.categoria || 'SIN_CATEGORIA').trim();
+  let subcategoria = item.subcategoria ? String(item.subcategoria).trim() : null;
+
+  if (categoria.includes('/')) {
+    const [cat, subcat] = categoria.split('/').map((v) => v.trim()).filter(Boolean);
+    if (cat) categoria = cat;
+    if (!subcategoria && subcat) subcategoria = subcat;
+  }
+
+  const alfalfas = new Set(['Brava', 'Armona', 'Pampa Flor', 'Vector', 'Sirosal', 'CUF 101', 'Aurora']);
+  if (alfalfas.has(nombre)) {
+    categoria = 'Pasturas';
+    subcategoria = 'Alfalfas';
+  }
+
+  if (nombre === 'Raigrás Anual Tetraploide Macho') {
+    categoria = 'Pasturas';
+    subcategoria = 'Gramíneas Forrajeras Templadas';
+  }
+
+  return { categoria, subcategoria };
+}
+
 function construirCatalogoGuasch(productos = []) {
   const porCategoria = new Map();
   for (const p of productos) {
     const meta = extraerMetaGuasch(p.skuExterno);
-    const categoria = meta.cat && meta.cat !== '-' ? meta.cat : 'SIN_CATEGORIA';
+    const categoriaRaw = meta.cat && meta.cat !== '-' ? meta.cat : 'SIN_CATEGORIA';
+    const normalizado = normalizarCategoriaGuasch({
+      nombre: p.nombreProducto,
+      categoria: categoriaRaw,
+      subcategoria: meta.subcat || null
+    });
     const estado = (meta.estado || 'DISPONIBLE').toUpperCase();
     const precioFinal = p.precioSugeridoPublico;
     const tienePrecio = Number(p.precioNeto || 0) > 0;
@@ -397,27 +427,38 @@ function construirCatalogoGuasch(productos = []) {
       nombre: p.nombreProducto || '-',
       unidad: p.unidad || '-',
       estado,
-      categoria,
-      subcategoria: meta.subcat || null,
+      categoria: normalizado.categoria,
+      subcategoria: normalizado.subcategoria,
       categoriaOrden: Number(meta.categoriaOrden || 99999),
       subcategoriaOrden: Number(meta.subcategoriaOrden || 99999),
       ordenCatalogo: Number(meta.ordenCatalogo || 99999),
       tienePrecio,
       precioFinal
     };
-    if (!porCategoria.has(categoria)) porCategoria.set(categoria, []);
-    porCategoria.get(categoria).push(item);
+    if (!porCategoria.has(item.categoria)) porCategoria.set(item.categoria, []);
+    porCategoria.get(item.categoria).push(item);
   }
   return Array.from(porCategoria.entries())
-    .map(([categoria, items]) => ({
-      categoria,
-      categoriaOrden: Math.min(...items.map((i) => Number(i.categoriaOrden || 99999))),
-      items: items.sort((a, b) => {
-        if (a.categoriaOrden !== b.categoriaOrden) return a.categoriaOrden - b.categoriaOrden;
-        if (a.subcategoriaOrden !== b.subcategoriaOrden) return a.subcategoriaOrden - b.subcategoriaOrden;
-        return a.ordenCatalogo - b.ordenCatalogo;
-      })
-    }))
+    .map(([categoria, items]) => {
+      const subMap = new Map();
+      for (const item of items) {
+        const sub = item.subcategoria || 'SIN_SUBCATEGORIA';
+        if (!subMap.has(sub)) subMap.set(sub, []);
+        subMap.get(sub).push(item);
+      }
+      const subcategorias = Array.from(subMap.entries()).map(([subcategoria, subItems]) => ({
+        subcategoria,
+        subcategoriaOrden: Math.min(...subItems.map((i) => Number(i.subcategoriaOrden || 99999))),
+        items: subItems.sort((a, b) => a.ordenCatalogo - b.ordenCatalogo)
+      })).sort((a, b) => a.subcategoriaOrden - b.subcategoriaOrden);
+
+      return {
+        categoria,
+        categoriaOrden: Math.min(...items.map((i) => Number(i.categoriaOrden || 99999))),
+        items: items.sort((a, b) => a.ordenCatalogo - b.ordenCatalogo),
+        subcategorias
+      };
+    })
     .sort((a, b) => a.categoriaOrden - b.categoriaOrden);
 }
 
@@ -457,11 +498,14 @@ function renderCatalogoGuasch() {
         <summary>${grupo.categoria} (${grupo.items.length}) ${bandera}</summary>
         <div class="categoria-auditoria-meta">Sin precio: <strong>${cantSinPrecio}</strong> · No disponibles: <strong>${estadosNoDisponibles}</strong></div>
         <div class="lista">
-          ${grupo.items.map((i) => `
+          ${grupo.subcategorias.map((sub) => `
+          <div class="item"><strong>${sub.subcategoria === 'SIN_SUBCATEGORIA' ? 'Sin subcategoría' : sub.subcategoria}</strong> (${sub.items.length})</div>
+          ${sub.items.map((i) => `
             <div class="item auditoria-item ${i.tienePrecio ? '' : 'auditoria-item-alerta'}">
               <strong>${i.nombre}</strong> · ${i.unidad} · Estado: <strong>${i.estado}</strong> · Precio final: <strong>${i.precioFinal == null ? 'SIN PRECIO' : money(i.precioFinal)}</strong> ${i.tienePrecio ? '' : '<span class="badge-alerta">SIN PRECIO</span>'}
             </div>
           `).join('')}
+        `).join('')}
         </div>
       </details>
     `;
