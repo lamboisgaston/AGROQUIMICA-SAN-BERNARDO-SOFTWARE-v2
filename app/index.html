@@ -90,8 +90,18 @@
       <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
       <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
       <h2>2) Productos</h2>
+      <label>Tipo de venta
+        <select id="tipo-operacion-venta">
+          <option value="MOSTRADOR">MOSTRADOR</option>
+          <option value="PRECAMPAÑA">PRECAMPAÑA</option>
+        </select>
+      </label>
+      <label id="label-lista-comercial" class="hidden">Lista comercial
+        <select id="lista-comercial-select"></select>
+      </label>
       <input id="buscar-producto" class="input-grande" placeholder="Escaneá o escribí para buscar producto" />
       <div id="resultados-productos" class="lista"></div>
+      <div id="precio-precampania-detalle" class="lista"></div>
       <div id="stock-alertas" class="lista"></div>
         </div>
         <aside class="workbench-side sticky-summary ventas-side-panel">
