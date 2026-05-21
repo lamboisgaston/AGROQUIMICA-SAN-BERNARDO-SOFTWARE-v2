@@ -57,11 +57,18 @@ async function main() {
     throw new Error('ConfiguracionGlobal.id=1.tipoCambioActual inválido.');
   }
 
-  const proveedor = await prisma.empresaComercial.upsert({
-    where: { nombre: PROVEEDOR },
-    update: { activo: true },
-    create: { nombre: PROVEEDOR, activo: true }
+  const proveedorExistente = await prisma.empresaComercial.findFirst({
+    where: { nombre: PROVEEDOR }
   });
+
+  const proveedor = proveedorExistente
+    ? await prisma.empresaComercial.update({
+        where: { id: proveedorExistente.id },
+        data: { activo: true }
+      })
+    : await prisma.empresaComercial.create({
+        data: { nombre: PROVEEDOR, activo: true }
+      });
 
   await prisma.listaComercial.update({
     where: { id: lista.id },
