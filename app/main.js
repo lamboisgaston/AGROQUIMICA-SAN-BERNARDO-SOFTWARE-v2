@@ -398,6 +398,10 @@ function construirCatalogoGuasch(productos = []) {
       unidad: p.unidad || '-',
       estado,
       categoria,
+      subcategoria: meta.subcat || null,
+      categoriaOrden: Number(meta.categoriaOrden || 99999),
+      subcategoriaOrden: Number(meta.subcategoriaOrden || 99999),
+      ordenCatalogo: Number(meta.ordenCatalogo || 99999),
       tienePrecio,
       precioFinal
     };
@@ -405,8 +409,16 @@ function construirCatalogoGuasch(productos = []) {
     porCategoria.get(categoria).push(item);
   }
   return Array.from(porCategoria.entries())
-    .map(([categoria, items]) => ({ categoria, items: items.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) }))
-    .sort((a, b) => a.categoria.localeCompare(b.categoria, 'es'));
+    .map(([categoria, items]) => ({
+      categoria,
+      categoriaOrden: Math.min(...items.map((i) => Number(i.categoriaOrden || 99999))),
+      items: items.sort((a, b) => {
+        if (a.categoriaOrden !== b.categoriaOrden) return a.categoriaOrden - b.categoriaOrden;
+        if (a.subcategoriaOrden !== b.subcategoriaOrden) return a.subcategoriaOrden - b.subcategoriaOrden;
+        return a.ordenCatalogo - b.ordenCatalogo;
+      })
+    }))
+    .sort((a, b) => a.categoriaOrden - b.categoriaOrden);
 }
 
 function renderCatalogoGuasch() {

@@ -78,8 +78,10 @@ async function main() {
   await prisma.productoListaComercial.deleteMany({ where: { listaComercialId: lista.id } });
 
   const auditoria = { total: 0, porCategoria: {}, conPrecio: 0, consultar: 0, agotado: 0, sinStock: 0, sinPrecio: 0 };
+  const categoriaOrdenMap = new Map();
+  const subcategoriaOrdenMap = new Map();
 
-  for (const p of PRODUCTOS) {
+  for (const [idx, p] of PRODUCTOS.entries()) {
     const precioUsd = Number(p.precioUsd || 0);
     const estado = normalizarEstado(p.estado, precioUsd);
     const disponible = estado === 'DISPONIBLE' && precioUsd > 0;
@@ -92,6 +94,10 @@ async function main() {
     if (estado === 'AGOTADO') auditoria.agotado += 1;
     if (estado === 'SIN_STOCK') auditoria.sinStock += 1;
     if (!disponible) auditoria.sinPrecio += 1;
+
+    if (!categoriaOrdenMap.has(p.categoria)) categoriaOrdenMap.set(p.categoria, categoriaOrdenMap.size + 1);
+    const subKey = `${p.categoria}::${p.subcategoria || ''}`;
+    if (!subcategoriaOrdenMap.has(subKey)) subcategoriaOrdenMap.set(subKey, subcategoriaOrdenMap.size + 1);
 
     const metadataOriginal = {
       categoria: p.categoria,
@@ -106,6 +112,9 @@ async function main() {
       envase: p.envase || null,
       precioUsd: disponible ? precioUsd : null,
       estado,
+      categoriaOrden: Number(p.categoriaOrden || categoriaOrdenMap.get(p.categoria)),
+      subcategoriaOrden: Number(p.subcategoriaOrden || subcategoriaOrdenMap.get(subKey)),
+      ordenCatalogo: Number(p.ordenCatalogo || (idx + 1)),
       precioFinal: calc?.precioFinal ?? null,
       calculo: calc
     };
