@@ -3,37 +3,16 @@ const { PrismaClient, TipoReglaComercial } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const LISTA_COMERCIAL_ID = 1;
+const LISTA_COMERCIAL_NOMBRE = 'GUASCH PRECAMPAÑA 2026';
 const PROVEEDOR = 'Semillera Guasch SRL';
 const FECHA_FUENTE = '2026-03-09';
 
 const PRODUCTOS_GUASCH = [
-  { categoria: 'Pasturas/Alfalfas', nombre: 'Brava', presentacion: '25 Kg', precioUsd: 10.31 },
+  { categoria: 'Pasturas', nombre: 'Raigrás Anual Tetraploide Macho', presentacion: 'Bolsa 25 Kg', precioUsd: 1.95 },
+  { categoria: 'Pasturas', nombre: 'Alfalfa Brava', presentacion: 'Bolsa 25 Kg', precioUsd: 10.31 },
+  { categoria: 'Verdeos Invernales', nombre: 'Avena Blanca Bonaerense INTA Calen', presentacion: 'Bolsa 40 Kg', precioUsd: 0.46 },
   { categoria: 'Pasturas/Alfalfas', nombre: 'Armona', presentacion: '25 Kg', precioUsd: 9.07 },
-  { categoria: 'Pasturas/Alfalfas', nombre: 'Pampa Flor', presentacion: '25 Kg', precioUsd: 8.46 },
-  { categoria: 'Pasturas/Gramíneas', nombre: 'Agropiro Alargado', presentacion: '20 Kg', precioUsd: 3.85 },
-  { categoria: 'Pasturas/Gramíneas', nombre: 'Cebadilla Criolla Don Humberto', presentacion: '25 Kg', precioUsd: 2.05 },
-  { categoria: 'Tréboles', nombre: 'Trébol de Olor Amarillo', presentacion: '25 Kg', precioUsd: 6.65 },
-  { categoria: 'Verdeos Invernales', nombre: 'Avena Blanca Bonaerense INTA Calen', presentacion: '40 Kg', precioUsd: 0.46 },
-  { categoria: 'Cultivos Extensivos/Sorgo Granífero Híbrido', nombre: 'Mistral CT120 Nueva Campaña', presentacion: 'Bolsa 20 Kg', precioUsd: 109.0 },
-  { categoria: 'Cultivos Extensivos/Maíz', nombre: 'Amancay INTA C2', presentacion: 'Bolsa 72.000 semillas', precioUsd: 59.0 },
-  { categoria: 'Cultivos Extensivos/Specialities Crops', nombre: 'Alpiste', presentacion: '25 Kg', precioUsd: 2.0 },
-  { categoria: 'Inoculantes', nombre: 'Zaden Vicia-Tb', presentacion: 'Envase 200 gr', precioUsd: 3.95 },
-  { categoria: 'Hortalizas/Acelga', nombre: 'Verde Penca Blanca Ancha', presentacion: 'Doypack 150 gr', precioUsd: 2.55 },
-  { categoria: 'Hortalizas/Cebolla', nombre: 'Roja Chata de Italia', presentacion: 'Lata 250 gr', precioUsd: 21.7 },
-  { categoria: 'Hortalizas/Perejil', nombre: 'Común Hojas Lisas', presentacion: 'Doypack 250 gr', precioUsd: 3.65 },
-  { categoria: 'Hortalizas/Pimiento', nombre: 'Jalapeño M', presentacion: 'Lata 100 gr', precioUsd: 28.14 },
-  { categoria: 'Césped Profesional/Bermuda', nombre: 'Bermuda Grass Unhulled', presentacion: 'Alubag 100 gr', precioUsd: 21.7 },
-  { categoria: 'Césped Profesional/Festuca', nombre: 'Festuca Belfine', presentacion: 'Bolsa 25 Kg', precioUsd: 4.2 },
-  { categoria: 'Césped Blends', nombre: 'Mustang Grass Mix', presentacion: 'Bolsa 25 Kg', precioUsd: 4.15 },
-  { categoria: 'Semillas en Sobres', nombre: 'Colec. Flornova', presentacion: 'Sobre', precioUsd: 2.6 },
-  { categoria: 'Pasturas/Gramíneas', nombre: 'Falaris Bulbosa', presentacion: '25 Kg', estado: 'Consultar' },
-  { categoria: 'Pasturas/Gramíneas', nombre: 'Pasto Llorón', presentacion: '25 Kg', estado: 'Consultar' },
-  { categoria: 'Tréboles', nombre: 'Trébol de Olor Blanco', presentacion: '25 Kg', estado: 'Consultar' },
-  { categoria: 'Gramíneas Subtropicales', nombre: 'Buffel Grass Texas', presentacion: '10 Kg', estado: 'Consultar' },
-  { categoria: 'Hortalizas/Achicoria', nombre: 'Hoja Ancha Doble Blonde', presentacion: 'Lata 200 gr', estado: 'Agotado' },
-  { categoria: 'Hortalizas/Lechuga', nombre: 'Maravilla de Verano', presentacion: 'Lata 250 gr', estado: 'Agotado' },
-  { categoria: 'Césped Profesional/Dichondra', nombre: 'Dichondra', presentacion: 'Alubag 1 Kg', estado: 'Agotado' },
-  { categoria: 'Césped Profesional/Bermuda', nombre: 'Bermuda Grass Unhulled Bolsa 10Kg', presentacion: 'Bolsa 10 Kg', estado: 'Sin Stock' }
+  { categoria: 'Pasturas/Alfalfas', nombre: 'Pampa Flor', presentacion: '25 Kg', precioUsd: 8.46 }
 ];
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -54,11 +33,23 @@ function calcularPrecioFinal(precioUsd, tipoCambio) {
   return { precioPesos, conFlete, precioFinal: conIva, gananciaObjetivo };
 }
 
+async function resolverListaComercial() {
+  const listaPorId = await prisma.listaComercial.findUnique({ where: { id: LISTA_COMERCIAL_ID } });
+  if (listaPorId) return listaPorId;
+
+  const listaPorNombre = await prisma.listaComercial.findFirst({
+    where: { nombre: LISTA_COMERCIAL_NOMBRE }
+  });
+
+  if (listaPorNombre) return listaPorNombre;
+
+  throw new Error(
+    `No existe ListaComercial.id=${LISTA_COMERCIAL_ID} ni una lista con nombre "${LISTA_COMERCIAL_NOMBRE}".`
+  );
+}
+
 async function main() {
-  const lista = await prisma.listaComercial.findUnique({ where: { id: LISTA_COMERCIAL_ID } });
-  if (!lista) {
-    throw new Error(`No existe ListaComercial.id=${LISTA_COMERCIAL_ID}. Primero crear la lista comercial.`);
-  }
+  const lista = await resolverListaComercial();
 
   const cfg = await prisma.configuracionGlobal.findUnique({ where: { id: 1 } });
   const tipoCambio = Number(cfg?.tipoCambioActual || 0);
@@ -73,9 +64,10 @@ async function main() {
   });
 
   await prisma.listaComercial.update({
-    where: { id: LISTA_COMERCIAL_ID },
+    where: { id: lista.id },
     data: {
       empresaComercialId: proveedor.id,
+      nombre: LISTA_COMERCIAL_NOMBRE,
       moneda: 'USD',
       vigenteDesde: new Date(`${FECHA_FUENTE}T00:00:00.000Z`),
       metadata: JSON.stringify({
@@ -86,18 +78,18 @@ async function main() {
     }
   });
 
-  await prisma.reglaComercialLista.deleteMany({ where: { listaComercialId: LISTA_COMERCIAL_ID } });
+  await prisma.reglaComercialLista.deleteMany({ where: { listaComercialId: lista.id } });
   await prisma.reglaComercialLista.createMany({
     data: [
-      { listaComercialId: LISTA_COMERCIAL_ID, nombre: 'Flete 7%', tipo: TipoReglaComercial.FLETE_PORCENTAJE, valor: 7, orden: 10 },
-      { listaComercialId: LISTA_COMERCIAL_ID, nombre: 'IVA 21%', tipo: TipoReglaComercial.IVA_PORCENTAJE, valor: 21, orden: 20 },
-      { listaComercialId: LISTA_COMERCIAL_ID, nombre: 'Ganancia objetivo 20%', tipo: TipoReglaComercial.MARGEN_PORCENTAJE, valor: 20, orden: 30 }
+      { listaComercialId: lista.id, nombre: 'Flete 7%', tipo: TipoReglaComercial.FLETE_PORCENTAJE, valor: 7, orden: 10 },
+      { listaComercialId: lista.id, nombre: 'IVA 21%', tipo: TipoReglaComercial.IVA_PORCENTAJE, valor: 21, orden: 20 },
+      { listaComercialId: lista.id, nombre: 'Ganancia objetivo 20%', tipo: TipoReglaComercial.MARGEN_PORCENTAJE, valor: 20, orden: 30 }
     ]
   });
 
-  await prisma.productoListaComercial.deleteMany({ where: { listaComercialId: LISTA_COMERCIAL_ID } });
+  await prisma.productoListaComercial.deleteMany({ where: { listaComercialId: lista.id } });
 
-  for (const p of PRODUCTOS_GUASCH) {
+  const rows = PRODUCTOS_GUASCH.map((p) => {
     const estado = normalizarEstado(p.estado, p.precioUsd);
     const precioUsd = Number(p.precioUsd || 0);
     const calculo = estado === 'DISPONIBLE' ? calcularPrecioFinal(precioUsd, tipoCambio) : null;
@@ -112,24 +104,26 @@ async function main() {
       calculo: calculo ?? null
     };
 
-    await prisma.productoListaComercial.create({
-      data: {
-        listaComercialId: LISTA_COMERCIAL_ID,
-        nombreProducto: p.nombre,
-        unidad: p.presentacion || null,
-        precioNeto: calculo?.precioFinal ?? 0,
-        precioSugeridoPublico: calculo?.precioFinal ?? null,
-        ivaPorcentaje: 21,
-        fletePorcentaje: 7,
-        margenPorcentaje: 20,
-        moneda: 'ARS',
-        activo: true,
-        skuExterno: `GUASCH|${Buffer.from(JSON.stringify(metadataOriginal)).toString('base64')}`
-      }
-    });
-  }
+    return {
+      listaComercialId: lista.id,
+      nombreProducto: p.nombre,
+      unidad: p.presentacion || null,
+      precioNeto: calculo?.precioFinal ?? 0,
+      precioSugeridoPublico: calculo?.precioFinal ?? null,
+      ivaPorcentaje: 21,
+      fletePorcentaje: 7,
+      margenPorcentaje: 20,
+      moneda: 'ARS',
+      activo: true,
+      skuExterno: `GUASCH|${Buffer.from(JSON.stringify(metadataOriginal)).toString('base64')}`
+    };
+  });
 
-  console.log(`Importación GUASCH OK. Lista ${LISTA_COMERCIAL_ID}. Productos: ${PRODUCTOS_GUASCH.length}.`);
+  const res = await prisma.productoListaComercial.createMany({ data: rows });
+
+  console.log(
+    `Importación GUASCH OK. Lista ${lista.id} (${lista.nombre}). Productos insertados: ${res.count}.`
+  );
 }
 
 main()
