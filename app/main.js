@@ -363,13 +363,25 @@ async function cargarProductosListaComercial() {
 function extraerMetaGuasch(skuExterno = '') {
   const raw = String(skuExterno || '');
   if (!raw.startsWith('GUASCH|')) return {};
-  const chunks = raw.split('|').slice(1);
-  const meta = {};
-  for (const chunk of chunks) {
-    const [k, ...rest] = chunk.split('=');
-    meta[k] = rest.join('=');
+  const payload = raw.slice('GUASCH|'.length);
+  try {
+    const decoded = atob(payload);
+    const obj = JSON.parse(decoded);
+    return {
+      cat: obj.categoria || 'SIN_CATEGORIA',
+      subcat: obj.subcategoria || null,
+      estado: obj.estado || 'DISPONIBLE',
+      ...obj
+    };
+  } catch {
+    const chunks = raw.split('|').slice(1);
+    const meta = {};
+    for (const chunk of chunks) {
+      const [k, ...rest] = chunk.split('=');
+      meta[k] = rest.join('=');
+    }
+    return meta;
   }
-  return meta;
 }
 
 function construirCatalogoGuasch(productos = []) {
