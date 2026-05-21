@@ -28,6 +28,7 @@ let productosPresupuestoVisibles = [];
 let pedidoProveedorId = null;
 let pedidoItems = [];
 let productosPedidoVisibles = [];
+let catalogoGuaschCategorias = [];
 const VENTA_ACTIVA_STORAGE_KEY = 'venta_activa_id';
 
 function setVentaActivaId(id) {
@@ -355,6 +356,92 @@ async function cargarProductosListaComercial() {
   const listaId = Number($('#lista-comercial-select')?.value || 0);
   if (!listaId) return;
   productosListaComercial = await api(`/api/listas-comerciales/${listaId}/productos`);
+  catalogoGuaschCategorias = construirCatalogoGuasch(productosListaComercial);
+  renderCatalogoGuasch();
+}
+
+function extraerMetaGuasch(skuExterno = '') {
+  const raw = String(skuExterno || '');
+  if (!raw.startsWith('GUASCH|')) return {};
+  const chunks = raw.split('|').slice(1);
+  const meta = {};
+  for (const chunk of chunks) {
+    const [k, ...rest] = chunk.split('=');
+    meta[k] = rest.join('=');
+  }
+  return meta;
+}
+
+function construirCatalogoGuasch(productos = []) {
+  const porCategoria = new Map();
+  for (const p of productos) {
+    const meta = extraerMetaGuasch(p.skuExterno);
+    const categoria = meta.cat && meta.cat !== '-' ? meta.cat : 'SIN_CATEGORIA';
+    const estado = (meta.estado || 'DISPONIBLE').toUpperCase();
+    const precioFinal = p.precioSugeridoPublico;
+    const tienePrecio = Number(p.precioNeto || 0) > 0;
+    const item = {
+      id: p.id,
+      nombre: p.nombreProducto || '-',
+      unidad: p.unidad || '-',
+      estado,
+      categoria,
+      tienePrecio,
+      precioFinal
+    };
+    if (!porCategoria.has(categoria)) porCategoria.set(categoria, []);
+    porCategoria.get(categoria).push(item);
+  }
+  return Array.from(porCategoria.entries())
+    .map(([categoria, items]) => ({ categoria, items: items.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) }))
+    .sort((a, b) => a.categoria.localeCompare(b.categoria, 'es'));
+}
+
+function renderCatalogoGuasch() {
+  const panel = $('#catalogo-guasch-panel');
+  if (!panel) return;
+  const total = productosListaComercial.length;
+  if (!total) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  const todos = catalogoGuaschCategorias.flatMap((c) => c.items);
+  const porEstado = { DISPONIBLE: 0, CONSULTAR: 0, AGOTADO: 0, SIN_STOCK: 0 };
+  let sinPrecio = 0;
+  let precioFinalNull = 0;
+  for (const it of todos) {
+    porEstado[it.estado] = (porEstado[it.estado] || 0) + 1;
+    if (!it.tienePrecio) sinPrecio += 1;
+    if (it.precioFinal == null) precioFinalNull += 1;
+  }
+  $('#catalogo-guasch-resumen').innerHTML = `
+    <div class="item"><strong>Total productos importados:</strong> ${total}</div>
+    <div class="item"><strong>Cantidad por categoría:</strong> ${catalogoGuaschCategorias.map((c) => `${c.categoria}: ${c.items.length}`).join(' | ')}</div>
+    <div class="item"><strong>DISPONIBLE:</strong> ${porEstado.DISPONIBLE || 0} · <strong>CONSULTAR:</strong> ${porEstado.CONSULTAR || 0} · <strong>AGOTADO:</strong> ${porEstado.AGOTADO || 0} · <strong>SIN_STOCK:</strong> ${porEstado.SIN_STOCK || 0}</div>
+    <div class="item"><strong>Productos sin precio:</strong> ${sinPrecio}</div>
+    <div class="item"><strong>Productos con precioFinal null:</strong> ${precioFinalNull}</div>
+  `;
+
+  $('#catalogo-guasch-acordeon').innerHTML = catalogoGuaschCategorias.map((grupo) => {
+    const cantSinPrecio = grupo.items.filter((i) => !i.tienePrecio).length;
+    const estadosNoDisponibles = grupo.items.filter((i) => i.estado !== 'DISPONIBLE').length;
+    const posibleFaltante = cantSinPrecio > 0 || estadosNoDisponibles > 0;
+    const bandera = posibleFaltante ? '<span class="badge-alerta">Posibles faltantes/errores</span>' : '<span class="badge-ok">Completa</span>';
+    return `
+      <details class="categoria-acordeon">
+        <summary>${grupo.categoria} (${grupo.items.length}) ${bandera}</summary>
+        <div class="categoria-auditoria-meta">Sin precio: <strong>${cantSinPrecio}</strong> · No disponibles: <strong>${estadosNoDisponibles}</strong></div>
+        <div class="lista">
+          ${grupo.items.map((i) => `
+            <div class="item auditoria-item ${i.tienePrecio ? '' : 'auditoria-item-alerta'}">
+              <strong>${i.nombre}</strong> · ${i.unidad} · Estado: <strong>${i.estado}</strong> · Precio final: <strong>${i.precioFinal == null ? 'null' : money(i.precioFinal)}</strong>
+            </div>
+          `).join('')}
+        </div>
+      </details>
+    `;
+  }).join('');
 }
 
 function renderCarrito() {
@@ -1147,11 +1234,15 @@ $('#btn-nueva').addEventListener('click', async () => {
 $('#tipo-operacion-venta')?.addEventListener('change', async (e) => {
   const esPre = e.target.value === 'PRECAMPAÑA';
   $('#label-lista-comercial')?.classList.toggle('hidden', !esPre);
+  $('#buscar-producto')?.classList.toggle('hidden', esPre);
+  $('#resultados-productos')?.classList.toggle('hidden', esPre);
   if (esPre) {
     await cargarListasComerciales();
     await cargarProductosListaComercial();
   } else {
     productosListaComercial = [];
+    catalogoGuaschCategorias = [];
+    $('#catalogo-guasch-panel')?.classList.add('hidden');
     $('#precio-precampania-detalle').innerHTML = '';
   }
 });
