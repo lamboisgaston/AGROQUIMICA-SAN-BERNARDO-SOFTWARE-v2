@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SemillasYa</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f7f9fc; color:#1f2937; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .hero { background: linear-gradient(135deg, #0f766e, #059669); color: #fff; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+    h1 { margin: 0 0 8px; }
+    .controls { display:grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; margin: 14px 0; }
+    input, select { padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; width: 100%; box-sizing: border-box; }
+    .chips { display:flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 18px; }
+    .chip { border: 1px solid #94a3b8; background:#fff; border-radius: 999px; padding: 6px 12px; cursor:pointer; }
+    .chip.active { background:#0f766e; color:#fff; border-color:#0f766e; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .card { background:#fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; }
+    .status { font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 99px; display: inline-block; margin-bottom: 6px; }
+    .DISPONIBLE { background: #dcfce7; color: #166534; }
+    .CONSULTAR { background: #fef3c7; color: #92400e; }
+    .AGOTADO { background: #fee2e2; color: #991b1b; }
+    .price { font-weight: 700; }
+    button { border:none; border-radius: 8px; background:#0f766e; color:#fff; padding: 10px 12px; width:100%; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>SemillasYa</h1>
+      <p><strong>Semillas de campaña, listas para reservar online</strong></p>
+      <p>Pagás la semilla y coordinamos entrega en 4 días.</p>
+    </section>
+
+    <div class="controls">
+      <select id="lista"></select>
+      <input id="buscar" placeholder="Buscar producto, proveedor o SKU" />
+      <select id="estado">
+        <option value="TODOS">Todos</option>
+        <option value="DISPONIBLE">Disponibles</option>
+        <option value="CONSULTAR">Consultar</option>
+        <option value="AGOTADO">Agotados</option>
+      </select>
+    </div>
+
+    <div id="categorias" class="chips"></div>
+    <div id="productos" class="grid"></div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = { listas: [], productos: [], categoria: 'TODAS' };
+
+    function detectarEstado(nombre = '') {
+      const n = nombre.toLowerCase();
+      if (n.includes('agotad') || n.includes('sin stock')) return 'AGOTADO';
+      if (n.includes('consultar') || n.includes('a pedido')) return 'CONSULTAR';
+      return 'DISPONIBLE';
+    }
+
+    function categoriaDeProducto(p) {
+      const raw = p.unidad || p.categoria || 'Sin categoría';
+      return String(raw).trim() || 'Sin categoría';
+    }
+
+    function precioFinalPesos(p) {
+      const base = Number(p.precioSugeridoPublico ?? p.precioNeto ?? 0);
+      const descuento = Number(p.descuentoPorcentaje || 0);
+      const boni = Number(p.bonificacionPorcentaje || 0);
+      const iva = Number(p.ivaPorcentaje || 0);
+      const flete = Number(p.fletePorcentaje || 0);
+      const margen = Number(p.margenPorcentaje || 0);
+      const financ = Number(p.financiacionPorcentaje || 0);
+      let price = base;
+      price -= price * (descuento / 100);
+      price -= price * (boni / 100);
+      price += price * (iva / 100);
+      price += price * (flete / 100);
+      price += price * (margen / 100);
+      price += price * (financ / 100);
+      return Math.max(0, price);
+    }
+
+    function renderCategorias() {
+      const cats = ['TODAS', ...new Set(state.productos.map(categoriaDeProducto))];
+      $('categorias').innerHTML = cats.map(c => `<button class="chip ${c===state.categoria?'active':''}" data-cat="${c}">${c}</button>`).join('');
+      document.querySelectorAll('[data-cat]').forEach(btn => btn.onclick = () => { state.categoria = btn.dataset.cat; renderProductos(); renderCategorias(); });
+    }
+
+    function armarMensaje(p) {
+      const texto = `Hola, quiero consultar/reservar: ${p.nombreProducto} | Lista: ${p.listaNombre || '-'} | Precio final ARS: $${precioFinalPesos(p).toFixed(2)}`;
+      return `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    }
+
+    function renderProductos() {
+      const q = $('buscar').value.toLowerCase().trim();
+      const estadoFiltro = $('estado').value;
+      const filtrados = state.productos.filter(p => {
+        const est = detectarEstado(p.nombreProducto);
+        const cat = categoriaDeProducto(p);
+        const texto = `${p.nombreProducto} ${p.skuExterno||''} ${p.proveedor||''}`.toLowerCase();
+        if (state.categoria !== 'TODAS' && state.categoria !== cat) return false;
+        if (estadoFiltro !== 'TODOS' && estadoFiltro !== est) return false;
+        if (q && !texto.includes(q)) return false;
+        return true;
+      });
+
+      $('productos').innerHTML = filtrados.map(p => {
+        const estado = detectarEstado(p.nombreProducto);
+        const usd = Number(p.moneda === 'USD' ? (p.precioSugeridoPublico ?? p.precioNeto ?? 0) : 0);
+        const finalPesos = precioFinalPesos(p);
+        return `<article class="card">
+          <span class="status ${estado}">${estado}</span>
+          <h3>${p.nombreProducto}</h3>
+          <p><strong>Categoría:</strong> ${categoriaDeProducto(p)}</p>
+          <p><strong>Proveedor:</strong> ${p.proveedor || p.listaEmpresa || 'Sin proveedor'}</p>
+          <p><strong>SKU:</strong> ${p.skuExterno || '-'}</p>
+          <p class="price">USD: ${usd > 0 ? '$' + usd.toFixed(2) : 'N/D'}</p>
+          <p class="price">Precio final ARS: $${finalPesos.toFixed(2)}</p>
+          <a href="${armarMensaje(p)}" target="_blank" rel="noopener"><button>Consultar / Reservar</button></a>
+        </article>`;
+      }).join('') || '<p>No hay productos para los filtros seleccionados.</p>';
+    }
+
+    async function cargarListas() {
+      const r = await fetch('/api/listas-comerciales');
+      state.listas = await r.json();
+      $('lista').innerHTML = state.listas.map(l => `<option value="${l.id}">${l.nombre} - ${l.empresaComercial?.nombre || 'Proveedor'}</option>`).join('');
+      if (state.listas.length) await cargarProductos(state.listas[0].id);
+    }
+
+    async function cargarProductos(listaId) {
+      const lista = state.listas.find(l => String(l.id) === String(listaId));
+      const r = await fetch(`/api/listas-comerciales/${listaId}/productos`);
+      const productos = await r.json();
+      state.productos = productos.map(p => ({
+        ...p,
+        listaNombre: lista?.nombre,
+        listaEmpresa: lista?.empresaComercial?.nombre,
+        proveedor: lista?.empresaComercial?.nombre
+      }));
+      state.categoria = 'TODAS';
+      renderCategorias();
+      renderProductos();
+    }
+
+    $('lista').addEventListener('change', (e) => cargarProductos(e.target.value));
+    $('buscar').addEventListener('input', renderProductos);
+    $('estado').addEventListener('change', renderProductos);
+
+    cargarListas().catch(() => {
+      $('productos').innerHTML = '<p>Error al cargar catálogo de SemillasYa.</p>';
+    });
+  </script>
+</body>
+</html>

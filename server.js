@@ -2552,6 +2552,11 @@ app.use((err, req, res, next) => {
   res.status(500).json(response);
 });
 
+
+app.get('/semillasya', (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
+});
+
 app.get('/app', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
 });
