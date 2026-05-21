@@ -14,7 +14,8 @@
     "prisma:migrate:safe": "prisma migrate deploy",
     "db:status": "node scripts/db/status.js",
     "db:backup": "node scripts/db/backup.js",
-    "db:restore": "node scripts/db/restore.js"
+    "db:restore": "node scripts/db/restore.js",
+    "import:guasch:precampania": "node scripts/import_guasch_precampania.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
