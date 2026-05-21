@@ -347,6 +347,37 @@ async function cargarCuentaCorrientePersona(personaId) {
   return api(`/cuenta-corriente/personas/${personaId}`);
 }
 
+async function cargarResumenCuentaCorriente() {
+  return api('/cuenta-corriente/resumen');
+}
+
+function renderResumenCuentaCorriente(listado) {
+  const container = $('#cc-resumen-personas');
+  if (!container) return;
+  container.innerHTML = listado.length
+    ? listado.map((p) => `
+      <div class="item">
+        <strong>${p.nombre || '-'}</strong> | Tel: ${p.telefono || '-'} | Deuda: ${money(p.deudaTotal || 0)} | Movimientos: ${Number(p.movimientosPendientes || 0)} | Último: ${p.ultimoMovimientoAt ? new Date(p.ultimoMovimientoAt).toLocaleString('es-AR') : '-'}
+        <div class="action-row">
+          <button data-cc-persona="${p.personaId}">Ver detalle</button>
+          <button data-cc-registrar-pago-persona="${p.personaId}">Registrar pago</button>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="item">No hay personas con deuda pendiente.</div>';
+}
+
+async function loadResumenCuentaCorriente() {
+  const container = $('#cc-resumen-personas');
+  if (container) container.innerHTML = '<div class="item">Cargando resumen...</div>';
+  try {
+    const listado = await cargarResumenCuentaCorriente();
+    renderResumenCuentaCorriente(listado);
+  } catch (error) {
+    if (container) container.innerHTML = `<div class="item">Error: ${error.message}</div>`;
+  }
+}
+
 async function renderCuentaCorrienteClienteActivo() {
   const personaId = venta?.personaId;
   if (!personaId) {
@@ -804,8 +835,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -878,7 +909,14 @@ async function abrirModulo(modulo) {
     await inicializarModuloPedidos();
     renderPedidoProductos();
   }
+  if (modulo === 'estado-sistema') {
+    await loadEstadoSistema();
+  }
+  if (modulo === 'cuenta-corriente') {
+    await loadResumenCuentaCorriente();
+  }
 }
+
 
 async function inicializarModuloPedidos() {
   setMsg('PEDIDOS-NUEVO-FLUJO', 'info');
@@ -890,6 +928,77 @@ async function inicializarModuloPedidos() {
       setMsg(`Pedidos: ${resultado.reason?.message || resultado.reason || 'error inesperado'}`, 'warning');
     }
   });
+}
+
+
+async function loadEstadoSistema() {
+  const panel = $('#estado-sistema-panel');
+  if (!panel) return;
+  panel.classList.add('estado-sistema-grid');
+  panel.innerHTML = '<div class="item">Cargando Centro de Control...</div>';
+  try {
+    const data = await api('/api/estado-sistema');
+    const valorNumerico = (value) => Number(value || 0);
+    const estadoPorSemaforo = (valor, alertaDesde = 1, problemaDesde = 5) => {
+      if (valor >= problemaDesde) return 'rojo';
+      if (valor >= alertaDesde) return 'amarillo';
+      return 'verde';
+    };
+    const estadoPorConteoBase = (valor) => {
+      if (valor <= 0) return 'rojo';
+      if (valor <= 5) return 'amarillo';
+      return 'verde';
+    };
+    const tarjetas = [
+      { etiqueta: 'Productos', icono: '📦', valor: valorNumerico(data?.conteos?.productos), estado: estadoPorConteoBase(valorNumerico(data?.conteos?.productos)) },
+      { etiqueta: 'Ventas', icono: '🧾', valor: valorNumerico(data?.conteos?.ventas), estado: estadoPorConteoBase(valorNumerico(data?.conteos?.ventas)) },
+      { etiqueta: 'Presupuestos', icono: '📑', valor: valorNumerico(data?.conteos?.presupuestos), estado: estadoPorConteoBase(valorNumerico(data?.conteos?.presupuestos)) },
+      {
+        etiqueta: 'Productos sin costo',
+        icono: '💸',
+        valor: valorNumerico(data?.auditoriaDatos?.productosSinCosto),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinCosto), 1, 5)
+      },
+      {
+        etiqueta: 'Productos sin imagen',
+        icono: '🖼️',
+        valor: valorNumerico(data?.auditoriaDatos?.productosSinImagen),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosSinImagen), 1, 10)
+      },
+      {
+        etiqueta: 'Stock bajo',
+        icono: '📉',
+        valor: valorNumerico(data?.alertasOperativas?.productosConStockBajo),
+        estado: estadoPorSemaforo(valorNumerico(data?.alertasOperativas?.productosConStockBajo), 1, 10)
+      },
+      {
+        etiqueta: 'Ventas borrador antiguas',
+        icono: '⏳',
+        valor: valorNumerico(data?.auditoriaDatos?.ventasBorradorAntiguas),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.ventasBorradorAntiguas), 1, 3)
+      },
+      {
+        etiqueta: 'Clientes duplicados',
+        icono: '👥',
+        valor: valorNumerico(data?.auditoriaDatos?.clientesDuplicados?.length),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.clientesDuplicados?.length), 1, 3)
+      },
+      {
+        etiqueta: 'Productos duplicados',
+        icono: '🧪',
+        valor: valorNumerico(data?.auditoriaDatos?.productosDuplicados?.length),
+        estado: estadoPorSemaforo(valorNumerico(data?.auditoriaDatos?.productosDuplicados?.length), 1, 3)
+      }
+    ];
+    panel.innerHTML = tarjetas.map((item) => `
+      <article class="estado-sistema-card estado-${item.estado}">
+        <p class="estado-sistema-label"><span class="estado-sistema-icono" aria-hidden="true">${item.icono}</span>${item.etiqueta}</p>
+        <strong class="estado-sistema-value">${item.valor}</strong>
+      </article>
+    `).join('');
+  } catch (error) {
+    panel.innerHTML = `<div class="item">Error al leer estado del sistema: ${error.message || error}</div>`;
+  }
 }
 
 async function loadEliminados() {
@@ -1229,17 +1338,54 @@ $('#cc-resultados-clientes').addEventListener('click', async (e) => {
   } catch (e2) { setMsg(e2.message); }
 });
 
+$('#cc-resumen-personas')?.addEventListener('click', async (e) => {
+  const verDetalle = e.target.closest('button[data-cc-persona]');
+  if (verDetalle) {
+    try {
+      const cuenta = await cargarCuentaCorrientePersona(Number(verDetalle.dataset.ccPersona));
+      renderPanelCuentaCorriente(cuenta);
+    } catch (error) {
+      setMsg(error.message);
+    }
+    return;
+  }
+
+  const registrarPagoPersona = e.target.closest('button[data-cc-registrar-pago-persona]');
+  if (registrarPagoPersona) {
+    try {
+      const cuenta = await cargarCuentaCorrientePersona(Number(registrarPagoPersona.dataset.ccRegistrarPagoPersona));
+      renderPanelCuentaCorriente(cuenta);
+      document.getElementById('cc-pago-monto')?.focus();
+    } catch (error) {
+      setMsg(error.message);
+    }
+    return;
+  }
+});
+
 $('#btn-cc-registrar-pago').addEventListener('click', async () => {
   const personaId = cuentaCorrienteMostrada?.personaId;
   if (!personaId) return setMsg('Seleccione un cliente para registrar pago');
   const monto = Number($('#cc-pago-monto').value);
+  const medioPago = $('#cc-pago-medio').value;
+  const fecha = $('#cc-pago-fecha').value;
+  const observacion = $('#cc-pago-observacion').value.trim();
   if (!monto || monto <= 0) return setMsg('Ingrese un monto válido');
+  if (!fecha) return setMsg('Seleccione la fecha del pago');
   try {
-    await api(`/cuenta-corriente/personas/${personaId}/pagos`, { method: 'POST', body: JSON.stringify({ monto }) });
+    const payload = { monto, medioPago, fecha, observacion };
+    const result = await api(`/cuenta-corriente/personas/${personaId}/pagos`, { method: 'POST', body: JSON.stringify(payload) });
     const cuenta = await cargarCuentaCorrientePersona(personaId);
     renderPanelCuentaCorriente(cuenta);
     await renderCuentaCorrienteClienteActivo();
-    setMsg('Pago registrado (HABER) y saldo actualizado');
+    await loadResumenCuentaCorriente();
+    const recibo = result?.recibo;
+    const view = document.getElementById('cc-recibo-view');
+    if (view && recibo) {
+      const whatsapp = `/cuenta-corriente/recibos/${recibo.id}/whatsapp`;
+      view.innerHTML = `<div class="item"><strong>Recibo #${recibo.id}</strong> | ${recibo.personaNombre} | ${money(recibo.monto)} | ${new Date(recibo.fechaPago).toLocaleString('es-AR')}<div class="action-row"><button onclick="window.open('/cuenta-corriente/recibos/${recibo.id}/ver','_blank')">Ver</button><button onclick="window.open('/cuenta-corriente/recibos/${recibo.id}/imprimir','_blank')">Imprimir</button><button onclick="window.open('${whatsapp}','_blank')">WhatsApp</button></div></div>`;
+    }
+    setMsg('Pago registrado, saldo actualizado y recibo generado');
   } catch (e) { setMsg(e.message); }
 });
 
@@ -2043,3 +2189,8 @@ renderPresupuestoProductos();
   renderRemitoItems();
   $('#buscar-producto').focus();
 })();
+
+$('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema);
+
+
+if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }

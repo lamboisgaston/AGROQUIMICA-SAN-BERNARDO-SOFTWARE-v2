@@ -110,6 +110,16 @@ async function calcularResumenCajaDia(fechaCaja = obtenerFechaCajaArgentina(), t
 
 
 
+
+const ROLES_DIAGNOSTICO = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE']);
+
+function requireDiagnosticoRole(req, res, next) {
+  const rol = obtenerRolRequest(req);
+  if (!ROLES_DIAGNOSTICO.has(rol)) return res.status(403).json({ error: 'Rol no autorizado para diagnóstico del sistema' });
+  req.userRole = rol;
+  next();
+}
+
 const ROLES_CIERRE_CAJA = new Set(['ADMINISTRADOR_GENERAL', 'GERENTE', 'CAJA']);
 
 function obtenerRolRequest(req) {
@@ -175,6 +185,387 @@ app.post('/login', (req, res) => {
     rol: encontrado.rol
   });
 });
+
+
+app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDiagnosticoRole : (_req, _res, next) => next(), asyncHandler(async (_req, res) => {
+  const inicioLectura = new Date();
+  const hayMovimientoCaja = Boolean(prisma.movimientoCaja);
+  const alertasOperativas = {
+    productosSinCategoria: null,
+    productosSinPrecio: null,
+    productosConStockBajo: null,
+    ventasPendientes: null,
+    presupuestosRecientes: null,
+    ultimaVenta: null,
+    ultimoPresupuesto: null
+  };
+  const auditoriaDatos = {
+    productosSinCategoria: null,
+    productosSinPrecio: null,
+    productosSinCosto: null,
+    productosSinImagen: null,
+    productosDuplicados: [],
+    clientesDuplicados: [],
+    ventasBorradorAntiguas: null,
+    presupuestosPendientes: null
+  };
+
+  try {
+    const modeloProductoDisponible = Boolean(prisma.producto);
+    const modeloPersonaDisponible = Boolean(prisma.persona);
+    const modeloVentaDisponible = Boolean(prisma.venta);
+    const modeloPresupuestoDisponible = Boolean(prisma.presupuesto);
+
+    let productos = null;
+    let personas = null;
+    let ventas = null;
+    let presupuestos = null;
+    let movimientosCaja = hayMovimientoCaja ? null : null;
+
+    if (modeloProductoDisponible) {
+      try {
+        productos = await prisma.producto.count({ where: { eliminado: false } });
+      } catch (_error) {
+        productos = null;
+      }
+    }
+
+    if (modeloPersonaDisponible) {
+      try {
+        personas = await prisma.persona.count({ where: { eliminado: false } });
+      } catch (_error) {
+        personas = null;
+      }
+    }
+
+    if (modeloVentaDisponible) {
+      try {
+        ventas = await prisma.venta.count();
+      } catch (_error) {
+        ventas = null;
+      }
+    }
+
+    if (modeloPresupuestoDisponible) {
+      try {
+        presupuestos = await prisma.presupuesto.count();
+      } catch (_error) {
+        presupuestos = null;
+      }
+    }
+
+    if (hayMovimientoCaja) {
+      try {
+        movimientosCaja = await prisma.movimientoCaja.count();
+      } catch (_error) {
+        movimientosCaja = null;
+      }
+    }
+
+    if (modeloProductoDisponible) {
+      try {
+        alertasOperativas.productosSinCategoria = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { categoria: null },
+              { categoria: '' }
+            ]
+          }
+        });
+      } catch (_error) {
+        alertasOperativas.productosSinCategoria = null;
+      }
+
+      try {
+        alertasOperativas.productosSinPrecio = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { precioVenta: null },
+              { precioVenta: { lte: 0 } }
+            ]
+          }
+        });
+      } catch (_error) {
+        alertasOperativas.productosSinPrecio = null;
+      }
+
+      try {
+        const productosConStock = await prisma.producto.findMany({
+          where: { eliminado: false },
+          select: { stock: true, stockMinimo: true }
+        });
+        alertasOperativas.productosConStockBajo = productosConStock.filter((item) => {
+          const stock = Number(item.stock ?? 0);
+          const stockMinimo = Number(item.stockMinimo ?? 0);
+          return stock <= stockMinimo;
+        }).length;
+      } catch (_error) {
+        alertasOperativas.productosConStockBajo = null;
+      }
+    }
+
+    if (modeloVentaDisponible) {
+      try {
+        alertasOperativas.ventasPendientes = await prisma.venta.count({
+          where: { estado: { not: 'COBRADA' } }
+        });
+      } catch (_error) {
+        alertasOperativas.ventasPendientes = null;
+      }
+
+      try {
+        const ultimaVenta = await prisma.venta.findFirst({
+          orderBy: { createdAt: 'desc' }
+        });
+        alertasOperativas.ultimaVenta = ultimaVenta
+          ? {
+              id: ultimaVenta.id,
+              estado: ultimaVenta.estado ?? null,
+              total: ultimaVenta.total ?? null,
+              createdAt: ultimaVenta.createdAt ?? null
+            }
+          : null;
+      } catch (_error) {
+        alertasOperativas.ultimaVenta = null;
+      }
+    }
+
+    if (modeloPresupuestoDisponible) {
+      try {
+        const desde = new Date();
+        desde.setDate(desde.getDate() - 7);
+        alertasOperativas.presupuestosRecientes = await prisma.presupuesto.count({
+          where: { createdAt: { gte: desde } }
+        });
+      } catch (_error) {
+        alertasOperativas.presupuestosRecientes = null;
+      }
+
+      try {
+        const ultimoPresupuesto = await prisma.presupuesto.findFirst({
+          orderBy: { createdAt: 'desc' }
+        });
+        alertasOperativas.ultimoPresupuesto = ultimoPresupuesto
+          ? {
+              id: ultimoPresupuesto.id,
+              estado: ultimoPresupuesto.estado ?? null,
+              total: ultimoPresupuesto.total ?? null,
+              createdAt: ultimoPresupuesto.createdAt ?? null
+            }
+          : null;
+      } catch (_error) {
+        alertasOperativas.ultimoPresupuesto = null;
+      }
+    }
+
+    if (modeloProductoDisponible) {
+      try {
+        auditoriaDatos.productosSinCategoria = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { categoria: null },
+              { categoria: '' }
+            ]
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.productosSinCategoria = null;
+      }
+
+      try {
+        auditoriaDatos.productosSinPrecio = await prisma.producto.count({
+          where: {
+            eliminado: false,
+            OR: [
+              { precioVenta: null },
+              { precioVenta: { lte: 0 } }
+            ]
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.productosSinPrecio = null;
+      }
+
+      try {
+        try {
+          auditoriaDatos.productosSinCosto = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { costoBase: null },
+                { costoBase: { lte: 0 } }
+              ]
+            }
+          });
+        } catch (_errorCostoBase) {
+          auditoriaDatos.productosSinCosto = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { precioUsd: null },
+                { precioUsd: { lte: 0 } }
+              ]
+            }
+          });
+        }
+      } catch (_error) {
+        auditoriaDatos.productosSinCosto = null;
+      }
+
+      try {
+        try {
+          auditoriaDatos.productosSinImagen = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { imagenUrl: null },
+                { imagenUrl: '' },
+                { imagen: null },
+                { imagen: '' }
+              ]
+            }
+          });
+        } catch (_errorImagenCompleta) {
+          auditoriaDatos.productosSinImagen = await prisma.producto.count({
+            where: {
+              eliminado: false,
+              OR: [
+                { imagenUrl: null },
+                { imagenUrl: '' }
+              ]
+            }
+          });
+        }
+      } catch (_error) {
+        auditoriaDatos.productosSinImagen = null;
+      }
+
+      try {
+        const productos = await prisma.producto.findMany({
+          where: { eliminado: false },
+          select: { id: true, nombre: true, codigo: true }
+        });
+        const mapaProductos = new Map();
+        for (const item of productos) {
+          const clave = String(item.codigo || item.nombre || '').trim().toLowerCase();
+          if (!clave) continue;
+          if (!mapaProductos.has(clave)) mapaProductos.set(clave, []);
+          mapaProductos.get(clave).push({ id: item.id, nombre: item.nombre ?? null, codigo: item.codigo ?? null });
+        }
+        auditoriaDatos.productosDuplicados = Array.from(mapaProductos.values())
+          .filter((grupo) => grupo.length > 1)
+          .slice(0, 20);
+      } catch (_error) {
+        auditoriaDatos.productosDuplicados = [];
+      }
+    }
+
+    if (modeloPersonaDisponible) {
+      try {
+        const clientes = await prisma.persona.findMany({
+          where: { eliminado: false },
+          select: { id: true, nombre: true, documento: true, cuit: true }
+        });
+        const mapaClientes = new Map();
+        for (const item of clientes) {
+          const clave = String(item.documento || item.cuit || item.nombre || '').trim().toLowerCase();
+          if (!clave) continue;
+          if (!mapaClientes.has(clave)) mapaClientes.set(clave, []);
+          mapaClientes.get(clave).push({ id: item.id, nombre: item.nombre ?? null, documento: item.documento ?? null, cuit: item.cuit ?? null });
+        }
+        auditoriaDatos.clientesDuplicados = Array.from(mapaClientes.values())
+          .filter((grupo) => grupo.length > 1)
+          .slice(0, 20);
+      } catch (_error) {
+        auditoriaDatos.clientesDuplicados = [];
+      }
+    }
+
+    if (modeloVentaDisponible) {
+      try {
+        const hace30Dias = new Date();
+        hace30Dias.setDate(hace30Dias.getDate() - 30);
+        auditoriaDatos.ventasBorradorAntiguas = await prisma.venta.count({
+          where: {
+            estado: 'BORRADOR',
+            createdAt: { lt: hace30Dias }
+          }
+        });
+      } catch (_error) {
+        auditoriaDatos.ventasBorradorAntiguas = null;
+      }
+    }
+
+    if (modeloPresupuestoDisponible) {
+      try {
+        auditoriaDatos.presupuestosPendientes = await prisma.presupuesto.count({
+          where: { estado: { in: ['PENDIENTE', 'PENDIENTE_APROBACION'] } }
+        });
+      } catch (_error) {
+        auditoriaDatos.presupuestosPendientes = null;
+      }
+    }
+
+    return res.json({
+      sistema: 'Agroquímica San Bernardo',
+      estadoBaseDatos: 'OK',
+      baseDatos: {
+        conectada: true,
+        proveedor: 'Prisma'
+      },
+      conteos: {
+        productos,
+        personasClientes: personas,
+        ventas,
+        presupuestos,
+        movimientosCaja
+      },
+      modelos: {
+        movimientoCajaDisponible: hayMovimientoCaja
+      },
+      alertasOperativas,
+      auditoriaDatos: {},
+      auditoriaDatos,
+      ultimaLectura: new Date().toISOString(),
+      duracionLecturaMs: Date.now() - inicioLectura.getTime()
+    });
+  } catch (error) {
+    return res.status(503).json({
+      sistema: 'Agroquímica San Bernardo',
+      estadoBaseDatos: 'ERROR',
+      baseDatos: {
+        conectada: false,
+        proveedor: 'Prisma',
+        detalle: error.message || String(error)
+      },
+      conteos: {
+        productos: null,
+        personasClientes: null,
+        ventas: null,
+        presupuestos: null,
+        movimientosCaja: hayMovimientoCaja ? null : null
+      },
+      modelos: {
+        movimientoCajaDisponible: hayMovimientoCaja
+      },
+      auditoriaDatos: {
+        productosSinCategoria: null,
+        productosSinPrecio: null,
+        productosSinCosto: null,
+        productosSinImagen: null,
+        productosDuplicados: [],
+        clientesDuplicados: [],
+        ventasBorradorAntiguas: null,
+        presupuestosPendientes: null
+      },
+      ultimaLectura: new Date().toISOString(),
+      duracionLecturaMs: Date.now() - inicioLectura.getTime()
+    });
+  }
+}));
 
 app.get('/eliminados', asyncHandler(async (_req, res) => {
   const [clientes, productos, proveedores] = await Promise.all([
@@ -1952,40 +2343,132 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
   res.json({ ...cuenta, persona: { ...cuenta.persona, cantidadCompras: comprasStats._count._all || 0, totalComprado: Number(comprasStats._sum.total || 0) } });
 }));
 
+app.get('/cuenta-corriente/resumen', asyncHandler(async (req, res) => {
+  const cuentas = await prisma.cuentaCorriente.findMany({
+    include: {
+      persona: true,
+      movimientos: {
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, createdAt: true }
+      }
+    }
+  });
+
+  const cuentasByPersona = new Map(cuentas.map((c) => [c.personaId, c]));
+  const ventasCc = await prisma.venta.findMany({
+    where: { medioPago: 'CUENTA_CORRIENTE', personaId: { not: null } },
+    include: { persona: true },
+    orderBy: { updatedAt: 'desc' }
+  });
+
+  const resumenMap = new Map();
+
+  const ensureEntry = (personaId, persona) => {
+    if (!resumenMap.has(personaId)) {
+      resumenMap.set(personaId, {
+        personaId,
+        clienteId: personaId,
+        nombre: persona?.nombre || 'Sin nombre',
+        telefono: persona?.telefono || null,
+        deudaTotal: 0,
+        movimientosPendientes: 0,
+        ultimoMovimientoAt: null
+      });
+    }
+    return resumenMap.get(personaId);
+  };
+
+  for (const cuenta of cuentas) {
+    const item = ensureEntry(cuenta.personaId, cuenta.persona);
+    item.deudaTotal = Number(cuenta.saldo || 0);
+    item.movimientosPendientes = cuenta.movimientos.length;
+    item.ultimoMovimientoAt = cuenta.movimientos[0]?.createdAt || null;
+  }
+
+  for (const venta of ventasCc) {
+    const personaId = Number(venta.personaId);
+    if (!personaId) continue;
+    if (cuentasByPersona.has(personaId)) continue;
+    const item = ensureEntry(personaId, venta.persona);
+    item.deudaTotal += Number(venta.total || 0);
+    item.movimientosPendientes += 1;
+    if (!item.ultimoMovimientoAt || new Date(venta.updatedAt) > new Date(item.ultimoMovimientoAt)) {
+      item.ultimoMovimientoAt = venta.updatedAt;
+    }
+  }
+
+  const resumen = Array.from(resumenMap.values())
+    .filter((item) => Number(item.deudaTotal) > 0)
+    .sort((a, b) => Number(a.deudaTotal) - Number(b.deudaTotal));
+
+  res.json(resumen);
+}));
+
 app.post('/cuenta-corriente/personas/:personaId/pagos', asyncHandler(async (req, res) => {
   const personaId = parsePositiveInt(req.params.personaId);
   if (!personaId) return res.status(400).json({ error: 'personaId inválido' });
-  const { monto, descripcion } = req.body;
+  const { monto, medioPago, fecha, observacion } = req.body;
 
-  if (!monto || Number(monto) <= 0) {
-    return res.status(400).json({ error: 'monto (>0) es obligatorio' });
-  }
+  if (!monto || Number(monto) <= 0) return res.status(400).json({ error: 'monto (>0) es obligatorio' });
+  if (!['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'].includes(String(medioPago || ''))) return res.status(400).json({ error: 'medioPago inválido' });
+  if (!fecha) return res.status(400).json({ error: 'fecha es obligatoria' });
 
-  const cuenta = await prisma.cuentaCorriente.findUnique({ where: { personaId } });
+  const cuenta = await prisma.cuentaCorriente.findUnique({ where: { personaId }, include: { persona: true } });
   if (!cuenta) return res.status(404).json({ error: 'Cuenta corriente no encontrada' });
-  if (Number(monto) > cuenta.saldo) {
-    return res.status(400).json({ error: 'El pago no puede ser mayor al saldo actual' });
-  }
+  if (Number(monto) > cuenta.saldo) return res.status(400).json({ error: 'El pago no puede ser mayor al saldo actual' });
 
+  const saldoAnterior = Number(cuenta.saldo);
   const cuentaActualizada = await prisma.$transaction(async tx => {
-    const updated = await tx.cuentaCorriente.update({
-      where: { id: cuenta.id },
-      data: { saldo: { decrement: Number(monto) } }
+    const updated = await tx.cuentaCorriente.update({ where: { id: cuenta.id }, data: { saldo: { decrement: Number(monto) } } });
+    const movimiento = await tx.movimientoCuentaCorriente.create({
+      data: { cuentaCorrienteId: cuenta.id, tipo: 'CREDITO', monto: Number(monto), descripcion: observacion || 'Pago de cuenta corriente' }
     });
-
-    await tx.movimientoCuentaCorriente.create({
+    const recibo = await tx.reciboPagoCuentaCorriente.create({
       data: {
-        cuentaCorrienteId: cuenta.id,
-        tipo: 'CREDITO',
-        monto: Number(monto),
-        descripcion: descripcion || 'Pago de cuenta corriente'
+        movimientoId: movimiento.id,
+        personaId,
+        montoPagado: Number(monto),
+        medioPago,
+        fechaPago: new Date(fecha),
+        observacion: observacion || null,
+        saldoAnterior,
+        saldoPosterior: Number(updated.saldo)
       }
     });
-
-    return updated;
+    return { updated, recibo };
   });
 
-  res.json(cuentaActualizada);
+  res.json({ ...cuentaActualizada.updated, recibo: { id: cuentaActualizada.recibo.id, personaNombre: cuenta.persona?.nombre || 'Cliente', monto: cuentaActualizada.recibo.montoPagado, medioPago: cuentaActualizada.recibo.medioPago, fechaPago: cuentaActualizada.recibo.fechaPago, saldoAnterior: cuentaActualizada.recibo.saldoAnterior, saldoPosterior: cuentaActualizada.recibo.saldoPosterior } });
+}));
+
+async function obtenerReciboCc(reciboId) {
+  return prisma.reciboPagoCuentaCorriente.findUnique({ where: { id: reciboId }, include: { persona: true } });
+}
+
+function htmlReciboCc(recibo, forPrint = false) {
+  return `<!doctype html><html lang="es"><head><meta charset="UTF-8"/><title>Recibo #${recibo.id}</title><style>body{font-family:Arial,sans-serif;margin:16px;max-width:460px;}p{margin:4px 0;}@media print{button{display:none;}}</style></head><body><h2>Recibo de pago #${recibo.id}</h2><p><strong>Persona:</strong> ${escapeHtml(recibo.persona?.nombre || '-')}</p><p><strong>Monto pagado:</strong> $${Number(recibo.montoPagado).toFixed(2)}</p><p><strong>Medio de pago:</strong> ${escapeHtml(recibo.medioPago)}</p><p><strong>Fecha:</strong> ${new Date(recibo.fechaPago).toLocaleString('es-AR')}</p><p><strong>Saldo anterior:</strong> $${Number(recibo.saldoAnterior).toFixed(2)}</p><p><strong>Saldo posterior:</strong> $${Number(recibo.saldoPosterior).toFixed(2)}</p><p><strong>Observación:</strong> ${escapeHtml(recibo.observacion || '-')}</p>${forPrint ? '<script>window.print()</script>' : '<button onclick="window.print()">Imprimir</button>'}</body></html>`;
+}
+
+app.get('/cuenta-corriente/recibos/:reciboId/ver', asyncHandler(async (req, res) => {
+  const reciboId = parsePositiveInt(req.params.reciboId);
+  const recibo = await obtenerReciboCc(reciboId);
+  if (!recibo) return res.status(404).send('Recibo no encontrado');
+  res.set('Content-Type', 'text/html; charset=utf-8').send(htmlReciboCc(recibo, false));
+}));
+
+app.get('/cuenta-corriente/recibos/:reciboId/imprimir', asyncHandler(async (req, res) => {
+  const reciboId = parsePositiveInt(req.params.reciboId);
+  const recibo = await obtenerReciboCc(reciboId);
+  if (!recibo) return res.status(404).send('Recibo no encontrado');
+  res.set('Content-Type', 'text/html; charset=utf-8').send(htmlReciboCc(recibo, true));
+}));
+
+app.get('/cuenta-corriente/recibos/:reciboId/whatsapp', asyncHandler(async (req, res) => {
+  const reciboId = parsePositiveInt(req.params.reciboId);
+  const recibo = await obtenerReciboCc(reciboId);
+  if (!recibo) return res.status(404).send('Recibo no encontrado');
+  const msg = `Recibo #${recibo.id} - ${recibo.persona?.nombre || 'Cliente'} | Pago: $${Number(recibo.montoPagado).toFixed(2)} | Medio: ${recibo.medioPago} | Fecha: ${new Date(recibo.fechaPago).toLocaleDateString('es-AR')} | Saldo anterior: $${Number(recibo.saldoAnterior).toFixed(2)} | Saldo posterior: $${Number(recibo.saldoPosterior).toFixed(2)}`;
+  res.redirect(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }));
 
 app.use((err, req, res, next) => {

@@ -172,6 +172,7 @@ model Persona {
   ventas          Venta[]
   presupuestos    Presupuesto[]
   cuentaCorriente CuentaCorriente?
+  recibosCuentaCorriente ReciboPagoCuentaCorriente[]
   activo            Boolean    @default(true)
   eliminado         Boolean    @default(false)
   eliminadoAt       DateTime?
@@ -305,6 +306,22 @@ model MovimientoCuentaCorriente {
   monto             Float
   descripcion       String?
   createdAt         DateTime @default(now())
+  recibo            ReciboPagoCuentaCorriente?
+}
+
+model ReciboPagoCuentaCorriente {
+  id                  Int      @id @default(autoincrement())
+  movimientoId        Int      @unique
+  movimiento          MovimientoCuentaCorriente @relation(fields: [movimientoId], references: [id])
+  personaId           Int
+  persona             Persona  @relation(fields: [personaId], references: [id])
+  montoPagado         Float
+  medioPago           MedioPago
+  fechaPago           DateTime
+  observacion         String?
+  saldoAnterior       Float
+  saldoPosterior      Float
+  createdAt           DateTime @default(now())
 }
 
 enum MedioPago {

@@ -46,6 +46,7 @@
         <article class="dashboard-card" data-module-card="remitos"><h3>Remitos</h3><p>Carga de remitos y entrada de mercadería.</p><button data-abrir-modulo="remitos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="reportes"><h3>Reportes</h3><p>Ventas cobradas y calendario de caja.</p><button data-abrir-modulo="reportes">Entrar</button></article>
         <article class="dashboard-card" data-module-card="eliminados"><h3>Papelera / Eliminados</h3><p>Consulta de registros eliminados del sistema.</p><button data-abrir-modulo="eliminados">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="estado-sistema"><h3>Estado del sistema</h3><p>Diagnóstico de base de datos y conteos generales.</p><button data-abrir-modulo="estado-sistema">Entrar</button></article>
       </div>
     </section>
     <nav class="menu-principal app-shell hidden">
@@ -195,6 +196,8 @@
 
     <section class="bloque app-shell compact-form" data-modulo="cuenta-corriente">
       <h2>6) Cuenta corriente</h2>
+      <h3>Resumen automático de deudores (menor a mayor)</h3>
+      <div id="cc-resumen-personas" class="lista"><div class="item">Cargando resumen...</div></div>
       <input id="cc-buscar-cliente" placeholder="Buscar cliente por nombre / teléfono / cuit" />
       <button id="btn-cc-buscar">Buscar</button>
       <div id="cc-resultados-clientes" class="lista"></div>
@@ -202,13 +205,29 @@
       <p>Saldo total: <strong id="cc-saldo" class="estado-monto estado-cero">$0.00</strong></p>
       <div id="cc-movimientos" class="lista"></div>
       <small>Movimientos: DEBE (aumenta deuda) / HABER (baja deuda)</small>
-      <div>
+      <div class="cc-pago-form">
         <input id="cc-pago-monto" type="number" min="0.01" step="0.01" placeholder="Monto a pagar" />
+        <select id="cc-pago-medio">
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TRANSFERENCIA">Transferencia</option>
+          <option value="TARJETA">Tarjeta</option>
+        </select>
+        <input id="cc-pago-fecha" type="date" />
+        <input id="cc-pago-observacion" type="text" placeholder="Observación (opcional)" />
         <button id="btn-cc-registrar-pago">Registrar pago</button>
       </div>
+      <div id="cc-recibo-view" class="lista"></div>
     </section>
 
-    <section class="bloque app-shell compact-form" data-modulo="reportes">
+    
+    <section class="bloque app-shell compact-form" data-modulo="estado-sistema">
+      <h2>Centro de Control</h2>
+      <p>Panel visual rápido del estado operativo del sistema.</p>
+      <button id="btn-estado-sistema-refrescar">Actualizar Centro de Control</button>
+      <div id="estado-sistema-panel" class="lista">Sin lectura aún</div>
+    </section>
+
+<section class="bloque app-shell compact-form" data-modulo="reportes">
       <h2>7) Ventas cobradas</h2>
       <label>Fecha <input id="ventas-cobradas-fecha" type="date" /></label>
       <button id="btn-ventas-cobradas-buscar">Buscar</button>

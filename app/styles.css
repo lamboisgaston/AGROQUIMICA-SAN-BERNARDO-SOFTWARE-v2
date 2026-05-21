@@ -141,6 +141,59 @@ details[open] { display: grid; gap: 5px; }
 .btn-accion-editar { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
 .btn-accion-precio { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
 
+.estado-sistema-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  max-height: none;
+  border: 0;
+  background: transparent;
+  padding: 2px;
+}
+.estado-sistema-card {
+  border: 1px solid #d1dbe8;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fbff;
+  display: grid;
+  gap: 6px;
+  min-height: 92px;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.estado-sistema-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.08);
+}
+.estado-sistema-label {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.estado-sistema-icono {
+  font-size: 18px;
+}
+.estado-sistema-value {
+  font-size: 25px;
+  color: #0f172a;
+  line-height: 1;
+}
+.estado-sistema-card.estado-verde {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.estado-sistema-card.estado-amarillo {
+  border-color: #fcd34d;
+  background: #fefce8;
+}
+.estado-sistema-card.estado-rojo {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
 @media (max-width: 900px) {
   .producto-card { grid-template-columns: 70px minmax(0,1fr); }
   .producto-media { width: 70px; height: 70px; }
