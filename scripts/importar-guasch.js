@@ -12,7 +12,23 @@ const PRODUCTOS_GUASCH = [
   { categoria: 'Pasturas', nombre: 'Alfalfa Brava', presentacion: 'Bolsa 25 Kg', precioUsd: 10.31 },
   { categoria: 'Verdeos Invernales', nombre: 'Avena Blanca Bonaerense INTA Calen', presentacion: 'Bolsa 40 Kg', precioUsd: 0.46 },
   { categoria: 'Pasturas/Alfalfas', nombre: 'Armona', presentacion: '25 Kg', precioUsd: 9.07 },
-  { categoria: 'Pasturas/Alfalfas', nombre: 'Pampa Flor', presentacion: '25 Kg', precioUsd: 8.46 }
+  { categoria: 'Pasturas/Alfalfas', nombre: 'Pampa Flor', presentacion: '25 Kg', precioUsd: 8.46 },
+  { categoria: 'Césped / Blends', nombre: 'Champions', presentacion: 'Bolsa 10 Kg', precioUsd: 56.5 },
+  { categoria: 'Césped / Blends', nombre: 'Champions', presentacion: 'Bolsa 25 Kg', precioUsd: 137.5 },
+  { categoria: 'Césped / Blends', nombre: 'Cherokee', presentacion: 'Bolsa 10 Kg', estado: 'CONSULTAR', precioUsd: null },
+  { categoria: 'Césped / Blends', nombre: 'Cherokee', presentacion: 'Bolsa 25 Kg', estado: 'CONSULTAR', precioUsd: null },
+  { categoria: 'Césped / Blends', nombre: 'Tucson', presentacion: 'Lata 500 g', precioUsd: 18.7 },
+  { categoria: 'Césped / Blends', nombre: 'Tucson', presentacion: 'Balde 10 Kg', precioUsd: 352.0 },
+  { categoria: 'Césped / Blends', nombre: 'Winipeg', presentacion: 'Alupack 1 Kg', estado: 'CONSULTAR', precioUsd: null },
+  { categoria: 'Césped / Blends', nombre: 'Winipeg', presentacion: 'Bolsa 10 Kg', estado: 'CONSULTAR', precioUsd: null },
+  { categoria: 'Césped Profesional', nombre: 'Poa Pratensis', presentacion: 'Alupack 1 Kg', precioUsd: 12.3 },
+  { categoria: 'Césped Profesional', nombre: 'Poa Pratensis', presentacion: 'Bolsa 10 Kg', precioUsd: 120.0 },
+  { categoria: 'Césped Profesional', nombre: 'Raigrás Perenne Lolius', presentacion: 'Bolsa 25 Kg', precioUsd: 178.75 },
+  { categoria: 'Césped Profesional', nombre: 'Raigrás Perenne Boost', presentacion: 'Bolsa 25 Kg', precioUsd: 90.0 },
+  { categoria: 'Césped Profesional', nombre: 'Raigrás Perenne Prana', presentacion: 'Bolsa 25 Kg', precioUsd: 92.5 },
+  { categoria: 'Césped Profesional', nombre: 'Trébol Blanco Grasslands Huia', presentacion: 'Alupack 1 Kg', precioUsd: 8.5 },
+  { categoria: 'Césped Profesional', nombre: 'Trébol Blanco Grasslands Huia', presentacion: 'Bolsa 10 Kg', precioUsd: 82.4 },
+  { categoria: 'Césped Profesional', nombre: 'Trébol Blanco Grasslands Huia', presentacion: 'Bolsa 25 Kg', precioUsd: 195.5 }
 ];
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -98,14 +114,15 @@ async function main() {
 
   const rows = PRODUCTOS_GUASCH.map((p) => {
     const estado = normalizarEstado(p.estado, p.precioUsd);
-    const precioUsd = Number(p.precioUsd || 0);
-    const calculo = estado === 'DISPONIBLE' ? calcularPrecioFinal(precioUsd, tipoCambio) : null;
+    const tienePrecio = Number(p.precioUsd) > 0;
+    const precioUsd = tienePrecio ? Number(p.precioUsd) : null;
+    const calculo = estado === 'DISPONIBLE' && precioUsd ? calcularPrecioFinal(precioUsd, tipoCambio) : null;
 
     const metadataOriginal = {
       nombre: p.nombre,
       categoria: p.categoria,
       presentacion: p.presentacion,
-      precioUsd: precioUsd || null,
+      precioUsd,
       estado,
       precioFinal: calculo?.precioFinal ?? null,
       calculo: calculo ?? null
