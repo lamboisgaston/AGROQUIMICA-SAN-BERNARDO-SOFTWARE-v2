@@ -1,0 +1,33 @@
+{
+  "fuente": "GUASCH Lista Nº 02",
+  "fecha": "2026-03-09",
+  "productos": [
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Alfalfas", "nombreProducto": "Brava", "envase": "25 Kg", "precioUsd": 10.31, "estado": "DISPONIBLE", "caracteristicas": "Inoculante + Fungicida" },
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Alfalfas", "nombreProducto": "Armona", "envase": "25 Kg", "precioUsd": 9.07, "estado": "DISPONIBLE", "caracteristicas": "Inoculante + Fungicida" },
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Alfalfas", "nombreProducto": "Pampa Flor", "envase": "25 Kg", "precioUsd": 8.46, "estado": "DISPONIBLE", "caracteristicas": "Inoculante + Fungicida" },
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Gramíneas Forrajeras Templadas", "nombreProducto": "Agropiro Alargado", "envase": "20 Kg", "precioUsd": 3.85, "estado": "DISPONIBLE", "caracteristicas": "Dens. siembra 20-25 Kg/Ha" },
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Gramíneas Forrajeras Templadas", "nombreProducto": "Cebadilla Criolla Don Humberto", "envase": "25 Kg", "precioUsd": 2.05, "estado": "DISPONIBLE", "caracteristicas": "Despuntada" },
+    { "pagina": null, "categoria": "Tréboles", "subcategoria": "Tréboles", "nombreProducto": "Trébol de Olor Amarillo", "envase": "25 Kg", "precioUsd": 6.65, "estado": "DISPONIBLE", "caracteristicas": "Trébol Madrid" },
+    { "pagina": null, "categoria": "Verdeos Invernales", "subcategoria": "Verdeos Invernales", "nombreProducto": "Avena Blanca Bonaerense INTA Calen", "envase": "40 Kg", "precioUsd": 0.46, "estado": "DISPONIBLE", "caracteristicas": "-" },
+    { "pagina": null, "categoria": "Cultivos Extensivos", "subcategoria": "Sorgos Forrajeros Híbridos", "nombreProducto": "Mistral CT120 Nueva Campaña", "envase": "Bolsa 20 Kg", "precioUsd": 109, "estado": "DISPONIBLE", "caracteristicas": "Con tanino" },
+    { "pagina": null, "categoria": "Cultivos Extensivos", "subcategoria": "Maíz", "nombreProducto": "Amancay INTA C2", "envase": "Bolsa 72.000 semillas", "precioUsd": 59, "estado": "DISPONIBLE", "caracteristicas": "Flint colorado duro" },
+    { "pagina": null, "categoria": "Cultivos Extensivos", "subcategoria": "Specialities Crops", "nombreProducto": "Alpiste", "envase": "25 Kg", "precioUsd": 2, "estado": "DISPONIBLE", "caracteristicas": "Dens. siembra aprox. 40 Kg/Ha" },
+    { "pagina": null, "categoria": "Inoculantes", "subcategoria": "Inoculantes", "nombreProducto": "Zaden Vicia-Tb", "envase": "Envase 200 gr", "precioUsd": 3.95, "estado": "DISPONIBLE", "caracteristicas": "Inoculante para Vicia/Arveja/Lenteja" },
+    { "pagina": null, "categoria": "Hortícolas", "subcategoria": "Acelga", "nombreProducto": "Verde Penca Blanca Ancha", "envase": "Doypack 150 gr", "precioUsd": 2.55, "estado": "DISPONIBLE", "caracteristicas": "Anual, pencas blancas anchas" },
+    { "pagina": null, "categoria": "Hortícolas", "subcategoria": "Cebolla", "nombreProducto": "Roja Chata de Italia", "envase": "Lata 250 gr", "precioUsd": 21.7, "estado": "DISPONIBLE", "caracteristicas": "Doble propósito verdeo/bulbo" },
+    { "pagina": null, "categoria": "Hortícolas", "subcategoria": "Perejil", "nombreProducto": "Común Hojas Lisas", "envase": "Doypack 250 gr", "precioUsd": 3.65, "estado": "DISPONIBLE", "caracteristicas": "Muy aromático" },
+    { "pagina": null, "categoria": "Hortícolas", "subcategoria": "Pimiento", "nombreProducto": "Jalapeño M", "envase": "Lata 100 gr", "precioUsd": 28.14, "estado": "DISPONIBLE", "caracteristicas": "Picante, ají chili" },
+    { "pagina": null, "categoria": "Césped Profesional", "subcategoria": "Bermuda", "nombreProducto": "Bermuda Grass Unhulled", "envase": "Alubag 100 gr", "precioUsd": 21.7, "estado": "DISPONIBLE", "caracteristicas": "Resiste calor/sequía" },
+    { "pagina": null, "categoria": "Césped Profesional", "subcategoria": "Festuca", "nombreProducto": "Festuca Belfine", "envase": "Bolsa 25 Kg", "precioUsd": 4.2, "estado": "DISPONIBLE", "caracteristicas": "Lawn type" },
+    { "pagina": null, "categoria": "GS Césped Blends & Mixs", "subcategoria": "Blends", "nombreProducto": "Mustang Grass Mix", "envase": "Bolsa 25 Kg", "precioUsd": 4.15, "estado": "DISPONIBLE", "caracteristicas": "4 componentes" },
+    { "pagina": null, "categoria": "Sobres Huerta & Jardín", "subcategoria": "Sobres", "nombreProducto": "Colec. Flornova", "envase": "Sobre", "precioUsd": 2.6, "estado": "DISPONIBLE", "caracteristicas": "Precio por sobre" },
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Gramíneas Forrajeras Templadas", "nombreProducto": "Falaris Bulbosa", "envase": "25 Kg", "precioUsd": null, "estado": "CONSULTAR", "caracteristicas": null },
+    { "pagina": null, "categoria": "Pasturas", "subcategoria": "Gramíneas Forrajeras Templadas", "nombreProducto": "Pasto Llorón", "envase": "25 Kg", "precioUsd": null, "estado": "CONSULTAR", "caracteristicas": null },
+    { "pagina": null, "categoria": "Tréboles", "subcategoria": "Tréboles", "nombreProducto": "Trébol de Olor Blanco", "envase": "25 Kg", "precioUsd": null, "estado": "CONSULTAR", "caracteristicas": null },
+    { "pagina": null, "categoria": "Gramíneas Forrajeras Subtropicales", "subcategoria": "Subtropicales", "nombreProducto": "Buffel Grass Texas", "envase": "10 Kg", "precioUsd": null, "estado": "CONSULTAR", "caracteristicas": null },
+    { "pagina": null, "categoria": "Hortícolas", "subcategoria": "Achicoria", "nombreProducto": "Hoja Ancha Doble Blonde", "envase": "Lata 200 gr", "precioUsd": null, "estado": "AGOTADO", "caracteristicas": null },
+    { "pagina": null, "categoria": "Hortícolas", "subcategoria": "Lechuga", "nombreProducto": "Maravilla de Verano", "envase": "Lata 250 gr", "precioUsd": null, "estado": "AGOTADO", "caracteristicas": null },
+    { "pagina": null, "categoria": "Césped Profesional", "subcategoria": "Dichondra", "nombreProducto": "Dichondra", "envase": "Alubag 1 Kg", "precioUsd": null, "estado": "AGOTADO", "caracteristicas": null },
+    { "pagina": null, "categoria": "Césped Profesional", "subcategoria": "Bermuda", "nombreProducto": "Bermuda Grass Unhulled Bolsa 10Kg", "envase": "Bolsa 10 Kg", "precioUsd": null, "estado": "CONSULTAR", "caracteristicas": null }
+  ]
+}

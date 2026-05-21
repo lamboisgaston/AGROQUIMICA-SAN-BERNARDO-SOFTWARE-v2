@@ -441,13 +441,13 @@ function renderCatalogoGuasch() {
     const posibleFaltante = cantSinPrecio > 0 || estadosNoDisponibles > 0;
     const bandera = posibleFaltante ? '<span class="badge-alerta">Posibles faltantes/errores</span>' : '<span class="badge-ok">Completa</span>';
     return `
-      <details class="categoria-acordeon">
+      <details class="categoria-acordeon" open>
         <summary>${grupo.categoria} (${grupo.items.length}) ${bandera}</summary>
         <div class="categoria-auditoria-meta">Sin precio: <strong>${cantSinPrecio}</strong> · No disponibles: <strong>${estadosNoDisponibles}</strong></div>
         <div class="lista">
           ${grupo.items.map((i) => `
             <div class="item auditoria-item ${i.tienePrecio ? '' : 'auditoria-item-alerta'}">
-              <strong>${i.nombre}</strong> · ${i.unidad} · Estado: <strong>${i.estado}</strong> · Precio final: <strong>${i.precioFinal == null ? 'null' : money(i.precioFinal)}</strong>
+              <strong>${i.nombre}</strong> · ${i.unidad} · Estado: <strong>${i.estado}</strong> · Precio final: <strong>${i.precioFinal == null ? 'SIN PRECIO' : money(i.precioFinal)}</strong> ${i.tienePrecio ? '' : '<span class="badge-alerta">SIN PRECIO</span>'}
             </div>
           `).join('')}
         </div>

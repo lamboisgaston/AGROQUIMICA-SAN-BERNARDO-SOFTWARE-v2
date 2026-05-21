@@ -1,160 +1,135 @@
+const fs = require('fs');
+const path = require('path');
 const { PrismaClient, TipoReglaComercial } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-const LISTA_COMERCIAL_ID = 1;
-const LISTA_COMERCIAL_NOMBRE = 'GUASCH PRECAMPAÑA 2026';
 const PROVEEDOR = 'Semillera Guasch SRL';
-const FECHA_FUENTE = '2026-03-09';
+const LISTA_NOMBRE = 'GUASCH Lista Nº 02';
+const LISTA_CODIGO = 'GUASCH-2026-03-09-N02';
+const FECHA_LISTA = new Date('2026-03-09T00:00:00.000Z');
+const DATASET_PATH = path.join(__dirname, '..', 'data', 'guasch-lista-02-2026.json');
 
-const PRODUCTOS_GUASCH = [
-  { categoria: 'Pasturas', nombre: 'Raigrás Anual Tetraploide Macho', presentacion: 'Bolsa 25 Kg', precioUsd: 1.95 },
-  { categoria: 'Pasturas', nombre: 'Alfalfa Brava', presentacion: 'Bolsa 25 Kg', precioUsd: 10.31 },
-  { categoria: 'Verdeos Invernales', nombre: 'Avena Blanca Bonaerense INTA Calen', presentacion: 'Bolsa 40 Kg', precioUsd: 0.46 },
-  { categoria: 'Pasturas/Alfalfas', nombre: 'Armona', presentacion: '25 Kg', precioUsd: 9.07 },
-  { categoria: 'Pasturas/Alfalfas', nombre: 'Pampa Flor', presentacion: '25 Kg', precioUsd: 8.46 },
-  { categoria: 'Césped / Blends', nombre: 'Champions', presentacion: 'Bolsa 10 Kg', estado: 'DISPONIBLE', precioUsd: 56.5 },
-  { categoria: 'Césped / Blends', nombre: 'Champions', presentacion: 'Bolsa 25 Kg', estado: 'DISPONIBLE', precioUsd: 137.5 },
-  { categoria: 'Césped / Blends', nombre: 'Cherokee', presentacion: 'Bolsa 10 Kg', estado: 'CONSULTAR', precioUsd: null },
-  { categoria: 'Césped / Blends', nombre: 'Cherokee', presentacion: 'Bolsa 25 Kg', estado: 'CONSULTAR', precioUsd: null },
-  { categoria: 'Césped / Blends', nombre: 'Tucson', presentacion: 'Lata 500 g', estado: 'DISPONIBLE', precioUsd: 18.7 },
-  { categoria: 'Césped / Blends', nombre: 'Tucson', presentacion: 'Balde 10 Kg', estado: 'DISPONIBLE', precioUsd: 352.0 },
-  { categoria: 'Césped / Blends', nombre: 'Winipeg', presentacion: 'Alupack 1 Kg', estado: 'CONSULTAR', precioUsd: null },
-  { categoria: 'Césped / Blends', nombre: 'Winipeg', presentacion: 'Bolsa 10 Kg', estado: 'CONSULTAR', precioUsd: null },
-  { categoria: 'Césped Profesional', nombre: 'Poa Pratensis', presentacion: 'Alupack 1 Kg', estado: 'DISPONIBLE', precioUsd: 12.3 },
-  { categoria: 'Césped Profesional', nombre: 'Poa Pratensis', presentacion: 'Bolsa 10 Kg', estado: 'DISPONIBLE', precioUsd: 120.0 },
-  { categoria: 'Césped Profesional', nombre: 'Raigrás Perenne Lolius', presentacion: 'Bolsa 25 Kg', estado: 'DISPONIBLE', precioUsd: 178.75 },
-  { categoria: 'Césped Profesional', nombre: 'Raigrás Perenne Boost', presentacion: 'Bolsa 25 Kg', estado: 'DISPONIBLE', precioUsd: 90.0 },
-  { categoria: 'Césped Profesional', nombre: 'Raigrás Perenne Prana', presentacion: 'Bolsa 25 Kg', estado: 'DISPONIBLE', precioUsd: 92.5 },
-  { categoria: 'Césped Profesional', nombre: 'Trébol Blanco Grasslands Huia', presentacion: 'Alupack 1 Kg', estado: 'DISPONIBLE', precioUsd: 8.5 },
-  { categoria: 'Césped Profesional', nombre: 'Trébol Blanco Grasslands Huia', presentacion: 'Bolsa 10 Kg', estado: 'DISPONIBLE', precioUsd: 82.4 },
-  { categoria: 'Césped Profesional', nombre: 'Trébol Blanco Grasslands Huia', presentacion: 'Bolsa 25 Kg', estado: 'DISPONIBLE', precioUsd: 195.5 }
-];
+const round = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const normalizarEstado = (raw, precioUsd) => {
+  const v = String(raw || '').trim().toUpperCase();
+  if (v === 'CONSULTAR') return 'CONSULTAR';
+  if (v === 'AGOTADO') return 'AGOTADO';
+  if (v === 'SIN STOCK' || v === 'SIN_STOCK') return 'SIN_STOCK';
+  return Number(precioUsd) > 0 ? 'DISPONIBLE' : 'SIN_PRECIO';
+};
 
-function normalizarEstado(estado, precioUsd) {
-  const raw = String(estado || '').trim().toUpperCase();
-  if (raw === 'CONSULTAR') return 'CONSULTAR';
-  if (raw === 'AGOTADO') return 'AGOTADO';
-  if (raw === 'SIN STOCK' || raw === 'SIN_STOCK') return 'SIN_STOCK';
-  return Number(precioUsd) > 0 ? 'DISPONIBLE' : 'CONSULTAR';
+function calcular(precioUsd, tipoCambio) {
+  const precioPesos = round(precioUsd * tipoCambio);
+  const conFlete = round(precioPesos * 1.07);
+  const precioFinal = round(conFlete * 1.21);
+  const margen20 = round(precioFinal * 0.2);
+  return { precioPesos, conFlete, precioFinal, margen20 };
 }
 
-function calcularPrecioFinal(precioUsd, tipoCambio) {
-  const precioPesos = round2(precioUsd * tipoCambio);
-  const conFlete = round2(precioPesos * 1.07);
-  const conIva = round2(conFlete * 1.21);
-  const gananciaObjetivo = round2(conIva * 0.2);
-  return { precioPesos, conFlete, precioFinal: conIva, gananciaObjetivo };
-}
-
-async function resolverListaComercial() {
-  const listaPorId = await prisma.listaComercial.findUnique({ where: { id: LISTA_COMERCIAL_ID } });
-  if (listaPorId) return listaPorId;
-
-  const listaPorNombre = await prisma.listaComercial.findFirst({
-    where: { nombre: LISTA_COMERCIAL_NOMBRE }
-  });
-
-  if (listaPorNombre) return listaPorNombre;
-
-  throw new Error(
-    `No existe ListaComercial.id=${LISTA_COMERCIAL_ID} ni una lista con nombre "${LISTA_COMERCIAL_NOMBRE}".`
-  );
+function cargarCatalogo() {
+  const raw = fs.readFileSync(DATASET_PATH, 'utf8');
+  const json = JSON.parse(raw);
+  if (!Array.isArray(json.productos) || json.productos.length === 0) {
+    throw new Error('data/guasch-lista-02-2026.json no contiene productos válidos.');
+  }
+  return json;
 }
 
 async function main() {
-  const lista = await resolverListaComercial();
-
   const cfg = await prisma.configuracionGlobal.findUnique({ where: { id: 1 } });
   const tipoCambio = Number(cfg?.tipoCambioActual || 0);
-  if (!tipoCambio || tipoCambio <= 0) {
-    throw new Error('ConfiguracionGlobal.id=1.tipoCambioActual inválido.');
-  }
+  if (!tipoCambio || tipoCambio <= 0) throw new Error('tipoCambioActual inválido en ConfiguracionGlobal.id=1');
 
-  const proveedorExistente = await prisma.empresaComercial.findFirst({
-    where: { nombre: PROVEEDOR }
+  const catalogo = cargarCatalogo();
+  const productos = catalogo.productos;
+
+  const proveedor = await prisma.empresaComercial.upsert({ where: { nombre: PROVEEDOR }, update: { activo: true }, create: { nombre: PROVEEDOR, activo: true } });
+  const existente = await prisma.listaComercial.findFirst({ where: { codigo: LISTA_CODIGO }, select: { id: true } });
+  const lista = await prisma.listaComercial.upsert({
+    where: { id: existente?.id || -1 },
+    update: { empresaComercialId: proveedor.id, nombre: LISTA_NOMBRE, codigo: LISTA_CODIGO, moneda: 'USD', vigenteDesde: FECHA_LISTA, activa: true },
+    create: { empresaComercialId: proveedor.id, nombre: LISTA_NOMBRE, codigo: LISTA_CODIGO, moneda: 'USD', vigenteDesde: FECHA_LISTA, activa: true }
   });
 
-  const proveedor = proveedorExistente
-    ? await prisma.empresaComercial.update({
-        where: { id: proveedorExistente.id },
-        data: { activo: true }
-      })
-    : await prisma.empresaComercial.create({
-        data: { nombre: PROVEEDOR, activo: true }
-      });
+  await prisma.reglaComercialLista.deleteMany({ where: { listaComercialId: lista.id } });
+  await prisma.reglaComercialLista.createMany({ data: [
+    { listaComercialId: lista.id, nombre: 'Flete GUASCH', tipo: TipoReglaComercial.FLETE_PORCENTAJE, valor: 7, orden: 10 },
+    { listaComercialId: lista.id, nombre: 'IVA GUASCH', tipo: TipoReglaComercial.IVA_PORCENTAJE, valor: 21, orden: 20 },
+    { listaComercialId: lista.id, nombre: 'Margen promoción objetivo', tipo: TipoReglaComercial.MARGEN_PORCENTAJE, valor: 20, orden: 30 }
+  ] });
+
+  await prisma.productoListaComercial.deleteMany({ where: { listaComercialId: lista.id } });
+
+  const auditoria = { total: 0, porCategoria: {}, conPrecio: 0, consultar: 0, agotado: 0, sinStock: 0, sinPrecio: 0 };
+
+  for (const p of productos) {
+    const precioUsd = Number(p.precioUsd || 0);
+    const estado = normalizarEstado(p.estado, precioUsd);
+    const disponible = estado === 'DISPONIBLE' && precioUsd > 0;
+    const calc = disponible ? calcular(precioUsd, tipoCambio) : null;
+
+    auditoria.total += 1;
+    auditoria.porCategoria[p.categoria] = (auditoria.porCategoria[p.categoria] || 0) + 1;
+    if (disponible) auditoria.conPrecio += 1;
+    if (estado === 'CONSULTAR') auditoria.consultar += 1;
+    if (estado === 'AGOTADO') auditoria.agotado += 1;
+    if (estado === 'SIN_STOCK') auditoria.sinStock += 1;
+    if (!disponible) auditoria.sinPrecio += 1;
+
+    const metadataOriginal = {
+      pagina: p.pagina ?? null,
+      categoria: p.categoria,
+      subcategoria: p.subcategoria || null,
+      nombreProducto: p.nombreProducto,
+      envase: p.envase || null,
+      caracteristicas: p.caracteristicas || null,
+      precioUsd: disponible ? precioUsd : null,
+      estado,
+      precioFinal: calc?.precioFinal ?? null,
+      calculo: calc
+    };
+
+    await prisma.productoListaComercial.create({
+      data: {
+        listaComercialId: lista.id,
+        nombreProducto: p.nombreProducto,
+        skuExterno: `GUASCH|${Buffer.from(JSON.stringify(metadataOriginal)).toString('base64')}`,
+        unidad: p.envase || null,
+        precioNeto: calc?.precioFinal || 0,
+        precioSugeridoPublico: calc?.precioFinal || null,
+        ivaPorcentaje: 21,
+        fletePorcentaje: 7,
+        margenPorcentaje: calc?.margen20 || 0,
+        moneda: 'ARS',
+        activo: true
+      }
+    });
+  }
 
   await prisma.listaComercial.update({
     where: { id: lista.id },
     data: {
-      empresaComercialId: proveedor.id,
-      nombre: LISTA_COMERCIAL_NOMBRE,
-      moneda: 'USD',
-      vigenteDesde: new Date(`${FECHA_FUENTE}T00:00:00.000Z`),
       metadata: JSON.stringify({
-        fuente: 'GUASCH PDF/imagenes analizadas',
-        fechaFuente: FECHA_FUENTE,
-        tipoCambioUsado: tipoCambio
+        tipo: 'PRECAMPAÑA', fuente: catalogo.fuente || 'Lista comercial GUASCH N° 02', fecha: catalogo.fecha || '2026-03-09',
+        base: 'USD', tipoCambioReferencia: 'dólar billete BNA vendedor', auditoria
       })
     }
   });
 
-  await prisma.reglaComercialLista.deleteMany({ where: { listaComercialId: lista.id } });
-  await prisma.reglaComercialLista.createMany({
-    data: [
-      { listaComercialId: lista.id, nombre: 'Flete 7%', tipo: TipoReglaComercial.FLETE_PORCENTAJE, valor: 7, orden: 10 },
-      { listaComercialId: lista.id, nombre: 'IVA 21%', tipo: TipoReglaComercial.IVA_PORCENTAJE, valor: 21, orden: 20 },
-      { listaComercialId: lista.id, nombre: 'Ganancia objetivo 20%', tipo: TipoReglaComercial.MARGEN_PORCENTAJE, valor: 20, orden: 30 }
-    ]
-  });
-
-  await prisma.productoListaComercial.deleteMany({ where: { listaComercialId: lista.id } });
-
-  const rows = PRODUCTOS_GUASCH.map((p) => {
-    const estado = normalizarEstado(p.estado, p.precioUsd);
-    const tienePrecio = Number(p.precioUsd) > 0;
-    const precioUsd = tienePrecio ? Number(p.precioUsd) : null;
-    const calculo = estado === 'DISPONIBLE' && precioUsd ? calcularPrecioFinal(precioUsd, tipoCambio) : null;
-
-    const metadataOriginal = {
-      nombre: p.nombre,
-      categoria: p.categoria,
-      presentacion: p.presentacion,
-      precioUsd,
-      estado,
-      precioFinal: calculo?.precioFinal ?? null,
-      calculo: calculo ?? null
-    };
-
-    return {
-      listaComercialId: lista.id,
-      nombreProducto: p.nombre,
-      unidad: p.presentacion || null,
-      precioNeto: calculo?.precioFinal ?? 0,
-      precioSugeridoPublico: calculo?.precioFinal ?? null,
-      ivaPorcentaje: 21,
-      fletePorcentaje: 7,
-      margenPorcentaje: 20,
-      moneda: 'ARS',
-      activo: true,
-      skuExterno: `GUASCH|${Buffer.from(JSON.stringify(metadataOriginal)).toString('base64')}`
-    };
-  });
-
-  const res = await prisma.productoListaComercial.createMany({ data: rows });
-
-  console.log(
-    `Importación GUASCH OK. Lista ${lista.id} (${lista.nombre}). Productos insertados: ${res.count}.`
-  );
+  console.log('Importación GUASCH completada.');
+  console.log(`total productos importados: ${auditoria.total}`);
+  console.log(`total por categoría: ${JSON.stringify(auditoria.porCategoria)}`);
+  console.log(`productos con precio: ${auditoria.conPrecio}`);
+  console.log(`productos CONSULTAR: ${auditoria.consultar}`);
+  console.log(`productos AGOTADO: ${auditoria.agotado}`);
+  console.log(`productos sin precio: ${auditoria.sinPrecio}`);
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+}).finally(async () => {
+  await prisma.$disconnect();
+});
