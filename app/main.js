@@ -3,6 +3,8 @@ const money = (v) => '$' + Number(v || 0).toFixed(2);
 
 let ventaId = null;
 let venta = null;
+let listasComerciales = [];
+let productosListaComercial = [];
 let productos = [];
 let resultadosProductosVisibles = [];
 let indiceProductoSeleccionado = -1;
@@ -254,7 +256,10 @@ async function renderProductos() {
     return;
   }
   try {
-    const lista = await buscarProductos(q);
+    const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
+    const lista = tipoOperacion === 'PRECAMPAÑA'
+      ? productosListaComercial.filter((p) => (p.nombreProducto || '').toLowerCase().includes(q.toLowerCase())).map((p) => ({ id: p.id, nombre: p.nombreProducto, precioVenta: p.precioNeto || p.precioSugeridoPublico || 0, stock: '-', _precampania: true }))
+      : await buscarProductos(q);
     resultadosProductosVisibles = lista;
     if (lista.length === 0) indiceProductoSeleccionado = -1;
     if (lista.length > 0 && (indiceProductoSeleccionado < 0 || indiceProductoSeleccionado >= lista.length)) {
@@ -269,13 +274,21 @@ async function renderProductos() {
 }
 
 async function agregarProductoAlCarrito(productoId) {
+  const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
   if (!ventaId) {
-    const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    const listaComercialId = $('#lista-comercial-select')?.value ? Number($('#lista-comercial-select').value) : null;
+    const v = await api('/mostrador/ventas', { method: 'POST', body: JSON.stringify({ tipoOperacion, listaComercialId }) });
     ventaId = v.id;
     setVentaActivaId(ventaId);
   }
   if (!productoId) return setMsg('Producto inválido');
   try {
+    if (tipoOperacion === 'PRECAMPAÑA') {
+      const listaComercialId = Number($('#lista-comercial-select').value || 0);
+      const calc = await api('/api/precios-precampaña/calcular', { method: 'POST', body: JSON.stringify({ listaComercialId, productoListaComercialId: Number(productoId) }) });
+      $('#precio-precampania-detalle').innerHTML = `<div class="item">Base: ${money(calc.precioBase)} | Final: ${money(calc.precioFinal)} | Reglas: ${(calc.reglasAplicadas || []).map(r => `${r.nombre}(${r.valor}%)`).join(', ') || 'sin reglas'}</div>`;
+      return setMsg('Producto PRECAMPAÑA calculado. Próximo paso: persistir ítems de lista comercial en carrito.');
+    }
     const producto = resultadosProductosVisibles.find((p) => Number(p.id) === Number(productoId)) || productos.find((p) => Number(p.id) === Number(productoId));
     console.log('Producto agregado al carrito:', producto || { id: productoId });
     await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId, cantidad: 1 }) });
@@ -289,6 +302,19 @@ async function agregarProductoAlCarrito(productoId) {
     console.error('[mostrador][carrito] error al agregar producto', { productoId, error: err });
     setMsg(`Error al agregar producto: ${err.message}`);
   }
+}
+
+async function cargarListasComerciales() {
+  listasComerciales = await api('/api/listas-comerciales');
+  const select = $('#lista-comercial-select');
+  if (!select) return;
+  select.innerHTML = listasComerciales.map((l) => `<option value="${l.id}">${l.nombre} - ${l.empresaComercial?.nombre || ''}</option>`).join('');
+}
+
+async function cargarProductosListaComercial() {
+  const listaId = Number($('#lista-comercial-select')?.value || 0);
+  if (!listaId) return;
+  productosListaComercial = await api(`/api/listas-comerciales/${listaId}/productos`);
 }
 
 function renderCarrito() {
@@ -1069,11 +1095,28 @@ volverInicio();
 
 $('#btn-nueva').addEventListener('click', async () => {
   try {
-    const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
+    const listaComercialId = tipoOperacion === 'PRECAMPAÑA' ? Number($('#lista-comercial-select')?.value || 0) : null;
+    const v = await api('/mostrador/ventas', { method: 'POST', body: JSON.stringify({ tipoOperacion, listaComercialId }) });
     ventaId = v.id;
     await refreshVenta();
     setMsg('Venta creada');
   } catch (e) { setMsg(e.message); }
+});
+
+$('#tipo-operacion-venta')?.addEventListener('change', async (e) => {
+  const esPre = e.target.value === 'PRECAMPAÑA';
+  $('#label-lista-comercial')?.classList.toggle('hidden', !esPre);
+  if (esPre) {
+    await cargarListasComerciales();
+    await cargarProductosListaComercial();
+  } else {
+    productosListaComercial = [];
+    $('#precio-precampania-detalle').innerHTML = '';
+  }
+});
+$('#lista-comercial-select')?.addEventListener('change', async () => {
+  await cargarProductosListaComercial();
 });
 
 $('#buscar-producto').addEventListener('input', renderProductos);

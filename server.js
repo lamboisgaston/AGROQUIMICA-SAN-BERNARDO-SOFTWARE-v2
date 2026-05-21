@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido, TipoOperacionVenta, TipoReglaComercial } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 
 const app = express();
@@ -158,6 +158,19 @@ function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuento
     ajusteRedondeo: ajuste,
     total
   };
+}
+
+function aplicarReglasComerciales(base, reglas = []) {
+  let precio = Number(base || 0);
+  const detalle = [];
+  for (const regla of reglas.sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0))) {
+    const valor = Number(regla.valor || 0);
+    const delta = precio * (valor / 100);
+    if (regla.tipo === TipoReglaComercial.DESCUENTO_PORCENTAJE || regla.tipo === TipoReglaComercial.BONIFICACION_PORCENTAJE) precio -= delta;
+    else precio += delta;
+    detalle.push({ reglaId: regla.id, nombre: regla.nombre, tipo: regla.tipo, valor, precioParcial: precio });
+  }
+  return { precioFinal: Math.max(0, precio), detalle };
 }
 const usuarios = [
   { usuario: 'admin', password: 'admin123', rol: 'ADMINISTRADOR_GENERAL' },
@@ -1715,8 +1728,63 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 }));
 
 app.post('/mostrador/ventas', asyncHandler(async (req, res) => {
-  const venta = await prisma.venta.create({ data: {} });
+  const tipoOperacion = req.body?.tipoOperacion === TipoOperacionVenta.PRECAMPAÑA ? TipoOperacionVenta.PRECAMPAÑA : TipoOperacionVenta.MOSTRADOR;
+  const listaComercialId = tipoOperacion === TipoOperacionVenta.PRECAMPAÑA ? parsePositiveInt(req.body?.listaComercialId) : null;
+  const venta = await prisma.venta.create({ data: { tipoOperacion, listaComercialId } });
   res.status(201).json(venta);
+}));
+
+app.get('/api/listas-comerciales', asyncHandler(async (_req, res) => {
+  const listas = await prisma.listaComercial.findMany({ include: { empresaComercial: true, reglas: true }, orderBy: { updatedAt: 'desc' } });
+  res.json(listas);
+}));
+
+app.post('/api/listas-comerciales', asyncHandler(async (req, res) => {
+  const { empresaComercialId, empresa, nombre, codigo, moneda, vigenteDesde, vigenteHasta, reglas = [] } = req.body || {};
+  let empresaId = parsePositiveInt(empresaComercialId);
+  if (!empresaId) {
+    if (!empresa?.nombre) return res.status(400).json({ error: 'empresaComercialId o empresa.nombre es obligatorio' });
+    const creada = await prisma.empresaComercial.create({ data: { nombre: String(empresa.nombre).trim(), tipo: empresa.tipo || 'LABORATORIO' } });
+    empresaId = creada.id;
+  }
+  const lista = await prisma.listaComercial.create({
+    data: {
+      empresaComercialId: empresaId, nombre: String(nombre || '').trim(), codigo: codigo || null, moneda: moneda || 'ARS',
+      vigenteDesde: vigenteDesde ? new Date(vigenteDesde) : null, vigenteHasta: vigenteHasta ? new Date(vigenteHasta) : null,
+      reglas: { create: Array.isArray(reglas) ? reglas.map((r, idx) => ({ nombre: r.nombre || `Regla ${idx + 1}`, tipo: r.tipo || TipoReglaComercial.DESCUENTO_PORCENTAJE, valor: Number(r.valor || 0), orden: Number(r.orden || idx) })) : [] }
+    }, include: { reglas: true, empresaComercial: true }
+  });
+  res.status(201).json(lista);
+}));
+
+app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
+  const listaComercialId = parsePositiveInt(req.params.id);
+  if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
+  const productos = await prisma.productoListaComercial.findMany({ where: { listaComercialId, activo: true }, orderBy: { nombreProducto: 'asc' } });
+  res.json(productos);
+}));
+
+app.post('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
+  const listaComercialId = parsePositiveInt(req.params.id);
+  if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
+  const payload = req.body || {};
+  const creado = await prisma.productoListaComercial.create({ data: { listaComercialId, nombreProducto: String(payload.nombreProducto || '').trim(), skuExterno: payload.skuExterno || null, unidad: payload.unidad || null, precioNeto: Number(payload.precioNeto || 0), precioSugeridoPublico: payload.precioSugeridoPublico == null ? null : Number(payload.precioSugeridoPublico), descuentoPorcentaje: Number(payload.descuentoPorcentaje || 0), bonificacionPorcentaje: Number(payload.bonificacionPorcentaje || 0), ivaPorcentaje: Number(payload.ivaPorcentaje ?? 21), fletePorcentaje: Number(payload.fletePorcentaje || 0), margenPorcentaje: Number(payload.margenPorcentaje || 0), financiacionPorcentaje: Number(payload.financiacionPorcentaje || 0), moneda: payload.moneda || 'ARS' } });
+  res.status(201).json(creado);
+}));
+
+app.post('/api/precios-precampaña/calcular', asyncHandler(async (req, res) => {
+  const { listaComercialId, productoListaComercialId } = req.body || {};
+  const listaId = parsePositiveInt(listaComercialId);
+  const productoId = parsePositiveInt(productoListaComercialId);
+  if (!listaId || !productoId) return res.status(400).json({ error: 'listaComercialId y productoListaComercialId son obligatorios' });
+  const [producto, reglas] = await Promise.all([
+    prisma.productoListaComercial.findFirst({ where: { id: productoId, listaComercialId: listaId } }),
+    prisma.reglaComercialLista.findMany({ where: { listaComercialId: listaId, activa: true } })
+  ]);
+  if (!producto) return res.status(404).json({ error: 'Producto de lista no encontrado' });
+  const precioBase = producto.precioNeto > 0 ? Number(producto.precioNeto) : Number(producto.precioSugeridoPublico || 0);
+  const calculo = aplicarReglasComerciales(precioBase, reglas);
+  res.json({ precioBase, reglasAplicadas: calculo.detalle, precioFinal: calculo.precioFinal, moneda: producto.moneda });
 }));
 
 app.get('/mostrador/ventas/:id', asyncHandler(async (req, res) => {
