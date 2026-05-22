@@ -1352,6 +1352,45 @@ app.get('/presupuestos', asyncHandler(async (req, res) => {
   res.json(presupuestos);
 }));
 
+app.get('/api/presupuestos', asyncHandler(async (req, res) => {
+  const tipoOperacion = String(req.query?.tipoOperacion || '').toUpperCase();
+  const origen = String(req.query?.origen || '').toUpperCase();
+  const where = {};
+  if (tipoOperacion) where.tipoOperacion = tipoOperacion;
+  if (origen === 'MOSTRADOR') where.origen = 'MOSTRADOR';
+  if (origen === 'SEMILLASYA' || origen === 'PRECAMPAÑA' || origen === 'PRECAMPANIA') where.origen = 'SEMILLASYA';
+  const presupuestos = await prisma.presupuesto.findMany({
+    where: Object.keys(where).length ? where : undefined,
+    include: { persona: true, items: { include: { producto: true } } },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(presupuestos);
+}));
+
+app.get('/api/presupuestos/mostrador', asyncHandler(async (req, res) => {
+  const tipoOperacion = String(req.query?.tipoOperacion || '').toUpperCase();
+  const where = { origen: 'MOSTRADOR' };
+  if (tipoOperacion) where.tipoOperacion = tipoOperacion;
+  const presupuestos = await prisma.presupuesto.findMany({
+    where,
+    include: { persona: true, items: { include: { producto: true } } },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(presupuestos);
+}));
+
+app.get('/api/presupuestos/semillasya', asyncHandler(async (req, res) => {
+  const tipoOperacion = String(req.query?.tipoOperacion || '').toUpperCase();
+  const where = { origen: 'SEMILLASYA' };
+  if (tipoOperacion) where.tipoOperacion = tipoOperacion;
+  const presupuestos = await prisma.presupuesto.findMany({
+    where,
+    include: { persona: true, items: { include: { producto: true } } },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(presupuestos);
+}));
+
 app.get('/presupuestos/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
