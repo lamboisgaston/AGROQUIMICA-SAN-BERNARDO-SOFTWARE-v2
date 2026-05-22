@@ -165,10 +165,12 @@ model Persona {
   cuitDni         String?
   tipo            String
   tipoCliente     TipoCliente @default(PERSONAL)
+  origenCliente   String      @default("MOSTRADOR")
   mail            String?
   direccion       String?
   contactoComercial String?
   observaciones   String?
+  metadata        String?
   telefonoEmergencia String?
   ventas          Venta[]
   presupuestos    Presupuesto[]

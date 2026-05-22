@@ -36,7 +36,8 @@
       <h2>Seleccioná un módulo</h2>
       <p class="dashboard-subtitle">Ingresá al área de trabajo que necesitás.</p>
       <div class="dashboard-grid">
-        <article class="dashboard-card" data-module-card="clientes"><h3>Clientes</h3><p>Alta, búsqueda y gestión de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="clientes"><h3>Clientes Mostrador</h3><p>Alta, búsqueda y gestión de clientes del ERP.</p><button data-abrir-modulo="clientes">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="clientes-semillasya"><h3>Clientes SemillasYa</h3><p>Clientes web de precampaña y sus solicitudes.</p><button data-abrir-modulo="clientes-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="productos-precampania"><h3>Productos Precampaña</h3><p>ABM de productos para campañas estacionales.</p><button data-abrir-modulo="productos-precampania">Entrar</button></article>
         <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>Alta y gestión de categorías de productos.</p><button data-abrir-modulo="categorias">Entrar</button></article>
@@ -211,6 +212,12 @@
           </section>
         </aside>
       </div>
+    </section>
+
+    <section class="bloque app-shell compact-form" data-modulo="clientes-semillasya">
+      <h2>Clientes SemillasYa</h2>
+      <button id="btn-recargar-clientes-semillasya">Actualizar</button>
+      <div id="lista-clientes-semillasya" class="lista"><div class="item">Sin datos</div></div>
     </section>
 
     <section class="bloque app-shell caja-workbench" data-modulo="caja">

@@ -1069,9 +1069,9 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','productos-precampania','categorias','presupuestos','presupuestos-semillasya','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
-  GERENTE: ['clientes','productos','productos-precampania','categorias','presupuestos','presupuestos-semillasya','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
-  MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','presupuestos-semillasya','stock'],
+  ADMINISTRADOR_GENERAL: ['clientes','clientes-semillasya','productos','productos-precampania','categorias','presupuestos','presupuestos-semillasya','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  GERENTE: ['clientes','clientes-semillasya','productos','productos-precampania','categorias','presupuestos','presupuestos-semillasya','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  MOSTRADOR: ['ventas','clientes','clientes-semillasya','productos','categorias','presupuestos','presupuestos-semillasya','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
 let activeRole = null;
@@ -1133,6 +1133,9 @@ async function abrirModulo(modulo) {
       setMsg(`Error al abrir Clientes: ${error.message || error}`, 'warning');
     }
   }
+  if (modulo === 'clientes-semillasya') {
+    await cargarClientesSemillasYa();
+  }
   if (modulo === 'eliminados') {
     await loadEliminados();
   }
@@ -1161,6 +1164,20 @@ async function abrirModulo(modulo) {
     const tituloListado = $('#pres-titulo-listado');
     if (tituloListado) tituloListado.textContent = esSemillasYa ? 'Solicitudes de cotización SemillasYa guardadas' : 'Presupuestos Mostrador guardados';
     await loadPresupuestos();
+  }
+}
+
+async function cargarClientesSemillasYa() {
+  const lista = $('#lista-clientes-semillasya');
+  if (!lista) return;
+  lista.innerHTML = '<div class="item">Cargando...</div>';
+  try {
+    const clientes = await api('/clientes/semillasya');
+    lista.innerHTML = (clientes || []).length
+      ? clientes.map((c) => `<div class="item"><strong>${c.nombre || '-'}</strong> | WhatsApp: ${c.telefono || '-'} | ${c.provincia || '-'} / ${c.localidad || '-'} | Alta: #${c.fechaAlta} | Solicitudes: ${Number(c.solicitudes || 0)}</div>`).join('')
+      : '<div class="item">Sin clientes SemillasYa.</div>';
+  } catch (error) {
+    lista.innerHTML = `<div class="item">Error: ${error.message || error}</div>`;
   }
 }
 
@@ -1612,6 +1629,7 @@ async function buscarClienteMostrador() {
 
 $('#btn-buscar-cliente').addEventListener('click', buscarClienteMostrador);
 $('#buscar-cliente').addEventListener('input', buscarClienteMostrador);
+$('#btn-recargar-clientes-semillasya')?.addEventListener('click', cargarClientesSemillasYa);
 
 $('#resultados-clientes').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-persona]');
@@ -2654,5 +2672,4 @@ $('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema)
 
 
 if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }
-
 
