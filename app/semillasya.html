@@ -3,274 +3,258 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SemillasYa | Precampaña</title>
+  <title>SemillasYa | Licitación pública</title>
   <style>
     :root {
-      --verde-900: #174d2f;
-      --verde-700: #1f7a4f;
-      --verde-500: #36a169;
-      --verde-100: #e9f8ef;
-      --arena: #f5f4ef;
-      --texto: #193126;
-      --muted: #557267;
-      --borde: #d8e6dc;
+      --bg: #f5f8f6;
+      --card: #ffffff;
+      --line: #d9e7dd;
+      --green-900: #0f5132;
+      --green-700: #146c43;
+      --green-500: #1e9b5f;
+      --text: #173126;
+      --muted: #5f7c6e;
+      --ok: #dff7e8;
+      --ask: #fff3d8;
     }
-
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color: var(--texto);
-      background: linear-gradient(180deg, #f8fcf9 0%, var(--arena) 100%);
-    }
-
-    .wrap { width: min(1120px, calc(100% - 2rem)); margin-inline: auto; }
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    .container { width: min(1180px, calc(100% - 2rem)); margin-inline: auto; }
 
     .hero {
-      padding: 3rem 0 2.2rem;
-      background: radial-gradient(circle at 80% 10%, #5ac389 0%, transparent 35%),
-                  linear-gradient(135deg, var(--verde-900) 10%, var(--verde-700) 50%, var(--verde-500) 100%);
       color: #fff;
+      padding: 3.5rem 0 2.5rem;
+      background: radial-gradient(circle at 85% 5%, #44cb86, transparent 30%), linear-gradient(130deg, var(--green-900), var(--green-700));
+    }
+    .hero h1 { margin: 0 0 .5rem; font-size: clamp(2rem, 6vw, 3.2rem); }
+    .hero p { margin: .35rem 0; max-width: 880px; }
+    .pill { display: inline-block; padding: .45rem .75rem; border-radius: 999px; background: rgba(255,255,255,.16); font-weight: 700; }
+
+    .section { padding: 1.25rem 0; }
+    .title { margin: 0 0 .75rem; font-size: 1.35rem; }
+
+    .brands { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; }
+    .brand-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      min-height: 92px; display: flex; align-items: center; justify-content: center; padding: .8rem;
+      box-shadow: 0 8px 20px rgba(18, 62, 40, .08);
+    }
+    .brand-card img { max-width: 100%; max-height: 56px; object-fit: contain; }
+    .brand-card span { font-weight: 800; text-align: center; }
+
+    .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; align-items: start; }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: .9rem; }
+    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .7rem; }
+
+    input, select, textarea {
+      width: 100%; border: 1px solid #c8dacd; border-radius: 10px; padding: .65rem .75rem; font: inherit;
+      background: #fff;
     }
 
-    .hero h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: .04em; }
-    .hero p { margin: .6rem 0 0; max-width: 760px; }
-    .subhero { opacity: .94; font-size: clamp(1rem, 2vw, 1.2rem); }
-    .hero-actions { display: flex; gap: .8rem; margin-top: 1.2rem; flex-wrap: wrap; }
+    .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .75rem; margin-top: .9rem; }
+    .product { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: .8rem; display: grid; gap: .4rem; }
+    .status { width: fit-content; border-radius: 999px; padding: .2rem .5rem; font-size: .74rem; font-weight: 800; }
+    .status.DISPONIBLE { background: var(--ok); color: #0f6b38; }
+    .status.CONSULTAR { background: var(--ask); color: #885700; }
+    .meta { color: var(--muted); font-size: .87rem; }
 
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      border: 0; border-radius: 999px; padding: .8rem 1.15rem; font-weight: 700;
-      text-decoration: none; cursor: pointer;
-    }
+    .btn { border: 0; border-radius: 999px; padding: .62rem .95rem; font-weight: 700; cursor: pointer; }
+    .btn-add { background: var(--green-700); color: #fff; }
+    .btn-outline { background: #fff; border: 1px solid var(--line); }
+    .btn-wa { background: #25d366; color: #06351b; width: 100%; margin-top: .5rem; }
 
-    .btn-primary { background: #fff; color: var(--verde-900); }
-    .btn-whatsapp { background: #25d366; color: #073b1c; }
-    .btn-reservar { background: var(--verde-700); color: #fff; width: 100%; }
+    .cart-item { border: 1px solid var(--line); border-radius: 12px; padding: .55rem; margin-bottom: .55rem; }
+    .cart-row { display: flex; justify-content: space-between; gap: .4rem; align-items: center; }
+    .qty { width: 80px; }
+    .small { color: var(--muted); font-size: .84rem; }
 
-    .section { padding: 1.4rem 0; }
-    .section h2 { margin: 0 0 .7rem; font-size: 1.35rem; }
-
-    .brand-row, .cat-row {
-      display: grid; gap: .7rem;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    }
-
-    .brand, .cat {
-      background: #fff; border: 1px solid var(--borde); border-radius: 12px;
-      padding: .75rem .8rem; text-align: center; font-weight: 700;
-    }
-
-    .cat { cursor: pointer; font-weight: 600; }
-    .cat.active { background: var(--verde-100); border-color: var(--verde-500); color: var(--verde-900); }
-
-    .filters {
-      background: #fff; border: 1px solid var(--borde); border-radius: 14px;
-      padding: .9rem; display: grid; gap: .7rem;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-
-    select, input {
-      width: 100%; border-radius: 10px; border: 1px solid #c7d8cd; padding: .7rem .8rem;
-      font: inherit; color: var(--texto);
-    }
-
-    .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-top: .9rem; }
-    .card {
-      background: #fff; border: 1px solid var(--borde); border-radius: 14px;
-      padding: .9rem; display: flex; flex-direction: column; gap: .45rem;
-      box-shadow: 0 8px 24px rgba(18, 58, 36, .07);
-    }
-
-    .status {
-      display: inline-flex; width: fit-content; border-radius: 999px;
-      padding: .22rem .58rem; font-size: .75rem; font-weight: 800;
-    }
-
-    .DISPONIBLE { background: #ddf7e5; color: #0e5f2f; }
-    .CONSULTAR { background: #fff3d6; color: #835500; }
-    .AGOTADO { background: #ffe0e0; color: #8d2020; }
-
-    .label { color: var(--muted); font-size: .86rem; }
-    .price { font-weight: 800; }
-    .price-usd { color: #325f4a; }
-
-    footer {
-      margin-top: 2rem; border-top: 1px solid var(--borde); background: #fff;
-      color: var(--muted);
-    }
-    footer .wrap { padding: 1.2rem 0 1.6rem; }
-
-    @media (max-width: 720px) {
-      .hero { padding-top: 2.2rem; }
-    }
+    @media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <header class="hero">
-    <div class="wrap">
-      <h1>SEMILLASYA</h1>
-      <p><strong>Semillas de campaña listas para reservar online</strong></p>
-      <p class="subhero">Pagás la semilla y coordinamos entrega en 4 días.</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="#catalogo">Explorar catálogo</a>
-        <a class="btn btn-whatsapp" href="https://wa.me/?text=Hola%20SemillasYa%2C%20quiero%20asesoramiento%20de%20precampa%C3%B1a" target="_blank" rel="noopener">Consultar por WhatsApp</a>
-      </div>
+    <div class="container">
+      <h1>SemillasYa</h1>
+      <p class="pill">Armá tu pedido de semillas. Te respondemos por WhatsApp con presupuesto, disponibilidad y fecha estimada de entrega.</p>
+      <p><strong>Pagás la semilla y coordinamos entrega en 4 días.</strong></p>
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="container">
     <section class="section">
-      <h2>Marcas / laboratorios</h2>
-      <div class="brand-row" id="marcas"></div>
+      <h2 class="title">Marcas / laboratorios</h2>
+      <div class="brands" id="brands"></div>
     </section>
 
-    <section class="section">
-      <h2>Categorías</h2>
-      <div class="cat-row" id="categorias"></div>
-    </section>
-
-    <section class="section" id="catalogo">
-      <h2>Catálogo conectado a PRECAMPAÑA</h2>
-      <div class="filters">
-        <select id="lista"></select>
-        <input id="buscar" placeholder="Buscar por producto, presentación o proveedor" />
-        <select id="estado">
-          <option value="TODOS">Todos los estados</option>
-          <option value="DISPONIBLE">Disponible</option>
-          <option value="CONSULTAR">Consultar</option>
-          <option value="AGOTADO">Agotado</option>
-        </select>
+    <section class="section layout">
+      <div class="panel">
+        <h2 class="title">Catálogo público</h2>
+        <div class="filters">
+          <select id="lista"></select>
+          <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
+          <select id="filtroMarca"><option value="TODAS">Todas las marcas</option></select>
+          <select id="filtroEstado"><option value="TODOS">Todos los estados</option><option value="DISPONIBLE">Disponible</option><option value="CONSULTAR">Consultar</option></select>
+          <input id="buscar" placeholder="Buscar por producto, marca o presentación" />
+        </div>
+        <div class="catalog" id="catalog"></div>
       </div>
-      <div class="grid" id="productos"></div>
-    </section>
 
-    <section class="section">
-      <h2>Productos destacados</h2>
-      <div class="grid" id="destacados"></div>
+      <aside class="panel">
+        <h2 class="title">Licitación</h2>
+        <div id="cart"></div>
+        <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
+        <hr style="border:none;border-top:1px solid var(--line);margin: .8rem 0;" />
+        <label>Nombre</label><input id="nombre" />
+        <label>Teléfono WhatsApp</label><input id="telefono" placeholder="549..." />
+        <label>Localidad</label><input id="localidad" />
+        <label>Observaciones</label><textarea id="obs" rows="3"></textarea>
+        <button class="btn btn-wa" id="enviar">Enviar licitación por WhatsApp</button>
+      </aside>
     </section>
   </main>
 
-  <footer>
-    <div class="wrap">SemillasYa · Ecommerce de precampaña agrícola · Entregas coordinadas en 4 días.</div>
-  </footer>
-
   <script>
-    const $ = (id) => document.getElementById(id);
-    const categoriasFijas = ['TODAS', 'Pasturas', 'Alfalfas', 'Maíces', 'Verdeos', 'Césped', 'Hortícolas', 'Inoculantes'];
-    const state = { listas: [], productos: [], categoria: 'TODAS' };
+    const marcasVisibles = [
+      { nombre: 'Guasch', logo: '/assets/marcas/guasch.png' },
+      { nombre: 'CAPS', logo: '/assets/marcas/caps.png' },
+      { nombre: 'Garde, Giusti y Chuchuy', logo: '/assets/marcas/ggc.png' },
+      { nombre: 'Gasty', logo: '/assets/marcas/gasty.png' },
+      { nombre: 'Picasso', logo: '/assets/marcas/picasso.png' },
+      { nombre: 'Florensa', logo: '/assets/marcas/florensa.png' }
+    ];
 
-    function detectarEstado(p) {
-      const texto = `${p.estado || ''} ${p.nombreProducto || ''}`.toLowerCase();
-      if (texto.includes('agotad') || texto.includes('sin stock')) return 'AGOTADO';
-      if (texto.includes('consultar') || texto.includes('a pedido')) return 'CONSULTAR';
+    const state = { listas: [], productos: [], carrito: [] };
+    const $ = (id) => document.getElementById(id);
+
+    function estadoProducto(p) {
+      const s = String(p.estado || p.observaciones || '').toLowerCase();
+      if (s.includes('agot') || s.includes('sin stock') || s.includes('consult')) return 'CONSULTAR';
       return 'DISPONIBLE';
     }
 
-    function categoriaDeProducto(p) {
-      const nombre = String(p.categoria || p.nombreProducto || '').toLowerCase();
-      if (nombre.includes('alfalfa')) return 'Alfalfas';
-      if (nombre.includes('maiz') || nombre.includes('maíz')) return 'Maíces';
-      if (nombre.includes('verdeo')) return 'Verdeos';
-      if (nombre.includes('cesped') || nombre.includes('césped')) return 'Césped';
-      if (nombre.includes('hort')) return 'Hortícolas';
-      if (nombre.includes('inocul')) return 'Inoculantes';
-      if (nombre.includes('pastura')) return 'Pasturas';
-      return 'Pasturas';
+    function categoriaProducto(p) { return p.categoria || 'General'; }
+    function marcaProducto(p) { return p.marca || p.proveedor || p.listaEmpresa || 'Sin marca'; }
+    function presentacionProducto(p) { return p.presentacion || p.unidad || p.um || 'Sin especificar'; }
+
+    function renderBrands() {
+      $('brands').innerHTML = marcasVisibles.map((m, i) => `
+        <article class="brand-card">
+          <img src="${m.logo}" alt="${m.nombre}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${m.nombre.replace(/'/g, "\\'")}'}))" />
+        </article>
+      `).join('');
     }
 
-    function presentacionDeProducto(p) {
-      return p.presentacion || p.unidad || p.um || 'Sin especificar';
+    function popularFiltros() {
+      const categorias = ['TODAS', ...new Set(state.productos.map(categoriaProducto))];
+      const marcas = ['TODAS', ...new Set(state.productos.map(marcaProducto))];
+      $('filtroCategoria').innerHTML = categorias.map(v => `<option value="${v}">${v}</option>`).join('');
+      $('filtroMarca').innerHTML = marcas.map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
-    function precioFinalARS(p) {
-      const base = Number(p.precioSugeridoPublico ?? p.precioNeto ?? 0);
-      if (!Number.isFinite(base)) return 0;
-      return Math.max(0, base);
+    function agregarCarrito(producto) {
+      const idx = state.carrito.findIndex((i) => i.id === producto.id);
+      if (idx >= 0) state.carrito[idx].cantidad += 1;
+      else state.carrito.push({ id: producto.id, producto, cantidad: 1 });
+      renderCarrito();
     }
 
-    function precioUSD(p) {
-      const val = Number(p.precioUsd ?? p.precioUSD ?? 0);
-      if (val > 0) return val;
-      if (String(p.moneda || '').toUpperCase() === 'USD') return Number(p.precioSugeridoPublico ?? p.precioNeto ?? 0);
-      return 0;
-    }
-
-    function renderCategorias() {
-      $('categorias').innerHTML = categoriasFijas.map((c) => `<button class="cat ${state.categoria === c ? 'active' : ''}" data-cat="${c}">${c}</button>`).join('');
-      document.querySelectorAll('[data-cat]').forEach((el) => {
-        el.onclick = () => { state.categoria = el.dataset.cat; renderProductos(); renderCategorias(); };
-      });
-    }
-
-    function renderMarcas() {
-      const marcas = Array.from(new Set(state.productos.map((p) => p.proveedor || p.listaEmpresa || 'Laboratorio'))).slice(0, 8);
-      $('marcas').innerHTML = (marcas.length ? marcas : ['SemillasYa']).map((m) => `<div class="brand">${m}</div>`).join('');
-    }
-
-    function mensajeReserva(p) {
-      const texto = `Hola SemillasYa, quiero reservar: ${p.nombreProducto} | ${categoriaDeProducto(p)} | ${presentacionDeProducto(p)} | ARS $${precioFinalARS(p).toFixed(2)}`;
-      return `https://wa.me/?text=${encodeURIComponent(texto)}`;
-    }
-
-    function cardProducto(p) {
-      const estado = detectarEstado(p);
-      const usd = precioUSD(p);
-      const ars = precioFinalARS(p);
-      const proveedor = p.proveedor || p.listaEmpresa || 'Sin proveedor';
-      return `<article class="card">
-        <span class="status ${estado}">${estado === 'CONSULTAR' ? 'CONSULTAR DISPONIBILIDAD' : estado}</span>
-        <strong>${p.nombreProducto || 'Producto sin nombre'}</strong>
-        <span class="label">Categoría: ${categoriaDeProducto(p)}</span>
-        <span class="label">Presentación: ${presentacionDeProducto(p)}</span>
-        <span class="label">Proveedor: ${proveedor}</span>
-        <span class="price price-usd">Precio USD: ${usd > 0 ? '$' + usd.toFixed(2) : 'N/D'}</span>
-        <span class="price">Precio final ARS: $${ars.toFixed(2)}</span>
-        <a href="${mensajeReserva(p)}" target="_blank" rel="noopener"><button class="btn btn-reservar">Reservar</button></a>
-      </article>`;
-    }
-
-    function renderProductos() {
+    function renderCatalogo() {
       const q = $('buscar').value.toLowerCase().trim();
-      const estadoFiltro = $('estado').value;
-      const filtrados = state.productos.filter((p) => {
-        const estado = detectarEstado(p);
-        const categoria = categoriaDeProducto(p);
-        const texto = `${p.nombreProducto || ''} ${presentacionDeProducto(p)} ${p.proveedor || ''}`.toLowerCase();
-        if (state.categoria !== 'TODAS' && categoria !== state.categoria) return false;
-        if (estadoFiltro !== 'TODOS' && estado !== estadoFiltro) return false;
-        if (q && !texto.includes(q)) return false;
+      const fc = $('filtroCategoria').value;
+      const fm = $('filtroMarca').value;
+      const fe = $('filtroEstado').value;
+
+      const list = state.productos.filter((p) => {
+        const txt = `${p.nombreProducto || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
+        const est = estadoProducto(p);
+        if (fc !== 'TODAS' && categoriaProducto(p) !== fc) return false;
+        if (fm !== 'TODAS' && marcaProducto(p) !== fm) return false;
+        if (fe !== 'TODOS' && est !== fe) return false;
+        if (q && !txt.includes(q)) return false;
         return true;
       });
-      $('productos').innerHTML = filtrados.map(cardProducto).join('') || '<p>No hay productos para los filtros seleccionados.</p>';
-      $('destacados').innerHTML = filtrados.slice(0, 4).map(cardProducto).join('') || '<p>Sin destacados para esta selección.</p>';
+
+      $('catalog').innerHTML = list.map((p) => `
+        <article class="product">
+          <span class="status ${estadoProducto(p)}">${estadoProducto(p)}</span>
+          <strong>${p.nombreProducto || 'Producto sin nombre'}</strong>
+          <span class="meta">Marca/laboratorio: ${marcaProducto(p)}</span>
+          <span class="meta">Categoría: ${categoriaProducto(p)}</span>
+          <span class="meta">Presentación: ${presentacionProducto(p)}</span>
+          <button class="btn btn-add" data-add="${p.id}">Agregar</button>
+        </article>
+      `).join('') || '<p>No hay productos para esos filtros.</p>';
+
+      document.querySelectorAll('[data-add]').forEach((btn) => {
+        btn.onclick = () => {
+          const p = state.productos.find((x) => String(x.id) === String(btn.dataset.add));
+          if (p) agregarCarrito(p);
+        };
+      });
+    }
+
+    function renderCarrito() {
+      $('cartEmpty').style.display = state.carrito.length ? 'none' : 'block';
+      $('cart').innerHTML = state.carrito.map((it, idx) => `
+        <div class="cart-item">
+          <div class="cart-row"><strong>${it.producto.nombreProducto}</strong><button class="btn btn-outline" data-rm="${idx}">Quitar</button></div>
+          <div class="small">${marcaProducto(it.producto)} · ${categoriaProducto(it.producto)} · ${presentacionProducto(it.producto)}</div>
+          <div class="cart-row" style="margin-top:.35rem;">
+            <span class="small">Cantidad</span>
+            <input class="qty" type="number" min="1" value="${it.cantidad}" data-qty="${idx}" />
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('[data-rm]').forEach((btn) => btn.onclick = () => { state.carrito.splice(Number(btn.dataset.rm), 1); renderCarrito(); });
+      document.querySelectorAll('[data-qty]').forEach((inp) => inp.onchange = () => {
+        const i = Number(inp.dataset.qty);
+        state.carrito[i].cantidad = Math.max(1, Number(inp.value || 1));
+      });
+    }
+
+    function enviarWhatsApp() {
+      if (!state.carrito.length) return alert('Agregá al menos un producto.');
+      const nombre = $('nombre').value.trim();
+      const telefono = $('telefono').value.trim();
+      const localidad = $('localidad').value.trim();
+      const obs = $('obs').value.trim();
+
+      const productos = state.carrito.map((it) => `- ${it.producto.nombreProducto} | ${marcaProducto(it.producto)} | ${categoriaProducto(it.producto)} | ${presentacionProducto(it.producto)} | Cantidad: ${it.cantidad}`).join('\n');
+      const texto = [
+        'Hola, quiero solicitar presupuesto por estas semillas…',
+        `Nombre: ${nombre || 'No informado'}`,
+        `Teléfono: ${telefono || 'No informado'}`,
+        `Localidad: ${localidad || 'No informada'}`,
+        'Productos:',
+        productos,
+        `Observaciones: ${obs || 'Sin observaciones'}`
+      ].join('\n');
+
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
     }
 
     async function cargarListas() {
       const r = await fetch('/api/listas-comerciales');
       state.listas = await r.json();
-      $('lista').innerHTML = state.listas.map((l) => `<option value="${l.id}">${l.nombre} · ${l.empresaComercial?.nombre || 'Proveedor'}</option>`).join('');
+      $('lista').innerHTML = state.listas.map(l => `<option value="${l.id}">${l.nombre} · ${l.empresaComercial?.nombre || 'Proveedor'}</option>`).join('');
       if (state.listas.length) await cargarProductos(state.listas[0].id);
     }
 
     async function cargarProductos(listaId) {
-      const lista = state.listas.find((l) => String(l.id) === String(listaId));
       const r = await fetch(`/api/listas-comerciales/${listaId}/productos`);
-      const productos = await r.json();
-      state.productos = productos.map((p) => ({ ...p, proveedor: lista?.empresaComercial?.nombre, listaEmpresa: lista?.empresaComercial?.nombre }));
-      renderMarcas();
-      renderProductos();
+      state.productos = await r.json();
+      popularFiltros();
+      renderCatalogo();
     }
 
+    ['buscar', 'filtroCategoria', 'filtroMarca', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('lista').addEventListener('change', (e) => cargarProductos(e.target.value));
-    $('buscar').addEventListener('input', renderProductos);
-    $('estado').addEventListener('change', renderProductos);
+    $('enviar').addEventListener('click', enviarWhatsApp);
 
-    renderCategorias();
+    renderBrands();
     cargarListas().catch(() => {
-      $('productos').innerHTML = '<p>Error al cargar catálogo de PRECAMPAÑA.</p>';
-      $('destacados').innerHTML = '<p>Error al cargar destacados.</p>';
+      $('catalog').innerHTML = '<p>No se pudo cargar el catálogo de PRECAMPAÑA.</p>';
     });
   </script>
 </body>
