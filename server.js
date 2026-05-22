@@ -37,6 +37,10 @@ function escapeHtml(value) {
 function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
+function parseJsonSafe(value, fallback = {}) {
+  if (!value || typeof value !== 'string') return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
 
 function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, pais, provincia, localidad, items }) {
   const resumenItems = items.slice(0, 6).map((it) => `${it.nombreProducto} x ${it.cantidad}`).join(', ');
@@ -1222,9 +1226,15 @@ app.put('/config/tipo-cambio', asyncHandler(async (req, res) => {
 }));
 
 
-async function buscarClientesConEstadisticas(query = '') {
+async function buscarClientesConEstadisticas(query = '', origen = 'MOSTRADOR') {
   const q = String(query || '').trim();
-  const whereBase = { eliminado: false, activo: true, tipo: 'CLIENTE' };
+  const origenUpper = String(origen || 'MOSTRADOR').trim().toUpperCase();
+  const whereOrigen = origenUpper === 'TODOS'
+    ? {}
+    : origenUpper === 'SEMILLASYA'
+      ? { origenCliente: 'SEMILLASYA' }
+      : { NOT: { origenCliente: 'SEMILLASYA' } };
+  const whereBase = { eliminado: false, activo: true, tipo: 'CLIENTE', ...whereOrigen };
   const where = q ? {
     ...whereBase,
     OR: [
@@ -1253,8 +1263,36 @@ async function buscarClientesConEstadisticas(query = '') {
 }
 
 app.get('/clientes', asyncHandler(async (req, res) => {
-  const clientes = await buscarClientesConEstadisticas(req.query.q || '');
+  const clientes = await buscarClientesConEstadisticas(req.query.q || '', req.query.origen || 'MOSTRADOR');
   res.json(clientes);
+}));
+
+app.get('/clientes/semillasya', asyncHandler(async (_req, res) => {
+  const clientes = await prisma.persona.findMany({
+    where: { eliminado: false, activo: true, tipo: 'CLIENTE', origenCliente: 'SEMILLASYA' },
+    orderBy: [{ id: 'desc' }]
+  });
+  const personaIds = clientes.map((c) => c.id);
+  const solicitudes = personaIds.length
+    ? await prisma.presupuesto.groupBy({
+      by: ['personaId'],
+      where: { personaId: { in: personaIds }, origen: 'SEMILLASYA' },
+      _count: { _all: true }
+    })
+    : [];
+  const solicitudesMap = new Map(solicitudes.map((s) => [s.personaId, s._count._all]));
+  res.json(clientes.map((c) => {
+    const meta = parseJsonSafe(c.metadata);
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      telefono: c.telefono,
+      provincia: meta.provincia || null,
+      localidad: meta.localidad || null,
+      fechaAlta: c.id,
+      solicitudes: solicitudesMap.get(c.id) || 0
+    };
+  }));
 }));
 
 app.delete('/clientes/:id', asyncHandler(async (req, res) => {
@@ -1313,6 +1351,7 @@ app.post('/personas', asyncHandler(async (req, res) => {
       cuitDni: cuitFinal || null,
       tipo: tipo || 'CLIENTE',
       tipoCliente: tipoClienteFinal,
+      origenCliente: 'MOSTRADOR',
       mail: mailFinal || null,
       direccion: direccion ? String(direccion).trim() : null,
       contactoComercial: contactoComercial ? String(contactoComercial).trim() : null,
@@ -2932,14 +2971,15 @@ app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
     'Origen: SEMILLASYA_WEB'
   ].join(' | ');
 
+  const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, localidad: localidadLimpia });
   const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
   const persona = personaExistente
     ? await prisma.persona.update({
       where: { id: personaExistente.id },
-      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata }
     })
     : await prisma.persona.create({
-      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', tipoCliente: 'PERSONAL', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata }
     });
 
   res.status(201).json({
@@ -2976,14 +3016,15 @@ app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
       'Origen: SEMILLASYA_WEB'
     ].join(' | ');
 
+    const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, localidad: localidadLimpia });
     const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
     const persona = personaExistente
       ? await prisma.persona.update({
         where: { id: personaExistente.id },
-        data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+        data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata }
       })
       : await prisma.persona.create({
-        data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+        data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', tipoCliente: 'PERSONAL', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata }
       });
 
     return res.status(201).json({ ok: true, personaId: persona.id });

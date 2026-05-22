@@ -1,0 +1,3 @@
+ALTER TABLE "Persona"
+  ADD COLUMN "origenCliente" TEXT NOT NULL DEFAULT 'MOSTRADOR',
+  ADD COLUMN "metadata" TEXT;
