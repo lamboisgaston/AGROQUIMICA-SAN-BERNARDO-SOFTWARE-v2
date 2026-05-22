@@ -965,6 +965,14 @@ function mapearEstadoTerritorial(estado) {
   if (['ENTREGADO'].includes(e)) return 'entregadas';
   return 'nuevas';
 }
+function normalizarCiudadTerritorial(p) {
+  const fuente = [p?.persona?.localidad, p?.persona?.ciudad, p?.localidad, p?.ciudad, p?.observaciones, JSON.stringify(p?.persona?.metadata || {}), JSON.stringify(p?.metadata || {}), JSON.stringify(p || {})]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean)
+    .join(' | ');
+  const m = fuente.match(/(Ciudad\/Localidad|Localidad|Ciudad)\s*:\s*([^|]+)/i);
+  return (m?.[2] || p?.persona?.localidad || p?.persona?.ciudad || p?.localidad || p?.ciudad || '-').trim();
+}
 function renderPanelTerritorialSemillasYa() {
   const contProvincias = $('#pres-provincias');
   const contOps = $('#pres-operaciones-provincia');
@@ -995,7 +1003,16 @@ function renderPanelTerritorialSemillasYa() {
   const solicitudesProvincia = agrupado[provinciaTerritorialActiva] || [];
   const buckets = { nuevas: 0, cotizadas: 0, aprobadas: 0, rechazadas: 0, 'logística': 0, entregadas: 0 };
   solicitudesProvincia.forEach((s) => { buckets[mapearEstadoTerritorial(s.estado)] += 1; });
+  const ciudadesProvincia = Object.entries(solicitudesProvincia.reduce((acc, s) => {
+    const ciudad = normalizarCiudadTerritorial(s);
+    acc[ciudad] = (acc[ciudad] || 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const ciudadesHtml = ciudadesProvincia.length
+    ? `<div class="item"><strong>Ciudades/Localidades:</strong> ${ciudadesProvincia.map(([c, n]) => `${c} (${n})`).join(' · ')}</div>`
+    : '<div class="item"><strong>Ciudades/Localidades:</strong> sin datos</div>';
   contOps.innerHTML = `<div class="item"><strong>${provinciaTerritorialActiva || 'Provincia'}</strong> | Nuevas: ${buckets.nuevas} | Cotizadas: ${buckets.cotizadas} | Aprobadas: ${buckets.aprobadas} | Rechazadas: ${buckets.rechazadas} | Logística: ${buckets['logística']} | Entregadas: ${buckets.entregadas}</div>`
+    + ciudadesHtml
     + (solicitudesProvincia.map((s) => `<div class="item ${solicitudTerritorialActivaId === s.id ? 'item-seleccionado' : ''}">#${s.id} | ${s.persona?.nombre || 'Sin cliente'} | ${s.estado} | ${money(s.total)} ${s._provinciaCorregida ? '<span style="color:#b91c1c;font-weight:700;">provincia corregida automáticamente</span>' : ''} <button data-pres-open="${s.id}">Gestionar</button></div>`).join('') || '<div class="item">Sin operaciones en esta provincia.</div>');
   const solicitud = solicitudesProvincia.find((s) => s.id === solicitudTerritorialActivaId);
   if (!solicitud) {
@@ -1003,7 +1020,7 @@ function renderPanelTerritorialSemillasYa() {
     return;
   }
   const telefono = normalizarTelefonoWhatsapp(solicitud.persona?.telefono || solicitud.persona?.telefonoPrincipal || '');
-  const localidad = String(solicitud.persona?.localidad || '-').trim();
+  const localidad = normalizarCiudadTerritorial(solicitud);
   const provincia = String(normalizarProvinciaTerritorial(solicitud).provincia || provinciaTerritorialActiva || '-').trim();
   const textoWhatsapp = `Hola, soy el Ing. Gastón Lambois de SemillasYa.\n\nTe envío la cotización solicitada.\n\nEl precio es puesto en la ciudad de ${localidad}/${provincia}.\nLa mercadería llega en aproximadamente 4 días.\n\nA continuación te envío la cotización.`;
   contDetalle.innerHTML = `<div class="item"><strong>Solicitud #${solicitud.id}</strong><br/>
