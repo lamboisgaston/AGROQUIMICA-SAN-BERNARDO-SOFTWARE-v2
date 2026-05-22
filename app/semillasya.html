@@ -248,7 +248,7 @@
     }
 
     async function cargarProductos() {
-      const r = await fetch('/api/semillasya/productos');
+      const r = await fetch('/api/semillasya/catalogo');
       state.productos = await r.json();
       popularFiltros();
       renderCatalogo();

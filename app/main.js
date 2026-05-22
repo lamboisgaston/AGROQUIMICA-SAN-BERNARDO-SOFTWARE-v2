@@ -29,6 +29,8 @@ let pedidoProveedorId = null;
 let pedidoItems = [];
 let productosPedidoVisibles = [];
 let catalogoGuaschCategorias = [];
+let precampaniaSemilleros = [];
+let precampaniaProductos = [];
 const VENTA_ACTIVA_STORAGE_KEY = 'venta_activa_id';
 
 function setVentaActivaId(id) {
@@ -1056,8 +1058,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  GERENTE: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -1136,6 +1138,45 @@ async function abrirModulo(modulo) {
   if (modulo === 'cuenta-corriente') {
     await loadResumenCuentaCorriente();
   }
+  if (modulo === 'productos-precampania') {
+    await loadProductosPrecampania();
+  }
+}
+
+function resetFormularioPrecampania() {
+  $('#pre-id').value = '';
+  $('#pre-nombre').value = '';
+  $('#pre-categoria').value = '';
+  $('#pre-envase').value = '';
+  $('#pre-descripcion').value = '';
+  $('#pre-estado').value = 'CONSULTAR';
+  $('#pre-precio-manual').value = '';
+  $('#pre-visible').value = 'false';
+}
+
+function renderSemillerosPrecampania() {
+  const sel = $('#pre-semillero');
+  if (!sel) return;
+  sel.innerHTML = precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('');
+}
+
+function renderProductosPrecampania() {
+  const q = ($('#pre-buscar')?.value || '').trim().toLowerCase();
+  const lista = q ? precampaniaProductos.filter((p) => [p.nombre, p.semilleroLaboratorio, p.categoria, p.presentacionEnvase].some((v) => String(v || '').toLowerCase().includes(q))) : precampaniaProductos;
+  $('#pre-lista').innerHTML = lista.length
+    ? lista.map((p) => `<div class="item"><strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | ${p.categoria || '-'} | ${p.presentacionEnvase || '-'} | ${p.estado || '-'} | Visible: ${p.visibleEnSemillasYa ? 'Sí' : 'No'}
+      <button data-pre-editar="${p.id}">Editar</button>
+      <button data-pre-eliminar="${p.id}">Desactivar</button>
+    </div>`).join('')
+    : '<div class="item">Sin productos precampaña.</div>';
+}
+
+async function loadProductosPrecampania() {
+  const data = await api('/api/productos-precampania');
+  precampaniaSemilleros = Array.isArray(data?.semilleros) ? data.semilleros : [];
+  precampaniaProductos = Array.isArray(data?.productos) ? data.productos : [];
+  renderSemillerosPrecampania();
+  renderProductosPrecampania();
 }
 
 
@@ -1316,6 +1357,55 @@ $('#tipo-operacion-venta')?.addEventListener('change', async (e) => {
 });
 $('#lista-comercial-select')?.addEventListener('change', async () => {
   await cargarProductosListaComercial();
+});
+$('#pre-buscar')?.addEventListener('input', renderProductosPrecampania);
+$('#btn-precampania-nuevo')?.addEventListener('click', resetFormularioPrecampania);
+$('#pre-lista')?.addEventListener('click', async (e) => {
+  const editar = e.target.closest('button[data-pre-editar]');
+  if (editar) {
+    const id = Number(editar.dataset.preEditar);
+    const p = precampaniaProductos.find((x) => x.id === id);
+    if (!p) return;
+    $('#pre-id').value = String(p.id);
+    $('#pre-nombre').value = p.nombre || '';
+    $('#pre-semillero').value = p.semilleroLaboratorio || '';
+    $('#pre-categoria').value = p.categoria || '';
+    $('#pre-envase').value = p.presentacionEnvase || '';
+    $('#pre-descripcion').value = p.descripcion || '';
+    $('#pre-estado').value = p.estado || 'CONSULTAR';
+    $('#pre-precio-manual').value = p.precioInternoManual == null ? '' : String(p.precioInternoManual);
+    $('#pre-visible').value = p.visibleEnSemillasYa ? 'true' : 'false';
+    return;
+  }
+  const eliminar = e.target.closest('button[data-pre-eliminar]');
+  if (!eliminar) return;
+  const id = Number(eliminar.dataset.preEliminar);
+  await api(`/api/productos-precampania/${id}`, { method: 'DELETE' });
+  await loadProductosPrecampania();
+  setMsg('Producto precampaña desactivado', 'info');
+});
+$('#btn-precampania-guardar')?.addEventListener('click', async () => {
+  const id = Number($('#pre-id').value || 0);
+  const payload = {
+    nombre: ($('#pre-nombre').value || '').trim(),
+    semilleroLaboratorio: $('#pre-semillero').value,
+    categoria: ($('#pre-categoria').value || '').trim(),
+    presentacionEnvase: ($('#pre-envase').value || '').trim(),
+    descripcion: ($('#pre-descripcion').value || '').trim(),
+    estado: $('#pre-estado').value,
+    precioInternoManual: ($('#pre-precio-manual').value || '').trim(),
+    visibleEnSemillasYa: $('#pre-visible').value === 'true'
+  };
+  if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
+  if (id) {
+    await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    setMsg('Producto precampaña actualizado', 'info');
+  } else {
+    await api('/api/productos-precampania', { method: 'POST', body: JSON.stringify(payload) });
+    setMsg('Producto precampaña creado', 'info');
+  }
+  resetFormularioPrecampania();
+  await loadProductosPrecampania();
 });
 
 $('#buscar-producto').addEventListener('input', renderProductos);
