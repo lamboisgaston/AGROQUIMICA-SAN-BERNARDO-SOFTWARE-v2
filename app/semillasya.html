@@ -137,15 +137,20 @@
           <label for="ciudadIngreso">Ciudad / localidad</label>
           <input id="ciudadIngreso" />
         </div>
-        <div class="row">
-          <label for="nombreIngreso">Nombre</label>
-          <input id="nombreIngreso" />
+        <div id="pasoTerritorio">
+          <button class="btn btn-add" id="continuarTerritorio">Continuar</button>
         </div>
-        <div class="row">
-          <label for="whatsappIngreso">WhatsApp</label>
-          <input id="whatsappIngreso" placeholder="549..." />
+        <div id="pasoContacto" class="hidden">
+          <div class="row">
+            <label for="nombreIngreso">Nombre</label>
+            <input id="nombreIngreso" />
+          </div>
+          <div class="row">
+            <label for="whatsappIngreso">WhatsApp</label>
+            <input id="whatsappIngreso" placeholder="549..." />
+          </div>
+          <button class="btn btn-add" id="confirmarUbicacion">Ingresar a SemillasYa</button>
         </div>
-        <button class="btn btn-add" id="confirmarUbicacion">Ingresar a SemillasYa</button>
       </div>
     </section>
 
@@ -301,6 +306,24 @@
       $('ubicacionActualTexto').textContent = `Estás viendo SemillasYa para ${state.cliente.ciudad}, ${state.cliente.provincia}`;
     }
 
+    function validarTerritorio() {
+      const pais = $('paisSelect').value;
+      const provincia = $('provinciaSelect').value;
+      const ciudad = $('ciudadIngreso').value.trim();
+      if (!pais) return 'Completá el país.';
+      if (!provincia) return 'Completá la provincia.';
+      if (!ciudad) return 'Completá la ciudad/localidad.';
+      return null;
+    }
+
+    function mostrarPasoContacto() {
+      const error = validarTerritorio();
+      if (error) return alert(error);
+      $('pasoTerritorio').classList.add('hidden');
+      $('pasoContacto').classList.remove('hidden');
+      $('nombreIngreso').focus();
+    }
+
     async function crearOActualizarClienteWeb(payload) {
       const r = await fetch('/api/semillasya/cliente', {
         method: 'POST',
@@ -325,9 +348,8 @@
       const pais = $('paisSelect').value;
       const provincia = $('provinciaSelect').value;
       const ciudad = $('ciudadIngreso').value.trim();
-      if (!pais) return alert('Completá el país.');
-      if (!provincia) return alert('Completá la provincia.');
-      if (!ciudad) return alert('Completá la ciudad/localidad.');
+      const errorTerritorio = validarTerritorio();
+      if (errorTerritorio) return alert(errorTerritorio);
       if (!nombre) return alert('Completá tu nombre.');
       if (!telefono) return alert('Completá tu WhatsApp.');
 
@@ -388,10 +410,13 @@
 
     ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
+    $('continuarTerritorio').addEventListener('click', mostrarPasoContacto);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
     $('cambiarProvincia').addEventListener('click', () => {
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');
+      $('pasoContacto').classList.add('hidden');
+      $('pasoTerritorio').classList.remove('hidden');
     });
 
     renderBrands();
@@ -402,6 +427,8 @@
       $('paisSelect').value = state.cliente.pais;
       $('provinciaSelect').value = state.cliente.provincia;
       $('ciudadIngreso').value = state.cliente.ciudad;
+      $('pasoTerritorio').classList.add('hidden');
+      $('pasoContacto').classList.remove('hidden');
       mostrarCatalogoConUbicacion();
     }
     if (state.cliente?.personaId) {
