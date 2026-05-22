@@ -1780,6 +1780,29 @@ app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) =
   res.json(productos);
 }));
 
+app.get('/api/semillasya/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
+  const listaComercialId = parsePositiveInt(req.params.id);
+  if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
+  const productos = await prisma.productoListaComercial.findMany({
+    where: { listaComercialId, activo: true },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      nombreProducto: true,
+      unidad: true,
+      categoria: true,
+      marca: true,
+      proveedor: true,
+      listaEmpresa: true,
+      presentacion: true,
+      um: true,
+      observaciones: true,
+      estado: true
+    }
+  });
+  res.json(productos);
+}));
+
 app.post('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
   const listaComercialId = parsePositiveInt(req.params.id);
   if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });

@@ -255,7 +255,7 @@
     }
 
     async function cargarProductos(listaId) {
-      const r = await fetch(`/api/listas-comerciales/${listaId}/productos`);
+      const r = await fetch(`/api/semillasya/listas-comerciales/${listaId}/productos`);
       state.productos = await r.json();
       popularFiltros();
       renderCatalogo();
