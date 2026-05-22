@@ -204,7 +204,7 @@ const registrosEliminados = [];
 const PASSWORD_ELIMINACION = '12345';
 
 app.get('/', (req, res) => {
-  res.redirect(302, '/semillasya');
+  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
 });
 
 app.post('/login', (req, res) => {
