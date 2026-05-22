@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SemillasYa | Licitación pública</title>
+  <title>SemillasYa | Catálogo de Semilleros</title>
   <style>
     :root {
       --bg: #f5f8f6;
@@ -44,6 +44,8 @@
 
     .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; align-items: start; }
     .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: .9rem; }
+    .cart-panel { position: sticky; top: 12px; }
+    .product { box-shadow: 0 10px 20px rgba(15,81,50,.08); }
     .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .7rem; }
 
     input, select, textarea {
@@ -82,23 +84,23 @@
 
   <main class="container">
     <section class="section">
-      <h2 class="title">Marcas / laboratorios</h2>
+      <h2 class="title">Semilleros</h2>
       <div class="brands" id="brands"></div>
     </section>
 
     <section class="section layout">
       <div class="panel">
-        <h2 class="title">Catálogo público</h2>
+        <h2 class="title">Catálogo visual</h2>
         <div class="filters">
                     <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
-          <select id="filtroMarca"><option value="TODAS">Todas las marcas</option></select>
+          <select id="filtroSemillero"><option value="TODAS">Todos los semilleros</option></select>
           <select id="filtroEstado"><option value="TODOS">Todos los estados</option><option value="DISPONIBLE">Disponible</option><option value="CONSULTAR">Consultar</option></select>
-          <input id="buscar" placeholder="Buscar por producto, marca o presentación" />
+          <input id="buscar" placeholder="Buscar por producto, semillero, categoría o presentación" />
         </div>
         <div class="catalog" id="catalog"></div>
       </div>
 
-      <aside class="panel">
+      <aside class="panel cart-panel">
         <h2 class="title">Solicitud de presupuesto</h2>
         <div id="cart"></div>
         <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
@@ -107,7 +109,7 @@
         <label>Teléfono WhatsApp</label><input id="telefono" placeholder="549..." />
         <label>Localidad</label><input id="localidad" />
         <label>Observaciones</label><textarea id="obs" rows="3"></textarea>
-        <button class="btn btn-wa" id="enviar">Enviar solicitud de presupuesto</button>
+        <button class="btn btn-wa" id="enviar">Solicitar presupuesto</button>
       </aside>
     </section>
   </main>
@@ -116,10 +118,11 @@
     const marcasVisibles = [
       { nombre: 'Guasch', logo: '/assets/marcas/guasch.png' },
       { nombre: 'CAPS', logo: '/assets/marcas/caps.png' },
-      { nombre: 'Garde, Giusti y Chuchuy', logo: '/assets/marcas/ggc.png' },
+      { nombre: 'Garden', logo: '/assets/marcas/ggc.png' },
       { nombre: 'Gasty', logo: '/assets/marcas/gasty.png' },
       { nombre: 'Picasso', logo: '/assets/marcas/picasso.png' },
-      { nombre: 'Florensa', logo: '/assets/marcas/florensa.png' }
+      { nombre: 'Florensa', logo: '/assets/marcas/florensa.png' },
+      { nombre: 'Chuchuy', logo: '/assets/marcas/chuchuy.png' }
     ];
 
     const state = { productos: [], carrito: [] };
@@ -147,7 +150,7 @@
       const categorias = ['TODAS', ...new Set(state.productos.map(categoriaProducto))];
       const marcas = ['TODAS', ...new Set(state.productos.map(marcaProducto))];
       $('filtroCategoria').innerHTML = categorias.map(v => `<option value="${v}">${v}</option>`).join('');
-      $('filtroMarca').innerHTML = marcas.map(v => `<option value="${v}">${v}</option>`).join('');
+      $('filtroSemillero').innerHTML = marcas.map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
     function agregarCarrito(producto) {
@@ -160,7 +163,7 @@
     function renderCatalogo() {
       const q = $('buscar').value.toLowerCase().trim();
       const fc = $('filtroCategoria').value;
-      const fm = $('filtroMarca').value;
+      const fm = $('filtroSemillero').value;
       const fe = $('filtroEstado').value;
 
       const list = state.productos.filter((p) => {
@@ -178,7 +181,7 @@
           <span class="status ${estadoProducto(p)}">${estadoProducto(p)}</span>
           <strong>${p.nombre || 'Producto sin nombre'}</strong>
           <span class="meta">Descripción: ${p.descripcion || '-'}</span>
-          <span class="meta">Marca/laboratorio: ${marcaProducto(p)}</span>
+          <span class="meta">Semillero: ${marcaProducto(p)}</span>
           <span class="meta">Categoría: ${categoriaProducto(p)}</span>
           <span class="meta">Presentación: ${presentacionProducto(p)}</span>
           <button class="btn btn-add" data-add="${p.id}">Agregar</button>
@@ -254,7 +257,7 @@
       renderCatalogo();
     }
 
-    ['buscar', 'filtroCategoria', 'filtroMarca', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
+    ['buscar', 'filtroCategoria', 'filtroSemillero', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
         $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
 
     renderBrands();
