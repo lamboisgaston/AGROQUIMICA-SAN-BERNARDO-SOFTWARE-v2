@@ -1162,6 +1162,33 @@ function resetFormularioPrecampania() {
   $('#pre-precio-final').value = '0';
   $('#pre-visible').value = 'false';
   if (precampaniaContextoCarga.semillero) $('#pre-semillero').value = precampaniaContextoCarga.semillero;
+  calcularPreviewPrecampania();
+}
+
+function calcularPreviewPrecampania() {
+  const monedaCompra = ($('#pre-moneda-compra')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+  const costoCompra = Number($('#pre-costo-compra')?.value || 0);
+  const tipoCambio = Number($('#pre-tipo-cambio')?.value || 1) || 1;
+  const porcentajeFlete = Number($('#pre-porcentaje-flete')?.value || 0);
+  const porcentajeIva = Number($('#pre-porcentaje-iva')?.value || 0);
+  const porcentajeMargen = Number($('#pre-porcentaje-margen')?.value || 0);
+  const usaPrecioManual = ($('#pre-usa-precio-manual')?.value || 'false') === 'true';
+  const precioManual = Number($('#pre-precio-manual')?.value || 0);
+
+  const base = monedaCompra === 'USD' ? (costoCompra * tipoCambio) : costoCompra;
+  const baseConFlete = base * (1 + (porcentajeFlete / 100));
+  const baseConIva = baseConFlete * (1 + (porcentajeIva / 100));
+  const precioFinalCalculado = baseConIva * (1 + (porcentajeMargen / 100));
+  const precioFinal = usaPrecioManual ? precioManual : precioFinalCalculado;
+  const ganancia = precioFinal - baseConIva;
+
+  if ($('#pre-precio-final')) $('#pre-precio-final').value = String(Number.isFinite(precioFinal) ? Number(precioFinal.toFixed(2)) : 0);
+  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(base || 0);
+  if ($('#pre-calc-flete')) $('#pre-calc-flete').textContent = money(baseConFlete || 0);
+  if ($('#pre-calc-iva')) $('#pre-calc-iva').textContent = money(baseConIva || 0);
+  if ($('#pre-calc-final')) $('#pre-calc-final').textContent = money(precioFinal || 0);
+  if ($('#pre-calc-ganancia')) $('#pre-calc-ganancia').textContent = money(ganancia || 0);
+  if ($('#pre-calc-margen')) $('#pre-calc-margen').textContent = `${Number.isFinite(porcentajeMargen) ? porcentajeMargen : 0}%${usaPrecioManual ? ' (manual activo)' : ''}`;
 }
 
 function renderSemillerosPrecampania() {
@@ -1389,6 +1416,11 @@ $('#pre-filtro-categoria')?.addEventListener('input', renderProductosPrecampania
 $('#btn-precampania-nuevo')?.addEventListener('click', resetFormularioPrecampania);
 $('#pre-semillero')?.addEventListener('change', (e) => { precampaniaContextoCarga.semillero = e.target.value; });
 $('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga.categoria = e.target.value; });
+['pre-moneda-compra', 'pre-costo-compra', 'pre-tipo-cambio', 'pre-porcentaje-flete', 'pre-porcentaje-iva', 'pre-porcentaje-margen', 'pre-precio-manual', 'pre-usa-precio-manual']
+  .forEach((id) => {
+    $(id)?.addEventListener('input', calcularPreviewPrecampania);
+    $(id)?.addEventListener('change', calcularPreviewPrecampania);
+  });
 $('#pre-lista')?.addEventListener('click', async (e) => {
   const editar = e.target.closest('button[data-pre-editar]');
   if (editar) {
@@ -1412,6 +1444,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     $('#pre-precio-manual').value = p.precioManual == null ? '' : String(p.precioManual);
     $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
     $('#pre-visible').value = p.visibleEnSemillasYa ? 'true' : 'false';
+    calcularPreviewPrecampania();
     return;
   }
   const duplicar = e.target.closest('button[data-pre-duplicar]');
@@ -1444,6 +1477,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   setMsg('Producto precampaña desactivado', 'info');
 });
 $('#btn-precampania-guardar')?.addEventListener('click', async () => {
+  calcularPreviewPrecampania();
   const id = Number($('#pre-id').value || 0);
   const payload = {
     nombre: ($('#pre-nombre').value || '').trim(),
@@ -1474,6 +1508,8 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   resetFormularioPrecampania();
   await loadProductosPrecampania();
 });
+
+calcularPreviewPrecampania();
 
 $('#buscar-producto').addEventListener('input', renderProductos);
 $('#buscar-producto').addEventListener('keydown', async (e) => {

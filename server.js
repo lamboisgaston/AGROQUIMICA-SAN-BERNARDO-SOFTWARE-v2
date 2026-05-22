@@ -743,6 +743,9 @@ function normalizarPayloadProductoPrecampania(payload = {}) {
     publicadoWeb: Boolean(payload.publicadoWeb),
     visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
   };
+  if (base.visibleEnSemillasYa) {
+    base.publicadoWeb = true;
+  }
   base.precioVentaFinal = calcularPrecioProductoPrecampania(base);
   if (base.usaPrecioManual && base.precioInternoManual == null && base.precioManual != null) {
     base.precioInternoManual = base.precioManual;
@@ -1868,7 +1871,7 @@ app.delete('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
 
 app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
-    where: { activo: true, visibleEnSemillasYa: true },
+    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
     orderBy: { createdAt: 'asc' },
     select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true, estado: true }
   });
@@ -1877,7 +1880,7 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
 
 app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
-    where: { activo: true, visibleEnSemillasYa: true },
+    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
     orderBy: { createdAt: 'asc' },
     select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true, estado: true }
   });
