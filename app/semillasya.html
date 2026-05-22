@@ -76,7 +76,7 @@
     <div class="container">
       <h1>SemillasYa</h1>
       <p class="pill">Armá tu pedido de semillas. Te respondemos por WhatsApp con presupuesto, disponibilidad y fecha estimada de entrega.</p>
-      <p><strong>Pagás la semilla y coordinamos entrega en 4 días.</strong></p>
+      <p><strong>Recibimos tu solicitud y te respondemos por WhatsApp con precio, disponibilidad y fecha estimada de entrega.</strong></p>
     </div>
   </header>
 
@@ -108,7 +108,7 @@
         <label>Teléfono WhatsApp</label><input id="telefono" placeholder="549..." />
         <label>Localidad</label><input id="localidad" />
         <label>Observaciones</label><textarea id="obs" rows="3"></textarea>
-        <button class="btn btn-wa" id="enviar">Solicitar presupuesto por WhatsApp</button>
+        <button class="btn btn-wa" id="enviar">Enviar solicitud de presupuesto</button>
       </aside>
     </section>
   </main>
@@ -213,7 +213,7 @@
       });
     }
 
-    async function enviarWhatsApp() {
+    async function enviarSolicitud() {
       if (!state.carrito.length) return alert('Agregá al menos un producto.');
       const nombre = $('nombre').value.trim();
       const telefono = $('telefono').value.trim();
@@ -241,7 +241,10 @@
       const data = await r.json();
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar la solicitud');
 
-      window.open(data.whatsappUrl, '_blank');
+      state.carrito = [];
+      renderCarrito();
+      $('obs').value = '';
+      alert('Recibimos tu solicitud. Te vamos a responder por WhatsApp con precio, disponibilidad y fecha estimada de entrega.');
     }
 
     async function cargarListas() {
@@ -260,7 +263,7 @@
 
     ['buscar', 'filtroCategoria', 'filtroMarca', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('lista').addEventListener('change', (e) => cargarProductos(e.target.value));
-    $('enviar').addEventListener('click', () => enviarWhatsApp().catch((e) => alert(e.message)));
+    $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
 
     renderBrands();
     cargarListas().catch(() => {
