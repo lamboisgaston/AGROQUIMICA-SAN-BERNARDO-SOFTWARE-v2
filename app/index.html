@@ -42,7 +42,7 @@
         <article class="dashboard-card" data-module-card="productos-precampania"><h3>Productos Precampaña</h3><p>ABM de productos para campañas estacionales.</p><button data-abrir-modulo="productos-precampania">Entrar</button></article>
         <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>Alta y gestión de categorías de productos.</p><button data-abrir-modulo="categorias">Entrar</button></article>
         <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos Mostrador</h3><p>Crear, buscar y guardar presupuestos de mostrador.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="presupuestos-semillasya"><h3>Presupuestos SemillasYa</h3><p>Crear, buscar y guardar solicitudes de cotización SemillasYa.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="presupuestos-semillasya"><h3>Operaciones territoriales SemillasYa</h3><p>Panel por provincia para gestionar solicitudes, cotizaciones y logística SemillasYa.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="pedidos"><h3>Pedidos</h3><p>Notas a proveedores para cotización o pedido.</p><p><strong>PEDIDOS-NUEVO-FLUJO</strong></p><button data-abrir-modulo="pedidos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
@@ -429,6 +429,14 @@
   <div class="workbench-grid">
     <div class="workbench-main">
   <h2 id="pres-titulo-modulo">11) Presupuestos Mostrador</h2>
+  <div id="panel-territorial-semillasya" class="hidden">
+    <h3>Panel territorial de operaciones</h3>
+    <div id="pres-provincias" class="lista"></div>
+    <div id="pres-operaciones-provincia" class="lista"></div>
+    <div id="pres-detalle-solicitud" class="lista"></div>
+  </div>
+
+  <div id="pres-formulario-manual">
 
   <h3>Destinatario</h3>
   <label>Tipo de presupuesto
@@ -487,6 +495,7 @@
     <button id="pres-redondear-100">Redondear a $100</button>
     <button id="pres-redondear-500">Redondear a $500</button>
     <button id="pres-redondear-1000">Redondear a $1000</button>
+  </div>
   </div>
 
   </div>

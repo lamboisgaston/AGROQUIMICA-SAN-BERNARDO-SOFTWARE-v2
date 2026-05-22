@@ -27,6 +27,9 @@ let presupuestoTipoOperacion = 'MOSTRADOR';
 let presupuestoModuloActivo = 'MOSTRADOR';
 let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
+let solicitudesTerritoriales = [];
+let provinciaTerritorialActiva = '';
+let solicitudTerritorialActivaId = null;
 let pedidoProveedorId = null;
 let pedidoItems = [];
 let productosPedidoVisibles = [];
@@ -934,6 +937,65 @@ async function loadPresupuestos() {
     return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a class="btn-link" href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer">Imprimir</a> <button data-pres-pdf="${p.id}">Descargar PDF</button> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
   }).join('');
 }
+function normalizarProvinciaTerritorial(p) {
+  return (p?.persona?.provincia || 'Sin provincia').trim() || 'Sin provincia';
+}
+function mapearEstadoTerritorial(estado) {
+  const e = String(estado || '').toUpperCase();
+  if (['WEB_SOLICITADO', 'BORRADOR'].includes(e)) return 'nuevas';
+  if (['COTIZADO', 'ENVIADO'].includes(e)) return 'cotizadas';
+  if (['ACEPTADO', 'APROBADO'].includes(e)) return 'aprobadas';
+  if (['RECHAZADO'].includes(e)) return 'rechazadas';
+  if (['LOGISTICA', 'EN_LOGISTICA'].includes(e)) return 'logística';
+  if (['ENTREGADO'].includes(e)) return 'entregadas';
+  return 'nuevas';
+}
+function renderPanelTerritorialSemillasYa() {
+  const contProvincias = $('#pres-provincias');
+  const contOps = $('#pres-operaciones-provincia');
+  const contDetalle = $('#pres-detalle-solicitud');
+  if (!contProvincias || !contOps || !contDetalle) return;
+  const agrupado = solicitudesTerritoriales.reduce((acc, s) => {
+    const provincia = normalizarProvinciaTerritorial(s);
+    if (!acc[provincia]) acc[provincia] = [];
+    acc[provincia].push(s);
+    return acc;
+  }, {});
+  const provincias = Object.keys(agrupado).sort((a, b) => a.localeCompare(b, 'es'));
+  contProvincias.innerHTML = provincias.length ? provincias.map((prov) => {
+    const pendientes = agrupado[prov].filter((s) => ['WEB_SOLICITADO', 'BORRADOR'].includes(String(s.estado || '').toUpperCase())).length;
+    const alerta = pendientes > 0 ? '🔴' : '🟢';
+    return `<div class="item ${provinciaTerritorialActiva === prov ? 'item-seleccionado' : ''}"><strong>${prov}</strong> | Pendientes: ${pendientes} ${alerta} <button data-pres-provincia="${prov}">Ver operaciones</button></div>`;
+  }).join('') : '<div class="item">No hay solicitudes.</div>';
+  if (!provinciaTerritorialActiva && provincias.length) provinciaTerritorialActiva = provincias[0];
+  const solicitudesProvincia = agrupado[provinciaTerritorialActiva] || [];
+  const buckets = { nuevas: 0, cotizadas: 0, aprobadas: 0, rechazadas: 0, 'logística': 0, entregadas: 0 };
+  solicitudesProvincia.forEach((s) => { buckets[mapearEstadoTerritorial(s.estado)] += 1; });
+  contOps.innerHTML = `<div class="item"><strong>${provinciaTerritorialActiva || 'Provincia'}</strong> | Nuevas: ${buckets.nuevas} | Cotizadas: ${buckets.cotizadas} | Aprobadas: ${buckets.aprobadas} | Rechazadas: ${buckets.rechazadas} | Logística: ${buckets['logística']} | Entregadas: ${buckets.entregadas}</div>`
+    + (solicitudesProvincia.map((s) => `<div class="item ${solicitudTerritorialActivaId === s.id ? 'item-seleccionado' : ''}">#${s.id} | ${s.persona?.nombre || 'Sin cliente'} | ${s.estado} | ${money(s.total)} <button data-pres-open="${s.id}">Gestionar</button></div>`).join('') || '<div class="item">Sin operaciones en esta provincia.</div>');
+  const solicitud = solicitudesProvincia.find((s) => s.id === solicitudTerritorialActivaId);
+  if (!solicitud) {
+    contDetalle.innerHTML = '<div class="item">Seleccione una solicitud para editar margen/flete/productos/observaciones y estado.</div>';
+    return;
+  }
+  contDetalle.innerHTML = `<div class="item"><strong>Solicitud #${solicitud.id}</strong><br/>
+  Estado actual: ${solicitud.estado}<br/>
+  <label>Margen % <input id="pres-ter-margen" type="number" step="0.01" value="0"></label>
+  <label>Flete % <input id="pres-ter-flete" type="number" step="0.01" value="0"></label>
+  <label>Observaciones <input id="pres-ter-obs" value="${(solicitud.observaciones || '').replace(/"/g, '&quot;')}"></label>
+  <label>Estado
+    <select id="pres-ter-estado">
+      <option ${solicitud.estado === 'WEB_SOLICITADO' ? 'selected' : ''} value="WEB_SOLICITADO">Nueva solicitud</option>
+      <option ${solicitud.estado === 'COTIZADO' ? 'selected' : ''} value="COTIZADO">Cotizada</option>
+      <option ${solicitud.estado === 'ACEPTADO' ? 'selected' : ''} value="ACEPTADO">Aprobada</option>
+      <option ${solicitud.estado === 'RECHAZADO' ? 'selected' : ''} value="RECHAZADO">Rechazada</option>
+      <option ${solicitud.estado === 'LOGISTICA' ? 'selected' : ''} value="LOGISTICA">Logística</option>
+      <option ${solicitud.estado === 'ENTREGADO' ? 'selected' : ''} value="ENTREGADO">Entregada</option>
+    </select>
+  </label>
+  <label>Productos JSON <textarea id="pres-ter-productos" rows="5">${JSON.stringify((solicitud.items || []).map((it) => ({ productoId: it.productoId, cantidad: it.cantidad, precioUnitario: it.precioUnitario })), null, 2)}</textarea></label>
+  <button data-pres-save-territorial="${solicitud.id}">Guardar operación territorial</button></div>`;
+}
 function renderProveedores() {
   const q = ($('#proveedor-buscar')?.value || '').trim().toLowerCase();
   proveedoresFiltrados = proveedores.filter((pr) => !q || [pr.razonSocial, pr.cuit, pr.contactoComercial].filter(Boolean).join(' ').toLowerCase().includes(q));
@@ -1163,6 +1225,17 @@ async function abrirModulo(modulo) {
     if (tituloModulo) tituloModulo.textContent = esSemillasYa ? '11) Presupuestos SemillasYa' : '11) Presupuestos Mostrador';
     const tituloListado = $('#pres-titulo-listado');
     if (tituloListado) tituloListado.textContent = esSemillasYa ? 'Solicitudes de cotización SemillasYa guardadas' : 'Presupuestos Mostrador guardados';
+    $('#pres-formulario-manual')?.classList.toggle('hidden', esSemillasYa);
+    $('#panel-territorial-semillasya')?.classList.toggle('hidden', !esSemillasYa);
+    $('#pres-guardar')?.classList.toggle('hidden', esSemillasYa);
+    if (esSemillasYa) {
+      tituloModulo.textContent = '11) Operaciones territoriales SemillasYa';
+      if (tituloListado) tituloListado.textContent = 'Solicitudes y cotizaciones SemillasYa';
+      solicitudesTerritoriales = await api('/api/presupuestos/semillasya');
+      provinciaTerritorialActiva = '';
+      solicitudTerritorialActivaId = null;
+      renderPanelTerritorialSemillasYa();
+    }
     await loadPresupuestos();
   }
 }
@@ -2380,6 +2453,45 @@ $('#pres-lista').addEventListener('click', async (e) => {
   if (re) await api(`/presupuestos/${re.dataset.presRechazar}/rechazar`, { method: 'POST', body: '{}' });
   if (ac || re) await loadPresupuestos();
 });
+$('#panel-territorial-semillasya')?.addEventListener('click', async (e) => {
+  const prov = e.target.closest('button[data-pres-provincia]');
+  const open = e.target.closest('button[data-pres-open]');
+  const save = e.target.closest('button[data-pres-save-territorial]');
+  if (prov) {
+    provinciaTerritorialActiva = prov.dataset.presProvincia;
+    solicitudTerritorialActivaId = null;
+    renderPanelTerritorialSemillasYa();
+    return;
+  }
+  if (open) {
+    solicitudTerritorialActivaId = Number(open.dataset.presOpen);
+    renderPanelTerritorialSemillasYa();
+    return;
+  }
+  if (save) {
+    const id = Number(save.dataset.presSaveTerritorial);
+    const items = JSON.parse($('#pres-ter-productos')?.value || '[]');
+    await api(`/presupuestos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        tipoDestinatario: 'EXISTENTE',
+        clienteId: solicitudesTerritoriales.find((s) => s.id === id)?.personaId || null,
+        items,
+        descuentoTipo: 'PORCENTAJE',
+        descuentoValor: Number($('#pres-ter-margen')?.value || 0),
+        ajusteRedondeo: Number($('#pres-ter-flete')?.value || 0),
+        observaciones: $('#pres-ter-obs')?.value || '',
+        estado: $('#pres-ter-estado')?.value || 'WEB_SOLICITADO',
+        origen: 'SEMILLASYA',
+        tipoOperacion: 'PRECAMPAÑA'
+      })
+    });
+    solicitudesTerritoriales = await api('/api/presupuestos/semillasya');
+    renderPanelTerritorialSemillasYa();
+    await loadPresupuestos();
+    setMsg('Operación territorial actualizada.');
+  }
+});
 
 $('#btn-crear-proveedor').addEventListener('click', async () => {
   alert('Intentando crear proveedor');
@@ -2672,4 +2784,3 @@ $('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema)
 
 
 if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }
-
