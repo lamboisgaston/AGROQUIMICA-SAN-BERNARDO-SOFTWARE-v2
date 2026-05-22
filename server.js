@@ -698,6 +698,58 @@ function obtenerCategoriaDelegate() {
   return delegate;
 }
 
+
+function calcularPrecioProductoPrecampania(producto = {}) {
+  const usaPrecioManual = Boolean(producto.usaPrecioManual);
+  const precioManual = numeroSeguro(producto.precioManual ?? producto.precioInternoManual ?? 0);
+  if (usaPrecioManual) {
+    return Number(precioManual.toFixed(2));
+  }
+  const monedaCompra = String(producto.monedaCompra || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+  const costoCompra = numeroSeguro(producto.costoCompra ?? 0);
+  const tipoCambio = numeroSeguro(producto.tipoCambio, 1);
+  const porcentajeFlete = numeroSeguro(producto.porcentajeFlete ?? 0);
+  const porcentajeIva = numeroSeguro(producto.porcentajeIva ?? 0);
+  const porcentajeMargen = numeroSeguro(producto.porcentajeMargen ?? 0);
+
+  const base = monedaCompra === 'USD' ? (costoCompra * tipoCambio) : costoCompra;
+  const baseConFlete = base * (1 + (porcentajeFlete / 100));
+  const baseConIva = baseConFlete * (1 + (porcentajeIva / 100));
+  const final = baseConIva * (1 + (porcentajeMargen / 100));
+  return Number(numeroSeguro(final).toFixed(2));
+}
+
+function normalizarPayloadProductoPrecampania(payload = {}) {
+  const moneda = String(payload.monedaCompra || 'ARS').trim().toUpperCase();
+  const monedaCompra = moneda === 'USD' ? 'USD' : 'ARS';
+  const usaPrecioManual = Boolean(payload.usaPrecioManual);
+  const precioManual = payload.precioManual == null || payload.precioManual === '' ? null : Number(payload.precioManual);
+  const base = {
+    nombre: String(payload.nombre || '').trim(),
+    semilleroLaboratorio: String(payload.semilleroLaboratorio || '').trim(),
+    categoria: String(payload.categoria || '').trim(),
+    presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
+    descripcion: String(payload.descripcion || '').trim(),
+    precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
+    monedaCompra,
+    costoCompra: Number(payload.costoCompra || 0),
+    tipoCambio: Number(payload.tipoCambio || 1),
+    porcentajeFlete: Number(payload.porcentajeFlete || 0),
+    porcentajeIva: Number(payload.porcentajeIva || 0),
+    porcentajeMargen: Number(payload.porcentajeMargen || 0),
+    precioManual,
+    usaPrecioManual,
+    estado: ['DISPONIBLE','CONSULTAR','AGOTADO'].includes(String(payload.estado || '')) ? payload.estado : 'CONSULTAR',
+    publicadoWeb: Boolean(payload.publicadoWeb),
+    visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
+  };
+  base.precioVentaFinal = calcularPrecioProductoPrecampania(base);
+  if (base.usaPrecioManual && base.precioInternoManual == null && base.precioManual != null) {
+    base.precioInternoManual = base.precioManual;
+  }
+  return base;
+}
+
 function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
   const monedaBruta = String(payload.monedaCompra ?? payload.monedaCosto ?? '').trim().toUpperCase();
   const monedaCompraPayload = ['USD', 'DOLAR', 'DÓLAR', 'DOLARES', 'DÓLARES'].includes(monedaBruta)
@@ -1791,17 +1843,8 @@ app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const semillero = String(payload.semilleroLaboratorio || '').trim();
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
-  const creado = await prisma.productoPrecampania.create({ data: {
-    nombre: String(payload.nombre || '').trim(),
-    semilleroLaboratorio: semillero,
-    categoria: String(payload.categoria || '').trim(),
-    presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
-    descripcion: String(payload.descripcion || '').trim(),
-    precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
-    estado: ['DISPONIBLE','CONSULTAR','AGOTADO'].includes(String(payload.estado || '')) ? payload.estado : 'CONSULTAR',
-    publicadoWeb: Boolean(payload.publicadoWeb),
-    visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
-  } });
+  const data = normalizarPayloadProductoPrecampania(payload);
+  const creado = await prisma.productoPrecampania.create({ data: { ...data, semilleroLaboratorio: semillero } });
   res.status(201).json(creado);
 }));
 
@@ -1811,17 +1854,8 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const semillero = String(payload.semilleroLaboratorio || '').trim();
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
-  const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: {
-    nombre: String(payload.nombre || '').trim(),
-    semilleroLaboratorio: semillero,
-    categoria: String(payload.categoria || '').trim(),
-    presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
-    descripcion: String(payload.descripcion || '').trim(),
-    precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
-    estado: ['DISPONIBLE','CONSULTAR','AGOTADO'].includes(String(payload.estado || '')) ? payload.estado : 'CONSULTAR',
-    publicadoWeb: Boolean(payload.publicadoWeb),
-    visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
-  } });
+  const data = normalizarPayloadProductoPrecampania(payload);
+  const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, semilleroLaboratorio: semillero } });
   res.json(actualizado);
 }));
 
@@ -2683,7 +2717,7 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
       const item = itemsEntrada[i];
       const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
       const cantidad = parsePositiveInt(item.cantidad);
-      const precioUnitario = 0;
+      const precioUnitario = Number(productoLista.precioVentaFinal || 0);
 
       let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombre, unidad: productoLista.presentacionEnvase || '', eliminado: false } });
       if (!productoERP) {
