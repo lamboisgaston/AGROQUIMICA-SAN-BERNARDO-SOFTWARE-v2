@@ -2680,7 +2680,7 @@ app.use((err, req, res, next) => {
 
 
 app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
-  const { nombre, telefono, pais, provincia, localidad, observaciones, items } = req.body || {};
+  const { personaId, nombre, telefono, pais, provincia, localidad, observaciones, items } = req.body || {};
 
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
@@ -2710,7 +2710,13 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
   if (faltantes.length) return res.status(400).json({ error: `Productos de precampaña no encontrados: ${faltantes.join(', ')}` });
 
   const resultado = await prisma.$transaction(async (tx) => {
-    const personaExistente = await tx.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+    let personaExistente = null;
+    if (parsePositiveInt(personaId)) {
+      personaExistente = await tx.persona.findFirst({ where: { id: parsePositiveInt(personaId), eliminado: false } });
+    }
+    if (!personaExistente) {
+      personaExistente = await tx.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+    }
     const observacionesPersona = [
       paisLimpio ? `País: ${paisLimpio}` : null,
       provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
@@ -2790,6 +2796,40 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
 app.get('/semillasya', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
 });
+
+app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
+  const { nombre, telefono, pais, provincia, localidad } = req.body || {};
+  const nombreLimpio = String(nombre || '').trim();
+  const telefonoLimpio = normalizarTelefono(telefono);
+  const paisLimpio = String(pais || '').trim();
+  const provinciaLimpia = String(provincia || '').trim();
+  const localidadLimpia = String(localidad || '').trim();
+
+  if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
+  if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
+  if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
+  if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
+  if (!localidadLimpia) return res.status(400).json({ error: 'localidad es obligatoria' });
+
+  const observacionesPersona = [
+    `País: ${paisLimpio}`,
+    `Provincia: ${provinciaLimpia}`,
+    `Localidad: ${localidadLimpia}`,
+    'Origen: SEMILLASYA_WEB'
+  ].join(' | ');
+
+  const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+  const persona = personaExistente
+    ? await prisma.persona.update({
+      where: { id: personaExistente.id },
+      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+    })
+    : await prisma.persona.create({
+      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+    });
+
+  res.status(201).json({ ok: true, personaId: persona.id });
+}));
 
 app.get('/app', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
