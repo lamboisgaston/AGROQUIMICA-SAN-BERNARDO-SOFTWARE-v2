@@ -862,20 +862,21 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
 
 app.post('/productos', asyncHandler(async (req, res) => {
   try {
-    console.log('[producto-guardado][backend] POST /productos payload', req.body);
+    const { id: _idIgnorado, ...payloadSinId } = req.body || {};
+    console.log('[producto-guardado][backend] POST /productos payload', payloadSinId);
     const totalCategoriasActivas = await obtenerCategoriaDelegate().count({ where: { activo: true } });
-    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
+    const errorValidacion = validarPayloadProducto({ ...payloadSinId, __requiereCategoria: totalCategoriasActivas > 0 });
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] POST /productos validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
     }
     const tipoCambioActual = await obtenerTipoCambioActual();
-    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
+    const categoriaIds = parseCategoriaIds(payloadSinId?.categoriaIds);
     const categorias = await obtenerCategoriaDelegate().findMany({ where: { id: { in: categoriaIds }, activo: true } });
     if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
-    const data = normalizarPayloadProducto({ ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
+    const data = normalizarPayloadProducto({ ...payloadSinId, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
-    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? Array.from(new Set(req.body.proveedorIds.map(Number).filter(Number.isInteger))) : [];
+    const proveedorIds = Array.isArray(payloadSinId?.proveedorIds) ? Array.from(new Set(payloadSinId.proveedorIds.map(Number).filter(Number.isInteger))) : [];
     const producto = await prisma.producto.create({ data: { ...data, categorias: { connect: categoriaIds.map((id) => ({ id })) } } });
     console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
     if (proveedorIds.length) {
