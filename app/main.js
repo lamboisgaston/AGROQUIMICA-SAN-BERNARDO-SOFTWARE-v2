@@ -24,6 +24,7 @@ let presupuestoTipoDestinatario = 'A_QUIEN_CORRESPONDA';
 let presupuestoNombreLibre = '';
 let presupuestoItems = [];
 let presupuestoTipoOperacion = 'MOSTRADOR';
+let presupuestoModuloActivo = 'MOSTRADOR';
 let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
 let pedidoProveedorId = null;
@@ -918,7 +919,7 @@ function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
 }
 
 async function loadPresupuestos() {
-  const lista = await api(`/presupuestos?tipoOperacion=${encodeURIComponent(presupuestoTipoOperacion)}`);
+  const lista = await api(`/presupuestos?origen=${encodeURIComponent(presupuestoModuloActivo === 'SEMILLASYA' ? 'SEMILLASYA' : 'MOSTRADOR')}&tipoOperacion=${encodeURIComponent(presupuestoTipoOperacion)}`);
   $('#pres-lista').innerHTML = lista.map(p => {
     const telefonoCliente = normalizarTelefonoWhatsapp(p.persona?.telefono || p.persona?.telefonoPrincipal || '');
     const puedeWhatsapp = Boolean(telefonoCliente);
@@ -1062,7 +1063,7 @@ const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
   ADMINISTRADOR_GENERAL: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
   GERENTE: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
-  MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
+  MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','presupuestos-semillasya','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
 let activeRole = null;
@@ -1142,6 +1143,16 @@ async function abrirModulo(modulo) {
   }
   if (modulo === 'productos-precampania') {
     await loadProductosPrecampania();
+  }
+  if (modulo === 'presupuestos' || modulo === 'presupuestos-semillasya') {
+    const esSemillasYa = modulo === 'presupuestos-semillasya';
+    presupuestoModuloActivo = esSemillasYa ? 'SEMILLASYA' : 'MOSTRADOR';
+    presupuestoTipoOperacion = esSemillasYa ? 'PRECAMPAÑA' : 'MOSTRADOR';
+    const tituloModulo = $('#pres-titulo-modulo');
+    if (tituloModulo) tituloModulo.textContent = esSemillasYa ? '11) Presupuestos SemillasYa' : '11) Presupuestos Mostrador';
+    const tituloListado = $('#pres-titulo-listado');
+    if (tituloListado) tituloListado.textContent = esSemillasYa ? 'Solicitudes de cotización SemillasYa guardadas' : 'Presupuestos Mostrador guardados';
+    await loadPresupuestos();
   }
 }
 
@@ -2259,7 +2270,7 @@ $('#pres-guardar').addEventListener('click', async () => {
     const ajusteRedondeo = Number($('#pres-ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#pres-condicion-pago-prevista').value || null;
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
-    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value, origen: presupuestoTipoOperacion === 'PRECAMPAÑA' ? 'SEMILLASYA' : 'MOSTRADOR', tipoOperacion: presupuestoTipoOperacion }) });
+    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value, origen: presupuestoModuloActivo === 'SEMILLASYA' ? 'SEMILLASYA' : 'MOSTRADOR', tipoOperacion: presupuestoModuloActivo === 'SEMILLASYA' ? 'PRECAMPAÑA' : 'MOSTRADOR' }) });
     presupuestoItems = [];
     presupuestoClienteId = null;
     presupuestoNombreLibre = '';
@@ -2636,5 +2647,4 @@ $('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema)
 
 if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }
 
-$('#pres-tab-mostrador')?.addEventListener('click', async () => { presupuestoTipoOperacion = 'MOSTRADOR'; await loadPresupuestos(); });
-$('#pres-tab-precampania')?.addEventListener('click', async () => { presupuestoTipoOperacion = 'PRECAMPAÑA'; await loadPresupuestos(); });
+
