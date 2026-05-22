@@ -1780,25 +1780,63 @@ app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) =
   res.json(productos);
 }));
 
-app.get('/api/semillasya/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
-  const listaComercialId = parsePositiveInt(req.params.id);
-  if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
-  const productos = await prisma.productoListaComercial.findMany({
-    where: { listaComercialId, activo: true },
+const SEMILLEROS_PRECAMPAÑA = ['Guasch', 'CAPS', 'Garden', 'Gasty', 'Chuchuy', 'Florensa', 'Picasso'];
+
+app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
+  const productos = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
+  res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, productos });
+}));
+
+app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  const semillero = String(payload.semilleroLaboratorio || '').trim();
+  if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
+  const creado = await prisma.productoPrecampania.create({ data: {
+    nombre: String(payload.nombre || '').trim(),
+    semilleroLaboratorio: semillero,
+    categoria: String(payload.categoria || '').trim(),
+    presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
+    descripcion: String(payload.descripcion || '').trim(),
+    precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
+    estado: ['DISPONIBLE','CONSULTAR','AGOTADO'].includes(String(payload.estado || '')) ? payload.estado : 'CONSULTAR',
+    publicadoWeb: Boolean(payload.publicadoWeb),
+    visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
+  } });
+  res.status(201).json(creado);
+}));
+
+app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const payload = req.body || {};
+  const semillero = String(payload.semilleroLaboratorio || '').trim();
+  if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
+  const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: {
+    nombre: String(payload.nombre || '').trim(),
+    semilleroLaboratorio: semillero,
+    categoria: String(payload.categoria || '').trim(),
+    presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
+    descripcion: String(payload.descripcion || '').trim(),
+    precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
+    estado: ['DISPONIBLE','CONSULTAR','AGOTADO'].includes(String(payload.estado || '')) ? payload.estado : 'CONSULTAR',
+    publicadoWeb: Boolean(payload.publicadoWeb),
+    visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
+  } });
+  res.json(actualizado);
+}));
+
+app.delete('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  await prisma.productoPrecampania.update({ where: { id }, data: { activo: false } });
+  res.json({ ok: true });
+}));
+
+app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
+  const productos = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true },
     orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      nombreProducto: true,
-      unidad: true,
-      categoria: true,
-      marca: true,
-      proveedor: true,
-      listaEmpresa: true,
-      presentacion: true,
-      um: true,
-      observaciones: true,
-      estado: true
-    }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true, estado: true }
   });
   res.json(productos);
 }));
@@ -2606,19 +2644,18 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
   if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
   if (!itemsEntrada.length) return res.status(400).json({ error: 'Debe incluir al menos un item' });
 
-  const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoListaComercialId)).filter(Boolean);
-  if (ids.length !== itemsEntrada.length) return res.status(400).json({ error: 'productoListaComercialId inválido en items' });
+  const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoPrecampaniaId)).filter(Boolean);
+  if (ids.length !== itemsEntrada.length) return res.status(400).json({ error: 'productoPrecampaniaId inválido en items' });
 
   const cantidades = itemsEntrada.map((it) => parsePositiveInt(it.cantidad)).filter(Boolean);
   if (cantidades.length !== itemsEntrada.length) return res.status(400).json({ error: 'cantidad inválida en items' });
 
-  const productosLista = await prisma.productoListaComercial.findMany({
-    where: { id: { in: ids }, activo: true },
-    include: { listaComercial: { include: { reglas: { where: { activa: true } } } } }
+  const productosLista = await prisma.productoPrecampania.findMany({
+    where: { id: { in: ids }, activo: true, visibleEnSemillasYa: true }
   });
   const productosById = new Map(productosLista.map((p) => [p.id, p]));
   const faltantes = ids.filter((id) => !productosById.has(id));
-  if (faltantes.length) return res.status(400).json({ error: `Productos de lista no encontrados: ${faltantes.join(', ')}` });
+  if (faltantes.length) return res.status(400).json({ error: `Productos de precampaña no encontrados: ${faltantes.join(', ')}` });
 
   const resultado = await prisma.$transaction(async (tx) => {
     const personaExistente = await tx.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
@@ -2635,13 +2672,13 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
     const itemsCalculados = [];
     for (let i = 0; i < itemsEntrada.length; i += 1) {
       const item = itemsEntrada[i];
-      const productoLista = productosById.get(parsePositiveInt(item.productoListaComercialId));
+      const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
       const cantidad = parsePositiveInt(item.cantidad);
       const precioUnitario = 0;
 
-      let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombreProducto, unidad: productoLista.unidad || '', eliminado: false } });
+      let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombre, unidad: productoLista.presentacionEnvase || '', eliminado: false } });
       if (!productoERP) {
-        productoERP = await tx.producto.create({ data: { nombre: productoLista.nombreProducto, categoria: 'SEMILLASYA', marca: productoLista.listaComercial?.nombre || 'SEMILLASYA', unidad: productoLista.unidad || '', precioVenta: precioUnitario, precioFinalPesos: precioUnitario, stock: 0 } });
+        productoERP = await tx.producto.create({ data: { nombre: productoLista.nombre, categoria: 'SEMILLASYA', marca: productoLista.semilleroLaboratorio || 'SEMILLASYA', unidad: productoLista.presentacionEnvase || '', precioVenta: precioUnitario, precioFinalPesos: precioUnitario, stock: 0 } });
       }
 
       itemsCalculados.push({
@@ -2649,7 +2686,7 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
         cantidad,
         precioUnitario,
         subtotal: precioUnitario * cantidad,
-        nombreProducto: productoLista.nombreProducto
+        nombreProducto: productoLista.nombre
       });
     }
 
