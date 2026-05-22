@@ -33,20 +33,15 @@ function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
 
-function armarMensajeWhatsAppSemillasYa({ nombre, localidad, observaciones, items, presupuestoId }) {
-  const lineasItems = items.map((it) => `- ${it.nombreProducto} x ${it.cantidad}`);
+function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, localidad, items }) {
+  const resumenItems = items.slice(0, 6).map((it) => `${it.nombreProducto} x ${it.cantidad}`).join(', ');
+  const extra = items.length > 6 ? ` (+${items.length - 6} más)` : '';
   return [
-    `Hola, soy ${nombre}. Quiero solicitar presupuesto por estas semillas:`,
-    '',
-    ...lineasItems,
-    '',
+    `Nueva solicitud SemillasYa #${presupuestoId}`,
+    `Cliente: ${nombre}`,
     `Localidad: ${localidad || 'No informada'}`,
-    `Observaciones: ${observaciones || 'Sin observaciones'}`,
-    '',
-    `Número de solicitud: ${presupuestoId}`,
-    '',
-    'El equipo responde con disponibilidad, precio final y entrega estimada.'
-  ].join('\n');
+    `Ítems: ${resumenItems || 'Sin ítems'}${extra}`
+  ].join(' | ');
 }
 
 function formatMoney(value) {
@@ -2619,9 +2614,7 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
       const item = itemsEntrada[i];
       const productoLista = productosById.get(parsePositiveInt(item.productoListaComercialId));
       const cantidad = parsePositiveInt(item.cantidad);
-      const precioBase = Number(productoLista.precioNeto > 0 ? productoLista.precioNeto : productoLista.precioSugeridoPublico || 0);
-      const calculo = aplicarReglasComerciales(precioBase, productoLista.listaComercial?.reglas || []);
-      const precioUnitario = Number(calculo.precioFinal || 0);
+      const precioUnitario = 0;
 
       let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombreProducto, unidad: productoLista.unidad || '', eliminado: false } });
       if (!productoERP) {
@@ -2660,16 +2653,20 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
     return { persona, presupuesto, itemsCalculados };
   });
 
-  const mensaje = armarMensajeWhatsAppSemillasYa({
+  const mensajeInterno = armarMensajeWhatsAppSemillasYaInterno({
+    presupuestoId: resultado.presupuesto.id,
     nombre: nombreLimpio,
     localidad: localidadLimpia,
-    observaciones: observacionesLimpias,
-    items: resultado.itemsCalculados,
-    presupuestoId: resultado.presupuesto.id
+    items: resultado.itemsCalculados
   });
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
 
-  res.status(201).json({ ok: true, personaId: resultado.persona.id, presupuestoId: resultado.presupuesto.id, whatsappUrl, mensaje });
+  res.status(201).json({
+    ok: true,
+    personaId: resultado.persona.id,
+    presupuestoId: resultado.presupuesto.id,
+    mensaje: 'Solicitud recibida. Te vamos a responder por WhatsApp.',
+    whatsappInterno: { mensaje: mensajeInterno }
+  });
 }));
 
 app.get('/semillasya', (req, res) => {
