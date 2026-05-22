@@ -14,8 +14,6 @@
       --green-500: #1e9b5f;
       --text: #173126;
       --muted: #5f7c6e;
-      --ok: #dff7e8;
-      --ask: #fff3d8;
     }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); }
@@ -55,9 +53,7 @@
 
     .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .75rem; margin-top: .9rem; }
     .product { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: .8rem; display: grid; gap: .4rem; }
-    .status { width: fit-content; border-radius: 999px; padding: .2rem .5rem; font-size: .74rem; font-weight: 800; }
-    .status.DISPONIBLE { background: var(--ok); color: #0f6b38; }
-    .status.CONSULTAR { background: var(--ask); color: #885700; }
+    .product img { width: 100%; max-height: 170px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
     .meta { color: var(--muted); font-size: .87rem; }
 
     .btn { border: 0; border-radius: 999px; padding: .62rem .95rem; font-weight: 700; cursor: pointer; }
@@ -77,8 +73,8 @@
   <header class="hero">
     <div class="container">
       <h1>SemillasYa</h1>
-      <p class="pill">Armá tu pedido de semillas. Te respondemos por WhatsApp con presupuesto, disponibilidad y fecha estimada de entrega.</p>
-      <p><strong>Recibimos tu solicitud y te respondemos por WhatsApp con precio, disponibilidad y fecha estimada de entrega.</strong></p>
+      <p class="pill">Armá tu solicitud de semillas. Te respondemos por WhatsApp con presupuesto y confirmación de entrega.</p>
+      <p><strong>Disponibilidad y entrega sujetas a confirmación.</strong></p>
     </div>
   </header>
 
@@ -94,7 +90,6 @@
         <div class="filters">
                     <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
           <select id="filtroSemillero"><option value="TODAS">Todos los semilleros</option></select>
-          <select id="filtroEstado"><option value="TODOS">Todos los estados</option><option value="DISPONIBLE">Disponible</option><option value="CONSULTAR">Consultar</option></select>
           <input id="buscar" placeholder="Buscar por producto, semillero, categoría o presentación" />
         </div>
         <div class="catalog" id="catalog"></div>
@@ -128,10 +123,8 @@
     const state = { productos: [], carrito: [] };
     const $ = (id) => document.getElementById(id);
 
-    function estadoProducto(p) {
-      const s = String(p.estado || p.observaciones || '').toLowerCase();
-      if (s.includes('agot') || s.includes('sin stock') || s.includes('consult')) return 'CONSULTAR';
-      return 'DISPONIBLE';
+    function imagenProducto(p) {
+      return p?.imagenUrl || p?.fotoUrl || p?.imageUrl || p?.imagen || p?.foto || '';
     }
 
     function categoriaProducto(p) { return p.categoria || 'General'; }
@@ -164,27 +157,24 @@
       const q = $('buscar').value.toLowerCase().trim();
       const fc = $('filtroCategoria').value;
       const fm = $('filtroSemillero').value;
-      const fe = $('filtroEstado').value;
 
       const list = state.productos.filter((p) => {
         const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
-        const est = estadoProducto(p);
         if (fc !== 'TODAS' && categoriaProducto(p) !== fc) return false;
         if (fm !== 'TODAS' && marcaProducto(p) !== fm) return false;
-        if (fe !== 'TODOS' && est !== fe) return false;
         if (q && !txt.includes(q)) return false;
         return true;
       });
 
       $('catalog').innerHTML = list.map((p) => `
         <article class="product">
-          <span class="status ${estadoProducto(p)}">${estadoProducto(p)}</span>
           <strong>${p.nombre || 'Producto sin nombre'}</strong>
+          ${imagenProducto(p) ? `<img src="${imagenProducto(p)}" alt="${p.nombre || 'Producto'}" loading="lazy" />` : ''}
           <span class="meta">Descripción: ${p.descripcion || '-'}</span>
           <span class="meta">Semillero: ${marcaProducto(p)}</span>
           <span class="meta">Categoría: ${categoriaProducto(p)}</span>
           <span class="meta">Presentación: ${presentacionProducto(p)}</span>
-          <button class="btn btn-add" data-add="${p.id}">Agregar al carrito</button>
+          <button class="btn btn-add" data-add="${p.id}">Agregar</button>
         </article>
       `).join('') || '<p>No hay productos para esos filtros.</p>';
 
@@ -247,7 +237,7 @@
       state.carrito = [];
       renderCarrito();
       $('obs').value = '';
-      alert('Recibimos tu solicitud. Te vamos a responder por WhatsApp con precio, disponibilidad y fecha estimada de entrega.');
+      alert('Recibimos tu solicitud. Disponibilidad y entrega sujetas a confirmación.');
     }
 
     async function cargarProductos() {
@@ -257,7 +247,7 @@
       renderCatalogo();
     }
 
-    ['buscar', 'filtroCategoria', 'filtroSemillero', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
+    ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
         $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
 
     renderBrands();
