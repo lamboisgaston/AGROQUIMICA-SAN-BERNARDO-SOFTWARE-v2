@@ -112,8 +112,16 @@
   <main class="container">
     <section class="ubicacion-gate" id="ubicacionGate">
       <div class="ubicacion-card">
-        <h2>¿De qué provincia sos?</h2>
-        <p>Así te mostramos semillas y entregas disponibles para tu zona.</p>
+        <h2>Entrá a SemillasYa</h2>
+        <p>Decinos dónde estás para mostrarte semillas disponibles para tu zona.</p>
+        <div class="row">
+          <label for="nombreIngreso">Nombre</label>
+          <input id="nombreIngreso" />
+        </div>
+        <div class="row">
+          <label for="whatsappIngreso">WhatsApp</label>
+          <input id="whatsappIngreso" placeholder="549..." />
+        </div>
         <div class="row">
           <label for="paisSelect">País</label>
           <select id="paisSelect">
@@ -134,14 +142,18 @@
             <option value="Otra provincia">Otra provincia</option>
           </select>
         </div>
-        <button class="btn btn-add" id="confirmarUbicacion">Continuar al catálogo</button>
+        <div class="row">
+          <label for="localidadIngreso">Localidad</label>
+          <input id="localidadIngreso" />
+        </div>
+        <button class="btn btn-add" id="confirmarUbicacion">Ingresar a SemillasYa</button>
       </div>
     </section>
 
     <section id="catalogoWrap" class="hidden">
       <div class="ubicacion-status">
         <strong id="ubicacionActualTexto"></strong>
-        <button class="btn btn-outline" id="cambiarProvincia">Cambiar provincia</button>
+        <button class="btn btn-outline" id="cambiarProvincia">Cambiar datos</button>
       </div>
 
     <section class="section">
@@ -165,9 +177,6 @@
         <div id="cart"></div>
         <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
         <hr style="border:none;border-top:1px solid var(--line);margin: .8rem 0;" />
-        <label>Nombre</label><input id="nombre" />
-        <label>Teléfono WhatsApp</label><input id="telefono" placeholder="549..." />
-        <label>Localidad</label><input id="localidad" />
         <label>Observaciones</label><textarea id="obs" rows="3"></textarea>
         <button class="btn btn-wa" id="enviar">Solicitar presupuesto</button>
       </aside>
@@ -190,7 +199,7 @@
     const state = {
       productos: [],
       carrito: [],
-      ubicacion: { pais: 'Argentina', provincia: 'Salta' }
+      cliente: null
     };
     const $ = (id) => document.getElementById(id);
 
@@ -277,44 +286,58 @@
       });
     }
 
-    function cargarUbicacionPersistida() {
-      const pais = localStorage.getItem('semillasya_pais') || 'Argentina';
-      const provincia = localStorage.getItem('semillasya_provincia') || '';
-      if (provincia) {
-        state.ubicacion = { pais, provincia };
-      }
+    function cargarClientePersistido() {
+      try {
+        const cliente = JSON.parse(localStorage.getItem('semillasyaCliente') || 'null');
+        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.pais && cliente?.provincia && cliente?.localidad) {
+          state.cliente = cliente;
+        }
+      } catch (_e) {}
     }
 
     function mostrarCatalogoConUbicacion() {
       $('ubicacionGate').classList.add('hidden');
       $('catalogoWrap').classList.remove('hidden');
-      $('ubicacionActualTexto').textContent = `Estás viendo SemillasYa para ${state.ubicacion.provincia}`;
+      $('ubicacionActualTexto').textContent = `Hola ${state.cliente.nombre}, estás viendo SemillasYa para ${state.cliente.provincia}`;
     }
 
-    function guardarYContinuarUbicacion() {
+    async function guardarYContinuarUbicacion() {
+      const nombre = $('nombreIngreso').value.trim();
+      const telefono = $('whatsappIngreso').value.trim();
       const pais = $('paisSelect').value;
       const provincia = $('provinciaSelect').value;
-      localStorage.setItem('semillasya_pais', pais);
-      localStorage.setItem('semillasya_provincia', provincia);
-      state.ubicacion = { pais, provincia };
+      const localidad = $('localidadIngreso').value.trim();
+      if (!nombre) return alert('Completá tu nombre.');
+      if (!telefono) return alert('Completá tu WhatsApp.');
+      if (!pais) return alert('Completá el país.');
+      if (!provincia) return alert('Completá la provincia.');
+      if (!localidad) return alert('Completá la localidad.');
+
+      const r = await fetch('/api/semillasya/ingreso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, telefono, pais, provincia, localidad })
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar el ingreso');
+
+      state.cliente = { personaId: data.personaId, nombre, telefono, pais, provincia, localidad };
+      localStorage.setItem('semillasyaCliente', JSON.stringify(state.cliente));
       mostrarCatalogoConUbicacion();
     }
 
     async function enviarSolicitud() {
       if (!state.carrito.length) return alert('Agregá al menos un producto.');
-      const nombre = $('nombre').value.trim();
-      const telefono = $('telefono').value.trim();
-      const localidad = $('localidad').value.trim();
+      if (!state.cliente?.personaId) return alert('Primero ingresá tus datos.');
       const observaciones = $('obs').value.trim();
-      if (!nombre) return alert('Completá tu nombre.');
-      if (!telefono) return alert('Completá tu WhatsApp.');
 
       const payload = {
-        nombre,
-        telefono,
-        pais: state.ubicacion.pais,
-        provincia: state.ubicacion.provincia,
-        localidad,
+        personaId: state.cliente.personaId,
+        nombre: state.cliente.nombre,
+        telefono: state.cliente.telefono,
+        pais: state.cliente.pais,
+        provincia: state.cliente.provincia,
+        localidad: state.cliente.localidad,
         observaciones,
         items: state.carrito.map((it) => ({
           productoPrecampaniaId: Number(it.producto.id),
@@ -345,17 +368,20 @@
 
     ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
-    $('confirmarUbicacion').addEventListener('click', guardarYContinuarUbicacion);
+    $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
     $('cambiarProvincia').addEventListener('click', () => {
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');
     });
 
     renderBrands();
-    cargarUbicacionPersistida();
-    if (state.ubicacion.provincia) {
-      $('paisSelect').value = state.ubicacion.pais;
-      $('provinciaSelect').value = state.ubicacion.provincia;
+    cargarClientePersistido();
+    if (state.cliente?.personaId) {
+      $('nombreIngreso').value = state.cliente.nombre;
+      $('whatsappIngreso').value = state.cliente.telefono;
+      $('paisSelect').value = state.cliente.pais;
+      $('provinciaSelect').value = state.cliente.provincia;
+      $('localidadIngreso').value = state.cliente.localidad;
       mostrarCatalogoConUbicacion();
     }
     cargarProductos().catch(() => {
