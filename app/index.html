@@ -56,9 +56,13 @@
     <section class="bloque app-shell compact-form" data-modulo="productos-precampania">
       <h2>Productos Precampaña</h2>
       <div class="action-row">
-        <button id="btn-precampania-nuevo">Nuevo producto</button>
+        <button id="btn-precampania-nuevo">Nuevo producto precampaña</button>
       </div>
-      <input id="pre-buscar" placeholder="Buscar por nombre, semillero, categoría o envase" />
+      <div class="filters">
+        <select id="pre-filtro-semillero"><option value="TODOS">Todos los semilleros</option></select>
+        <input id="pre-filtro-categoria" placeholder="Filtrar por categoría" />
+        <input id="pre-buscar" placeholder="Buscar por nombre, semillero, categoría o envase" />
+      </div>
       <div id="pre-lista" class="lista"></div>
       <input id="pre-id" type="hidden" />
       <label>Nombre <input id="pre-nombre" /></label>
