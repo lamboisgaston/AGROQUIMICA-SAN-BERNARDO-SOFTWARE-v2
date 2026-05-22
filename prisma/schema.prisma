@@ -369,6 +369,15 @@ model ProductoPrecampania {
   presentacionEnvase   String
   descripcion          String
   precioInternoManual  Float?
+  monedaCompra         String   @default("ARS")
+  costoCompra          Float    @default(0)
+  tipoCambio           Float    @default(1)
+  porcentajeFlete      Float    @default(0)
+  porcentajeIva        Float    @default(0)
+  porcentajeMargen     Float    @default(0)
+  precioVentaFinal     Float    @default(0)
+  precioManual         Float?
+  usaPrecioManual      Boolean  @default(false)
   estado               EstadoProductoPrecampania @default(CONSULTAR)
   publicadoWeb         Boolean  @default(false)
   visibleEnSemillasYa  Boolean  @default(false)

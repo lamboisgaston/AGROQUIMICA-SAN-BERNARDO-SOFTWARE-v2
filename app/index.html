@@ -75,7 +75,25 @@
           <option value="AGOTADO">AGOTADO</option>
         </select>
       </label>
-      <label>Precio manual interno (opcional) <input id="pre-precio-manual" type="number" min="0" step="0.01" /></label>
+      <label>Moneda compra
+        <select id="pre-moneda-compra">
+          <option value="ARS">ARS</option>
+          <option value="USD">USD</option>
+        </select>
+      </label>
+      <label>Costo compra <input id="pre-costo-compra" type="number" min="0" step="0.01" /></label>
+      <label>Tipo cambio <input id="pre-tipo-cambio" type="number" min="0" step="0.0001" /></label>
+      <label>% Flete <input id="pre-porcentaje-flete" type="number" step="0.01" /></label>
+      <label>% IVA <input id="pre-porcentaje-iva" type="number" step="0.01" /></label>
+      <label>% Margen <input id="pre-porcentaje-margen" type="number" step="0.01" /></label>
+      <label>Usa precio manual
+        <select id="pre-usa-precio-manual">
+          <option value="false">No</option>
+          <option value="true">Sí</option>
+        </select>
+      </label>
+      <label>Precio manual (opcional) <input id="pre-precio-manual" type="number" min="0" step="0.01" /></label>
+      <label>Precio venta final (calculado) <input id="pre-precio-final" type="number" step="0.01" readonly /></label>
       <label>Visible en SemillasYa
         <select id="pre-visible">
           <option value="true">Sí</option>
