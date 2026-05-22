@@ -38,6 +38,7 @@
       <div class="dashboard-grid">
         <article class="dashboard-card" data-module-card="clientes"><h3>Clientes</h3><p>Alta, búsqueda y gestión de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
         <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="productos-precampania"><h3>Productos Precampaña</h3><p>ABM de productos para campañas estacionales.</p><button data-abrir-modulo="productos-precampania">Entrar</button></article>
         <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>Alta y gestión de categorías de productos.</p><button data-abrir-modulo="categorias">Entrar</button></article>
         <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="pedidos"><h3>Pedidos</h3><p>Notas a proveedores para cotización o pedido.</p><p><strong>PEDIDOS-NUEVO-FLUJO</strong></p><button data-abrir-modulo="pedidos">Entrar</button></article>
@@ -51,6 +52,37 @@
         <article class="dashboard-card" data-module-card="eliminados"><h3>Papelera / Eliminados</h3><p>Consulta de registros eliminados del sistema.</p><button data-abrir-modulo="eliminados">Entrar</button></article>
         <article class="dashboard-card" data-module-card="estado-sistema"><h3>Estado del sistema</h3><p>Diagnóstico de base de datos y conteos generales.</p><button data-abrir-modulo="estado-sistema">Entrar</button></article>
       </div>
+    </section>
+    <section class="bloque app-shell compact-form" data-modulo="productos-precampania">
+      <h2>Productos Precampaña</h2>
+      <div class="action-row">
+        <button id="btn-precampania-nuevo">Nuevo producto</button>
+      </div>
+      <input id="pre-buscar" placeholder="Buscar por nombre, semillero, categoría o envase" />
+      <div id="pre-lista" class="lista"></div>
+      <input id="pre-id" type="hidden" />
+      <label>Nombre <input id="pre-nombre" /></label>
+      <label>Semillero
+        <select id="pre-semillero"></select>
+      </label>
+      <label>Categoría <input id="pre-categoria" /></label>
+      <label>Envase <input id="pre-envase" /></label>
+      <label>Descripción <input id="pre-descripcion" /></label>
+      <label>Estado
+        <select id="pre-estado">
+          <option value="DISPONIBLE">DISPONIBLE</option>
+          <option value="CONSULTAR">CONSULTAR</option>
+          <option value="AGOTADO">AGOTADO</option>
+        </select>
+      </label>
+      <label>Precio manual interno (opcional) <input id="pre-precio-manual" type="number" min="0" step="0.01" /></label>
+      <label>Visible en SemillasYa
+        <select id="pre-visible">
+          <option value="true">Sí</option>
+          <option value="false">No</option>
+        </select>
+      </label>
+      <button id="btn-precampania-guardar">Guardar</button>
     </section>
     <nav class="menu-principal app-shell hidden">
       <button id="btn-volver-inicio" type="button">Volver al inicio</button>

@@ -1841,6 +1841,15 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
   res.json(productos);
 }));
 
+app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
+  const productos = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true, estado: true }
+  });
+  res.json(productos);
+}));
+
 app.post('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
   const listaComercialId = parsePositiveInt(req.params.id);
   if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
