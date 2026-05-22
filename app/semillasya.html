@@ -187,13 +187,13 @@
 
   <script>
     const marcasVisibles = [
-      { nombre: 'Guasch', logo: '/assets/marcas/guasch.png' },
-      { nombre: 'CAPS', logo: '/assets/marcas/caps.png' },
-      { nombre: 'Garden', logo: '/assets/marcas/ggc.png' },
-      { nombre: 'Gasty', logo: '/assets/marcas/gasty.png' },
-      { nombre: 'Picasso', logo: '/assets/marcas/picasso.png' },
-      { nombre: 'Florensa', logo: '/assets/marcas/florensa.png' },
-      { nombre: 'Chuchuy', logo: '/assets/marcas/chuchuy.png' }
+      { nombre: 'Guasch', logo: './assets/marcas/guasch.png' },
+      { nombre: 'CAPS', logo: './assets/marcas/caps.png' },
+      { nombre: 'Garden', logo: './assets/marcas/ggc.png' },
+      { nombre: 'Gasty', logo: './assets/marcas/gasty.png' },
+      { nombre: 'Picasso', logo: './assets/marcas/picasso.png' },
+      { nombre: 'Florensa', logo: './assets/marcas/florensa.png' },
+      { nombre: 'Chuchuy', logo: './assets/marcas/chuchuy.png' }
     ];
 
     const state = {
@@ -313,7 +313,7 @@
       if (!provincia) return alert('Completá la provincia.');
       if (!localidad) return alert('Completá la localidad.');
 
-      const r = await fetch('/api/semillasya/ingreso', {
+      const r = await fetch('/semillasya/api/semillasya/ingreso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre, telefono, pais, provincia, localidad })
@@ -345,7 +345,7 @@
         }))
       };
 
-      const r = await fetch('/api/semillasya/solicitud', {
+      const r = await fetch('/semillasya/api/semillasya/solicitud', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -360,7 +360,7 @@
     }
 
     async function cargarProductos() {
-      const r = await fetch('/api/semillasya/catalogo');
+      const r = await fetch('/semillasya/api/semillasya/catalogo');
       state.productos = await r.json();
       popularFiltros();
       renderCatalogo();
