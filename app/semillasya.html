@@ -30,6 +30,37 @@
 
     .section { padding: 1.25rem 0; }
     .title { margin: 0 0 .75rem; font-size: 1.35rem; }
+    .hidden { display: none !important; }
+
+    .ubicacion-gate {
+      min-height: calc(100vh - 120px);
+      display: grid;
+      place-items: center;
+      padding: 1.5rem 0 2rem;
+    }
+    .ubicacion-card {
+      width: min(760px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 1.2rem;
+      box-shadow: 0 14px 32px rgba(18, 62, 40, .1);
+    }
+    .ubicacion-card h2 { margin: 0 0 .4rem; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+    .ubicacion-card p { margin: 0 0 .95rem; color: var(--muted); }
+    .ubicacion-card .row { margin-bottom: .75rem; }
+    .ubicacion-status {
+      margin: .35rem 0 0;
+      padding: .7rem .85rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #eef8f1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
 
     .brands { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; }
     .brand-card {
@@ -79,6 +110,40 @@
   </header>
 
   <main class="container">
+    <section class="ubicacion-gate" id="ubicacionGate">
+      <div class="ubicacion-card">
+        <h2>¿De qué provincia sos?</h2>
+        <p>Así te mostramos semillas y entregas disponibles para tu zona.</p>
+        <div class="row">
+          <label for="paisSelect">País</label>
+          <select id="paisSelect">
+            <option value="Argentina">Argentina</option>
+            <option value="Otro país">Otro país</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="provinciaSelect">Provincia</label>
+          <select id="provinciaSelect">
+            <option value="Salta">Salta</option>
+            <option value="Tucumán">Tucumán</option>
+            <option value="Jujuy">Jujuy</option>
+            <option value="Santiago del Estero">Santiago del Estero</option>
+            <option value="Catamarca">Catamarca</option>
+            <option value="Córdoba">Córdoba</option>
+            <option value="Buenos Aires">Buenos Aires</option>
+            <option value="Otra provincia">Otra provincia</option>
+          </select>
+        </div>
+        <button class="btn btn-add" id="confirmarUbicacion">Continuar al catálogo</button>
+      </div>
+    </section>
+
+    <section id="catalogoWrap" class="hidden">
+      <div class="ubicacion-status">
+        <strong id="ubicacionActualTexto"></strong>
+        <button class="btn btn-outline" id="cambiarProvincia">Cambiar provincia</button>
+      </div>
+
     <section class="section">
       <h2 class="title">Semilleros</h2>
       <div class="brands" id="brands"></div>
@@ -107,6 +172,8 @@
         <button class="btn btn-wa" id="enviar">Solicitar presupuesto</button>
       </aside>
     </section>
+
+    </section>
   </main>
 
   <script>
@@ -120,7 +187,11 @@
       { nombre: 'Chuchuy', logo: '/assets/marcas/chuchuy.png' }
     ];
 
-    const state = { productos: [], carrito: [] };
+    const state = {
+      productos: [],
+      carrito: [],
+      ubicacion: { pais: 'Argentina', provincia: 'Salta' }
+    };
     const $ = (id) => document.getElementById(id);
 
     function imagenProducto(p) {
@@ -206,6 +277,29 @@
       });
     }
 
+    function cargarUbicacionPersistida() {
+      const pais = localStorage.getItem('semillasya_pais') || 'Argentina';
+      const provincia = localStorage.getItem('semillasya_provincia') || '';
+      if (provincia) {
+        state.ubicacion = { pais, provincia };
+      }
+    }
+
+    function mostrarCatalogoConUbicacion() {
+      $('ubicacionGate').classList.add('hidden');
+      $('catalogoWrap').classList.remove('hidden');
+      $('ubicacionActualTexto').textContent = `Estás viendo SemillasYa para ${state.ubicacion.provincia}`;
+    }
+
+    function guardarYContinuarUbicacion() {
+      const pais = $('paisSelect').value;
+      const provincia = $('provinciaSelect').value;
+      localStorage.setItem('semillasya_pais', pais);
+      localStorage.setItem('semillasya_provincia', provincia);
+      state.ubicacion = { pais, provincia };
+      mostrarCatalogoConUbicacion();
+    }
+
     async function enviarSolicitud() {
       if (!state.carrito.length) return alert('Agregá al menos un producto.');
       const nombre = $('nombre').value.trim();
@@ -218,6 +312,8 @@
       const payload = {
         nombre,
         telefono,
+        pais: state.ubicacion.pais,
+        provincia: state.ubicacion.provincia,
         localidad,
         observaciones,
         items: state.carrito.map((it) => ({
@@ -248,9 +344,20 @@
     }
 
     ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
-        $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
+    $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
+    $('confirmarUbicacion').addEventListener('click', guardarYContinuarUbicacion);
+    $('cambiarProvincia').addEventListener('click', () => {
+      $('catalogoWrap').classList.add('hidden');
+      $('ubicacionGate').classList.remove('hidden');
+    });
 
     renderBrands();
+    cargarUbicacionPersistida();
+    if (state.ubicacion.provincia) {
+      $('paisSelect').value = state.ubicacion.pais;
+      $('provinciaSelect').value = state.ubicacion.provincia;
+      mostrarCatalogoConUbicacion();
+    }
     cargarProductos().catch(() => {
       $('catalog').innerHTML = '<p>No se pudo cargar el catálogo de PRECAMPAÑA.</p>';
     });

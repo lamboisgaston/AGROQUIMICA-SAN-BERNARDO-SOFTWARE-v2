@@ -33,12 +33,14 @@ function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
 
-function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, localidad, items }) {
+function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, pais, provincia, localidad, items }) {
   const resumenItems = items.slice(0, 6).map((it) => `${it.nombreProducto} x ${it.cantidad}`).join(', ');
   const extra = items.length > 6 ? ` (+${items.length - 6} más)` : '';
   return [
     `Nueva solicitud SemillasYa #${presupuestoId}`,
     `Cliente: ${nombre}`,
+    `País: ${pais || 'No informado'}`,
+    `Provincia: ${provincia || 'No informada'}`,
     `Localidad: ${localidad || 'No informada'}`,
     `Ítems: ${resumenItems || 'Sin ítems'}${extra}`
   ].join(' | ');
@@ -2678,16 +2680,20 @@ app.use((err, req, res, next) => {
 
 
 app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
-  const { nombre, telefono, localidad, observaciones, items } = req.body || {};
+  const { nombre, telefono, pais, provincia, localidad, observaciones, items } = req.body || {};
 
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
+  const paisLimpio = String(pais || '').trim();
+  const provinciaLimpia = String(provincia || '').trim();
   const localidadLimpia = String(localidad || '').trim();
   const observacionesLimpias = String(observaciones || '').trim();
   const itemsEntrada = Array.isArray(items) ? items : [];
 
   if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
   if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
+  if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
+  if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
   if (!itemsEntrada.length) return res.status(400).json({ error: 'Debe incluir al menos un item' });
 
   const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoPrecampaniaId)).filter(Boolean);
@@ -2706,6 +2712,8 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
   const resultado = await prisma.$transaction(async (tx) => {
     const personaExistente = await tx.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
     const observacionesPersona = [
+      paisLimpio ? `País: ${paisLimpio}` : null,
+      provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
       localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
       'Origen: SEMILLASYA_WEB',
       observacionesLimpias ? `Obs: ${observacionesLimpias}` : null
@@ -2746,6 +2754,8 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
         total: subtotal,
         observaciones: [
           'Solicitud originada en SEMILLASYA_WEB',
+          paisLimpio ? `País: ${paisLimpio}` : null,
+          provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
           localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
           observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
         ].filter(Boolean).join(' | ')
@@ -2762,6 +2772,8 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
   const mensajeInterno = armarMensajeWhatsAppSemillasYaInterno({
     presupuestoId: resultado.presupuesto.id,
     nombre: nombreLimpio,
+    pais: paisLimpio,
+    provincia: provinciaLimpia,
     localidad: localidadLimpia,
     items: resultado.itemsCalculados
   });
