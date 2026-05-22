@@ -1236,7 +1236,7 @@ async function buscarClientesConEstadisticas(query = '') {
   } : whereBase;
 
   const personas = await prisma.persona.findMany({
-    where,
+    where: Object.keys(where).length ? where : undefined,
     orderBy: [{ nombre: 'asc' }, { id: 'desc' }],
     take: q ? 50 : 200
   });
@@ -1339,9 +1339,13 @@ function validarClienteParaPresupuesto(persona) {
 
 app.get('/presupuestos', asyncHandler(async (req, res) => {
   const tipoOperacion = String(req.query?.tipoOperacion || '').toUpperCase();
-  const where = tipoOperacion ? { tipoOperacion } : undefined;
+  const origen = String(req.query?.origen || '').toUpperCase();
+  const where = {};
+  if (tipoOperacion) where.tipoOperacion = tipoOperacion;
+  if (origen === 'MOSTRADOR') where.origen = 'MOSTRADOR';
+  if (origen === 'SEMILLASYA' || origen === 'PRECAMPAÑA' || origen === 'PRECAMPANIA') where.origen = 'SEMILLASYA';
   const presupuestos = await prisma.presupuesto.findMany({
-    where,
+    where: Object.keys(where).length ? where : undefined,
     include: { persona: true, items: { include: { producto: true } } },
     orderBy: { createdAt: 'desc' }
   });

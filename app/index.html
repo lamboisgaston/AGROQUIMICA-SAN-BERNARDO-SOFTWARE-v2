@@ -40,7 +40,8 @@
         <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>ABM de productos, categorías y costos.</p><button data-abrir-modulo="productos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="productos-precampania"><h3>Productos Precampaña</h3><p>ABM de productos para campañas estacionales.</p><button data-abrir-modulo="productos-precampania">Entrar</button></article>
         <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>Alta y gestión de categorías de productos.</p><button data-abrir-modulo="categorias">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos</h3><p>Crear, buscar y guardar presupuestos.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos Mostrador</h3><p>Crear, buscar y guardar presupuestos de mostrador.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="presupuestos-semillasya"><h3>Presupuestos SemillasYa</h3><p>Crear, buscar y guardar solicitudes de cotización SemillasYa.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="pedidos"><h3>Pedidos</h3><p>Notas a proveedores para cotización o pedido.</p><p><strong>PEDIDOS-NUEVO-FLUJO</strong></p><button data-abrir-modulo="pedidos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas"><h3>Ventas / Mostrador</h3><p>Venta rápida con carrito y cierre.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja"><h3>Caja</h3><p>Pendientes, arqueo y cierre diario.</p><button data-abrir-modulo="caja">Entrar</button></article>
@@ -417,10 +418,10 @@
       <div id="categorias-lista" class="lista"></div>
     </section>
 
-    <section class="bloque app-shell compact-form presupuestos-workbench" data-modulo="presupuestos">
+    <section class="bloque app-shell compact-form presupuestos-workbench" data-modulo="presupuestos presupuestos-semillasya">
   <div class="workbench-grid">
     <div class="workbench-main">
-  <h2>11) Presupuestos</h2>
+  <h2 id="pres-titulo-modulo">11) Presupuestos Mostrador</h2>
 
   <h3>Destinatario</h3>
   <label>Tipo de presupuesto
@@ -494,8 +495,7 @@
 
   <button id="pres-guardar" class="btn-primary">Guardar presupuesto</button>
 
-  <h3>Presupuestos guardados</h3>
-  <div class="action-row"><button id="pres-tab-mostrador">Mostrador</button><button id="pres-tab-precampania">SemillasYa / Precampaña</button></div>
+  <h3 id="pres-titulo-listado">Presupuestos Mostrador guardados</h3>
   <div id="pres-lista" class="lista"></div>
     </aside>
   </div>
