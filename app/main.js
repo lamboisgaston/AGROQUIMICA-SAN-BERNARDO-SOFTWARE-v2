@@ -919,7 +919,15 @@ function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
 }
 
 async function loadPresupuestos() {
-  const lista = await api(`/presupuestos?origen=${encodeURIComponent(presupuestoModuloActivo === 'SEMILLASYA' ? 'SEMILLASYA' : 'MOSTRADOR')}&tipoOperacion=${encodeURIComponent(presupuestoTipoOperacion)}`);
+  const esSemillasYa = presupuestoModuloActivo === 'SEMILLASYA';
+  const endpoint = esSemillasYa ? '/api/presupuestos/semillasya' : '/api/presupuestos/mostrador';
+  const lista = await api(endpoint);
+  if (!Array.isArray(lista) || lista.length === 0) {
+    $('#pres-lista').innerHTML = esSemillasYa
+      ? '<div class="item">No hay solicitudes SemillasYa todavía.</div>'
+      : '<div class="item">No hay presupuestos de mostrador todavía.</div>';
+    return;
+  }
   $('#pres-lista').innerHTML = lista.map(p => {
     const telefonoCliente = normalizarTelefonoWhatsapp(p.persona?.telefono || p.persona?.telefonoPrincipal || '');
     const puedeWhatsapp = Boolean(telefonoCliente);
@@ -1061,8 +1069,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
-  GERENTE: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','productos-precampania','categorias','presupuestos','presupuestos-semillasya','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  GERENTE: ['clientes','productos','productos-precampania','categorias','presupuestos','presupuestos-semillasya','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','presupuestos-semillasya','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
