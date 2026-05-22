@@ -996,30 +996,22 @@ function renderPanelTerritorialSemillasYa() {
   const buckets = { nuevas: 0, cotizadas: 0, aprobadas: 0, rechazadas: 0, 'logística': 0, entregadas: 0 };
   solicitudesProvincia.forEach((s) => { buckets[mapearEstadoTerritorial(s.estado)] += 1; });
   contOps.innerHTML = `<div class="item"><strong>${provinciaTerritorialActiva || 'Provincia'}</strong> | Nuevas: ${buckets.nuevas} | Cotizadas: ${buckets.cotizadas} | Aprobadas: ${buckets.aprobadas} | Rechazadas: ${buckets.rechazadas} | Logística: ${buckets['logística']} | Entregadas: ${buckets.entregadas}</div>`
-    + (solicitudesProvincia.map((s) => `<div class="item ${solicitudTerritorialActivaId === s.id ? 'item-seleccionado' : ''}">#${s.id} | ${s.persona?.nombre || 'Sin cliente'} | ${s.estado} | ${money(s.total)} ${s._provinciaCorregida ? '<span style="color:#b91c1c;font-weight:700;">provincia corregida automáticamente</span>' : ''} <button data-pres-open="${s.id}">Gestionar</button> <button data-pres-wa="${s.id}" data-pres-wa-telefono="${normalizarTelefonoWhatsapp(s.persona?.telefono || s.persona?.telefonoPrincipal || '')}">Enviar WhatsApp</button> <button data-pres-edit="${s.id}">Editar presupuesto</button></div>`).join('') || '<div class="item">Sin operaciones en esta provincia.</div>');
+    + (solicitudesProvincia.map((s) => `<div class="item ${solicitudTerritorialActivaId === s.id ? 'item-seleccionado' : ''}">#${s.id} | ${s.persona?.nombre || 'Sin cliente'} | ${s.estado} | ${money(s.total)} ${s._provinciaCorregida ? '<span style="color:#b91c1c;font-weight:700;">provincia corregida automáticamente</span>' : ''} <button data-pres-open="${s.id}">Gestionar</button></div>`).join('') || '<div class="item">Sin operaciones en esta provincia.</div>');
   const solicitud = solicitudesProvincia.find((s) => s.id === solicitudTerritorialActivaId);
   if (!solicitud) {
     contDetalle.innerHTML = '<div class="item">Seleccione una solicitud para editar margen/flete/productos/observaciones y estado.</div>';
     return;
   }
+  const telefono = normalizarTelefonoWhatsapp(solicitud.persona?.telefono || solicitud.persona?.telefonoPrincipal || '');
+  const localidad = String(solicitud.persona?.localidad || '-').trim();
+  const provincia = String(normalizarProvinciaTerritorial(solicitud).provincia || provinciaTerritorialActiva || '-').trim();
+  const textoWhatsapp = `Hola, soy el Ing. Gastón Lambois de SemillasYa.\n\nTe envío la cotización solicitada.\n\nEl precio es puesto en la ciudad de ${localidad}/${provincia}.\nLa mercadería llega en aproximadamente 4 días.\n\nA continuación te envío la cotización.`;
   contDetalle.innerHTML = `<div class="item"><strong>Solicitud #${solicitud.id}</strong><br/>
-  Estado actual: ${solicitud.estado}<br/>
-  <label>Margen % <input id="pres-ter-margen" type="number" step="0.01" value="0"></label>
-  <label>Bonificación margen % <input id="pres-ter-bonif-margen" type="number" step="0.01" value="0"></label>
-  <label>Flete <input id="pres-ter-flete" type="number" step="0.01" value="0"></label>
-  <label>Observaciones <input id="pres-ter-obs" value="${(solicitud.observaciones || '').replace(/"/g, '&quot;')}"></label>
-  <label>Estado
-    <select id="pres-ter-estado">
-      <option ${solicitud.estado === 'WEB_SOLICITADO' ? 'selected' : ''} value="WEB_SOLICITADO">Nueva solicitud</option>
-      <option ${solicitud.estado === 'COTIZADO' ? 'selected' : ''} value="COTIZADO">Cotizada</option>
-      <option ${solicitud.estado === 'ACEPTADO' ? 'selected' : ''} value="ACEPTADO">Aprobada</option>
-      <option ${solicitud.estado === 'RECHAZADO' ? 'selected' : ''} value="RECHAZADO">Rechazada</option>
-      <option ${solicitud.estado === 'LOGISTICA' ? 'selected' : ''} value="LOGISTICA">Logística</option>
-      <option ${solicitud.estado === 'ENTREGADO' ? 'selected' : ''} value="ENTREGADO">Entregada</option>
-    </select>
-  </label>
-  <label>Productos (editable) <div>${(solicitud.items || []).map((it, idx) => `<div class="item">#${it.productoId || '-'} | Cantidad <input data-ter-item-cant="${idx}" type="number" step="0.01" value="${Number(it.cantidad || 0)}"> | Precio unitario <input data-ter-item-precio="${idx}" type="number" step="0.01" value="${Number(it.precioUnitario || 0)}"></div>`).join('') || 'Sin productos'}</div></label>
-  <button data-pres-save-territorial="${solicitud.id}">Guardar operación territorial</button></div>`;
+  Cliente: ${solicitud.persona?.nombre || 'Sin cliente'}<br/>
+  Estado actual: ${solicitud.estado}<br/><br/>
+  <button data-pres-semillasya-interaccion="${solicitud.id}" data-pres-semillasya-telefono="${telefono}" data-pres-semillasya-msg="${encodeURIComponent(textoWhatsapp)}">Enviar interacción</button>
+  <button data-pres-semillasya-pdf="${solicitud.id}">Descargar cotización</button>
+  </div>`;
 }
 function renderProveedores() {
   const q = ($('#proveedor-buscar')?.value || '').trim().toLowerCase();
@@ -2481,9 +2473,8 @@ $('#pres-lista').addEventListener('click', async (e) => {
 $('#panel-territorial-semillasya')?.addEventListener('click', async (e) => {
   const prov = e.target.closest('button[data-pres-provincia]');
   const open = e.target.closest('button[data-pres-open]');
-  const edit = e.target.closest('button[data-pres-edit]');
-  const wa = e.target.closest('button[data-pres-wa]');
-  const save = e.target.closest('button[data-pres-save-territorial]');
+  const enviarInteraccion = e.target.closest('button[data-pres-semillasya-interaccion]');
+  const descargarCotizacion = e.target.closest('button[data-pres-semillasya-pdf]');
   if (prov) {
     provinciaTerritorialActiva = prov.dataset.presProvincia;
     solicitudTerritorialActivaId = null;
@@ -2495,46 +2486,21 @@ $('#panel-territorial-semillasya')?.addEventListener('click', async (e) => {
     renderPanelTerritorialSemillasYa();
     return;
   }
-  if (edit) {
-    solicitudTerritorialActivaId = Number(edit.dataset.presEdit);
-    renderPanelTerritorialSemillasYa();
+  if (enviarInteraccion) {
+    const numero = normalizarTelefonoWhatsapp(enviarInteraccion.dataset.presSemillasyaTelefono || '');
+    if (!numero) {
+      setMsg('La solicitud no tiene WhatsApp válido cargado.', 'error');
+      return;
+    }
+    const mensaje = decodeURIComponent(enviarInteraccion.dataset.presSemillasyaMsg || '');
+    const waUrl = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    const waWin = window.open(waUrl, '_blank', 'noopener,noreferrer');
+    if (!waWin) window.location.href = waUrl;
     return;
   }
-  if (wa) {
-    const numero = normalizarTelefonoWhatsapp(wa.dataset.presWaTelefono || '');
-    if (numero) window.open(`https://wa.me/${numero}`, '_blank', 'noopener,noreferrer');
-    return;
-  }
-  if (save) {
-    const id = Number(save.dataset.presSaveTerritorial);
-    const solicitudBase = solicitudesTerritoriales.find((s) => s.id === id) || {};
-    const items = (solicitudBase.items || []).map((it, idx) => ({
-      productoId: it.productoId,
-      cantidad: Number($(`[data-ter-item-cant="${idx}"]`)?.value || it.cantidad || 0),
-      precioUnitario: Number($(`[data-ter-item-precio="${idx}"]`)?.value || it.precioUnitario || 0)
-    }));
-    const margen = Number($('#pres-ter-margen')?.value || 0);
-    const bonifMargen = Number($('#pres-ter-bonif-margen')?.value || 0);
-    const margenAplicado = Math.max(0, margen - ((margen * bonifMargen) / 100));
-    await api(`/presupuestos/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        tipoDestinatario: 'EXISTENTE',
-        clienteId: solicitudesTerritoriales.find((s) => s.id === id)?.personaId || null,
-        items,
-        descuentoTipo: 'PORCENTAJE',
-        descuentoValor: margenAplicado,
-        ajusteRedondeo: Number($('#pres-ter-flete')?.value || 0),
-        observaciones: `${$('#pres-ter-obs')?.value || ''}\nBonificación sobre margen: ${bonifMargen}%`,
-        estado: $('#pres-ter-estado')?.value || 'WEB_SOLICITADO',
-        origen: 'SEMILLASYA',
-        tipoOperacion: 'PRECAMPAÑA'
-      })
-    });
-    solicitudesTerritoriales = await api('/api/presupuestos/semillasya');
-    renderPanelTerritorialSemillasYa();
-    await loadPresupuestos();
-    setMsg('Operación territorial actualizada.');
+  if (descargarCotizacion) {
+    const pdfUrl = `${window.location.origin}/presupuestos/${Number(descargarCotizacion.dataset.presSemillasyaPdf)}/pdf`;
+    window.location.href = pdfUrl;
   }
 });
 
