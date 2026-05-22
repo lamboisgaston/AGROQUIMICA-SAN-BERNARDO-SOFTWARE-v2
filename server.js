@@ -1888,11 +1888,46 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
 
 app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
-    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
+    where: { activo: true, visibleEnSemillasYa: true },
     orderBy: { createdAt: 'asc' },
     select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true }
   });
   res.json(productos);
+}));
+
+app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
+  const [totalPrecampania, visiblesEnSemillasYa, porSemilleroRaw, ultimosProductos] = await Promise.all([
+    prisma.productoPrecampania.count({ where: { activo: true } }),
+    prisma.productoPrecampania.count({ where: { activo: true, visibleEnSemillasYa: true } }),
+    prisma.productoPrecampania.groupBy({ by: ['semilleroLaboratorio'], where: { activo: true }, _count: { _all: true } }),
+    prisma.productoPrecampania.findMany({
+      where: { activo: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, nombre: true, semilleroLaboratorio: true, visibleEnSemillasYa: true, createdAt: true }
+    })
+  ]);
+
+  res.json({
+    ok: true,
+    fecha: new Date().toISOString(),
+    productosPrecampania: {
+      total: totalPrecampania,
+      visiblesEnSemillasYa
+    },
+    cantidadPorSemillero: porSemilleroRaw.map((item) => ({
+      semillero: item.semilleroLaboratorio || 'SIN_SEMILLERO',
+      cantidad: item._count._all
+    })),
+    ultimos5ProductosPrecampania: ultimosProductos,
+    endpoints: {
+      productosPrecampaniaGet: '/api/productos-precampania',
+      productosPrecampaniaPost: '/api/productos-precampania',
+      semillasYaCatalogoGet: '/api/semillasya/catalogo',
+      semillasYaClientePost: '/api/semillasya/cliente',
+      status: 'OK'
+    }
+  });
 }));
 
 app.post('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
@@ -2805,7 +2840,7 @@ app.get('/semillasya', (req, res) => {
 
 app.use('/semillasya', express.static(require('path').join(__dirname, 'app')));
 
-app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
+app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
   const { nombre, telefono, pais, provincia, localidad } = req.body || {};
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
@@ -2837,6 +2872,43 @@ app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
     });
 
   res.status(201).json({ ok: true, personaId: persona.id });
+}));
+
+app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
+  req.body = req.body || {};
+  return await (async () => {
+    const { nombre, telefono, pais, provincia, localidad } = req.body || {};
+    const nombreLimpio = String(nombre || '').trim();
+    const telefonoLimpio = normalizarTelefono(telefono);
+    const paisLimpio = String(pais || '').trim();
+    const provinciaLimpia = String(provincia || '').trim();
+    const localidadLimpia = String(localidad || '').trim();
+
+    if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
+    if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
+    if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
+    if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
+    if (!localidadLimpia) return res.status(400).json({ error: 'localidad es obligatoria' });
+
+    const observacionesPersona = [
+      `País: ${paisLimpio}`,
+      `Provincia: ${provinciaLimpia}`,
+      `Localidad: ${localidadLimpia}`,
+      'Origen: SEMILLASYA_WEB'
+    ].join(' | ');
+
+    const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+    const persona = personaExistente
+      ? await prisma.persona.update({
+        where: { id: personaExistente.id },
+        data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+      })
+      : await prisma.persona.create({
+        data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+      });
+
+    return res.status(201).json({ ok: true, personaId: persona.id });
+  })();
 }));
 
 app.get('/app', (req, res) => {

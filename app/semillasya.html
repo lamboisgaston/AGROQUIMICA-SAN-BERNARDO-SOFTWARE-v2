@@ -199,7 +199,8 @@
     const state = {
       productos: [],
       carrito: [],
-      cliente: null
+      cliente: null,
+      catalogoCargado: false
     };
     const $ = (id) => document.getElementById(id);
 
@@ -301,6 +302,29 @@
       $('ubicacionActualTexto').textContent = `Hola ${state.cliente.nombre}, estás viendo SemillasYa para ${state.cliente.provincia}`;
     }
 
+    async function crearOActualizarClienteWeb(payload) {
+      const endpoints = [
+        '/semillasya/api/semillasya/cliente',
+        '/semillasya/api/semillasya/ingreso'
+      ];
+      let ultimoError = null;
+      for (const url of endpoints) {
+        try {
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await r.json();
+          if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar el ingreso');
+          return data;
+        } catch (error) {
+          ultimoError = error;
+        }
+      }
+      throw ultimoError || new Error('No se pudo registrar el ingreso');
+    }
+
     async function guardarYContinuarUbicacion() {
       const nombre = $('nombreIngreso').value.trim();
       const telefono = $('whatsappIngreso').value.trim();
@@ -313,17 +337,12 @@
       if (!provincia) return alert('Completá la provincia.');
       if (!localidad) return alert('Completá la localidad.');
 
-      const r = await fetch('/semillasya/api/semillasya/ingreso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, telefono, pais, provincia, localidad })
-      });
-      const data = await r.json();
-      if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar el ingreso');
+      const data = await crearOActualizarClienteWeb({ nombre, telefono, pais, provincia, localidad });
 
       state.cliente = { personaId: data.personaId, nombre, telefono, pais, provincia, localidad };
       localStorage.setItem('semillasyaCliente', JSON.stringify(state.cliente));
       mostrarCatalogoConUbicacion();
+      if (!state.catalogoCargado) await cargarProductos();
     }
 
     async function enviarSolicitud() {
@@ -361,9 +380,15 @@
 
     async function cargarProductos() {
       const r = await fetch('/semillasya/api/semillasya/catalogo');
-      state.productos = await r.json();
+      if (!r.ok) throw new Error('No se pudo cargar el catálogo de PRECAMPAÑA.');
+      const data = await r.json();
+      state.productos = Array.isArray(data) ? data : [];
+      state.catalogoCargado = true;
       popularFiltros();
       renderCatalogo();
+      if (!state.productos.length) {
+        $('catalog').innerHTML = '<p>Todavía no hay productos publicados para tu zona.</p>';
+      }
     }
 
     ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
