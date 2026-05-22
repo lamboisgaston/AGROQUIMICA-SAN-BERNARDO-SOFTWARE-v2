@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SemillasYa | Catálogo de Semilleros</title>
+  <style>
+    :root {
+      --bg: #f5f8f6;
+      --card: #ffffff;
+      --line: #d9e7dd;
+      --green-900: #0f5132;
+      --green-700: #146c43;
+      --green-500: #1e9b5f;
+      --text: #173126;
+      --muted: #5f7c6e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    .container { width: min(1180px, calc(100% - 2rem)); margin-inline: auto; }
+
+    .hero {
+      color: #fff;
+      padding: 3.5rem 0 2.5rem;
+      background: radial-gradient(circle at 85% 5%, #44cb86, transparent 30%), linear-gradient(130deg, var(--green-900), var(--green-700));
+    }
+    .hero h1 { margin: 0 0 .5rem; font-size: clamp(2rem, 6vw, 3.2rem); }
+    .hero p { margin: .35rem 0; max-width: 880px; }
+    .pill { display: inline-block; padding: .45rem .75rem; border-radius: 999px; background: rgba(255,255,255,.16); font-weight: 700; }
+
+    .section { padding: 1.25rem 0; }
+    .title { margin: 0 0 .75rem; font-size: 1.35rem; }
+    .hidden { display: none !important; }
+
+    .ubicacion-gate {
+      min-height: calc(100vh - 120px);
+      display: grid;
+      place-items: center;
+      padding: 1.5rem 0 2rem;
+    }
+    .ubicacion-card {
+      width: min(760px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 1.2rem;
+      box-shadow: 0 14px 32px rgba(18, 62, 40, .1);
+    }
+    .ubicacion-card h2 { margin: 0 0 .4rem; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+    .ubicacion-card p { margin: 0 0 .95rem; color: var(--muted); }
+    .ubicacion-card .row { margin-bottom: .75rem; }
+    .ubicacion-status {
+      margin: .35rem 0 0;
+      padding: .7rem .85rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #eef8f1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brands { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; }
+    .brand-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      min-height: 92px; display: flex; align-items: center; justify-content: center; padding: .8rem;
+      box-shadow: 0 8px 20px rgba(18, 62, 40, .08);
+    }
+    .brand-card img { max-width: 100%; max-height: 56px; object-fit: contain; }
+    .brand-card span { font-weight: 800; text-align: center; }
+
+    .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; align-items: start; }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: .9rem; }
+    .cart-panel { position: sticky; top: 12px; }
+    .product { box-shadow: 0 10px 20px rgba(15,81,50,.08); }
+    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .7rem; }
+
+    input, select, textarea {
+      width: 100%; border: 1px solid #c8dacd; border-radius: 10px; padding: .65rem .75rem; font: inherit;
+      background: #fff;
+    }
+
+    .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .75rem; margin-top: .9rem; }
+    .product { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: .8rem; display: grid; gap: .4rem; }
+    .product img { width: 100%; max-height: 170px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+    .meta { color: var(--muted); font-size: .87rem; }
+
+    .btn { border: 0; border-radius: 999px; padding: .62rem .95rem; font-weight: 700; cursor: pointer; }
+    .btn-add { background: var(--green-700); color: #fff; }
+    .btn-outline { background: #fff; border: 1px solid var(--line); }
+    .btn-wa { background: #25d366; color: #06351b; width: 100%; margin-top: .5rem; }
+
+    .cart-item { border: 1px solid var(--line); border-radius: 12px; padding: .55rem; margin-bottom: .55rem; }
+    .cart-row { display: flex; justify-content: space-between; gap: .4rem; align-items: center; }
+    .qty { width: 80px; }
+    .small { color: var(--muted); font-size: .84rem; }
+
+    @media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>SemillasYa</h1>
+      <p class="pill">Armá tu solicitud de semillas. Te respondemos por WhatsApp con presupuesto y confirmación de entrega.</p>
+      <p><strong>Disponibilidad y entrega sujetas a confirmación.</strong></p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="ubicacion-gate" id="ubicacionGate">
+      <div class="ubicacion-card">
+        <h2>Entrá a SemillasYa</h2>
+        <p>Decinos dónde estás para mostrarte semillas disponibles para tu zona.</p>
+        <div class="row">
+          <label for="nombreIngreso">Nombre</label>
+          <input id="nombreIngreso" />
+        </div>
+        <div class="row">
+          <label for="whatsappIngreso">WhatsApp</label>
+          <input id="whatsappIngreso" placeholder="549..." />
+        </div>
+        <div class="row">
+          <label for="paisSelect">País</label>
+          <select id="paisSelect">
+            <option value="Argentina">Argentina</option>
+            <option value="Otro país">Otro país</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="provinciaSelect">Provincia</label>
+          <select id="provinciaSelect">
+            <option value="Salta">Salta</option>
+            <option value="Tucumán">Tucumán</option>
+            <option value="Jujuy">Jujuy</option>
+            <option value="Santiago del Estero">Santiago del Estero</option>
+            <option value="Catamarca">Catamarca</option>
+            <option value="Córdoba">Córdoba</option>
+            <option value="Buenos Aires">Buenos Aires</option>
+            <option value="Otra provincia">Otra provincia</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="localidadIngreso">Localidad</label>
+          <input id="localidadIngreso" />
+        </div>
+        <button class="btn btn-add" id="confirmarUbicacion">Ingresar a SemillasYa</button>
+      </div>
+    </section>
+
+    <section id="catalogoWrap" class="hidden">
+      <div class="ubicacion-status">
+        <strong id="ubicacionActualTexto"></strong>
+        <button class="btn btn-outline" id="cambiarProvincia">Cambiar datos</button>
+      </div>
+
+    <section class="section">
+      <h2 class="title">Semilleros</h2>
+      <div class="brands" id="brands"></div>
+    </section>
+
+    <section class="section layout">
+      <div class="panel">
+        <h2 class="title">Catálogo visual</h2>
+        <div class="filters">
+                    <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
+          <select id="filtroSemillero"><option value="TODAS">Todos los semilleros</option></select>
+          <input id="buscar" placeholder="Buscar por producto, semillero, categoría o presentación" />
+        </div>
+        <div class="catalog" id="catalog"></div>
+      </div>
+
+      <aside class="panel cart-panel">
+        <h2 class="title">Solicitud de presupuesto</h2>
+        <div id="cart"></div>
+        <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
+        <hr style="border:none;border-top:1px solid var(--line);margin: .8rem 0;" />
+        <label>Observaciones</label><textarea id="obs" rows="3"></textarea>
+        <button class="btn btn-wa" id="enviar">Solicitar presupuesto</button>
+      </aside>
+    </section>
+
+    </section>
+  </main>
+
+  <script>
+    const marcasVisibles = [
+      { nombre: 'Guasch', logo: './assets/marcas/guasch.png' },
+      { nombre: 'CAPS', logo: './assets/marcas/caps.png' },
+      { nombre: 'Garden', logo: './assets/marcas/ggc.png' },
+      { nombre: 'Gasty', logo: './assets/marcas/gasty.png' },
+      { nombre: 'Picasso', logo: './assets/marcas/picasso.png' },
+      { nombre: 'Florensa', logo: './assets/marcas/florensa.png' },
+      { nombre: 'Chuchuy', logo: './assets/marcas/chuchuy.png' }
+    ];
+
+    const state = {
+      productos: [],
+      carrito: [],
+      cliente: null
+    };
+    const $ = (id) => document.getElementById(id);
+
+    function imagenProducto(p) {
+      return p?.imagenUrl || p?.fotoUrl || p?.imageUrl || p?.imagen || p?.foto || '';
+    }
+
+    function categoriaProducto(p) { return p.categoria || 'General'; }
+    function marcaProducto(p) { return p.semilleroLaboratorio || 'Sin marca'; }
+    function presentacionProducto(p) { return p.presentacionEnvase || 'Sin especificar'; }
+
+    function renderBrands() {
+      $('brands').innerHTML = marcasVisibles.map((m, i) => `
+        <article class="brand-card">
+          <img src="${m.logo}" alt="${m.nombre}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${m.nombre.replace(/'/g, "\\'")}'}))" />
+        </article>
+      `).join('');
+    }
+
+    function popularFiltros() {
+      const categorias = ['TODAS', ...new Set(state.productos.map(categoriaProducto))];
+      const marcas = ['TODAS', ...new Set(state.productos.map(marcaProducto))];
+      $('filtroCategoria').innerHTML = categorias.map(v => `<option value="${v}">${v}</option>`).join('');
+      $('filtroSemillero').innerHTML = marcas.map(v => `<option value="${v}">${v}</option>`).join('');
+    }
+
+    function agregarCarrito(producto) {
+      const idx = state.carrito.findIndex((i) => i.id === producto.id);
+      if (idx >= 0) state.carrito[idx].cantidad += 1;
+      else state.carrito.push({ id: producto.id, producto, cantidad: 1 });
+      renderCarrito();
+    }
+
+    function renderCatalogo() {
+      const q = $('buscar').value.toLowerCase().trim();
+      const fc = $('filtroCategoria').value;
+      const fm = $('filtroSemillero').value;
+
+      const list = state.productos.filter((p) => {
+        const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
+        if (fc !== 'TODAS' && categoriaProducto(p) !== fc) return false;
+        if (fm !== 'TODAS' && marcaProducto(p) !== fm) return false;
+        if (q && !txt.includes(q)) return false;
+        return true;
+      });
+
+      $('catalog').innerHTML = list.map((p) => `
+        <article class="product">
+          <strong>${p.nombre || 'Producto sin nombre'}</strong>
+          ${imagenProducto(p) ? `<img src="${imagenProducto(p)}" alt="${p.nombre || 'Producto'}" loading="lazy" />` : ''}
+          <span class="meta">Descripción: ${p.descripcion || '-'}</span>
+          <span class="meta">Semillero: ${marcaProducto(p)}</span>
+          <span class="meta">Categoría: ${categoriaProducto(p)}</span>
+          <span class="meta">Presentación: ${presentacionProducto(p)}</span>
+          <button class="btn btn-add" data-add="${p.id}">Agregar</button>
+        </article>
+      `).join('') || '<p>No hay productos para esos filtros.</p>';
+
+      document.querySelectorAll('[data-add]').forEach((btn) => {
+        btn.onclick = () => {
+          const p = state.productos.find((x) => String(x.id) === String(btn.dataset.add));
+          if (p) agregarCarrito(p);
+        };
+      });
+    }
+
+    function renderCarrito() {
+      $('cartEmpty').style.display = state.carrito.length ? 'none' : 'block';
+      $('cart').innerHTML = state.carrito.map((it, idx) => `
+        <div class="cart-item">
+          <div class="cart-row"><strong>${it.producto.nombre}</strong><button class="btn btn-outline" data-rm="${idx}">Quitar</button></div>
+          <div class="small">${marcaProducto(it.producto)} · ${categoriaProducto(it.producto)} · ${presentacionProducto(it.producto)}</div>
+          <div class="cart-row" style="margin-top:.35rem;">
+            <span class="small">Cantidad</span>
+            <input class="qty" type="number" min="1" value="${it.cantidad}" data-qty="${idx}" />
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('[data-rm]').forEach((btn) => btn.onclick = () => { state.carrito.splice(Number(btn.dataset.rm), 1); renderCarrito(); });
+      document.querySelectorAll('[data-qty]').forEach((inp) => inp.onchange = () => {
+        const i = Number(inp.dataset.qty);
+        state.carrito[i].cantidad = Math.max(1, Number(inp.value || 1));
+      });
+    }
+
+    function cargarClientePersistido() {
+      try {
+        const cliente = JSON.parse(localStorage.getItem('semillasyaCliente') || 'null');
+        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.pais && cliente?.provincia && cliente?.localidad) {
+          state.cliente = cliente;
+        }
+      } catch (_e) {}
+    }
+
+    function mostrarCatalogoConUbicacion() {
+      $('ubicacionGate').classList.add('hidden');
+      $('catalogoWrap').classList.remove('hidden');
+      $('ubicacionActualTexto').textContent = `Hola ${state.cliente.nombre}, estás viendo SemillasYa para ${state.cliente.provincia}`;
+    }
+
+    async function guardarYContinuarUbicacion() {
+      const nombre = $('nombreIngreso').value.trim();
+      const telefono = $('whatsappIngreso').value.trim();
+      const pais = $('paisSelect').value;
+      const provincia = $('provinciaSelect').value;
+      const localidad = $('localidadIngreso').value.trim();
+      if (!nombre) return alert('Completá tu nombre.');
+      if (!telefono) return alert('Completá tu WhatsApp.');
+      if (!pais) return alert('Completá el país.');
+      if (!provincia) return alert('Completá la provincia.');
+      if (!localidad) return alert('Completá la localidad.');
+
+      const r = await fetch('/semillasya/api/semillasya/ingreso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, telefono, pais, provincia, localidad })
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar el ingreso');
+
+      state.cliente = { personaId: data.personaId, nombre, telefono, pais, provincia, localidad };
+      localStorage.setItem('semillasyaCliente', JSON.stringify(state.cliente));
+      mostrarCatalogoConUbicacion();
+    }
+
+    async function enviarSolicitud() {
+      if (!state.carrito.length) return alert('Agregá al menos un producto.');
+      if (!state.cliente?.personaId) return alert('Primero ingresá tus datos.');
+      const observaciones = $('obs').value.trim();
+
+      const payload = {
+        personaId: state.cliente.personaId,
+        nombre: state.cliente.nombre,
+        telefono: state.cliente.telefono,
+        pais: state.cliente.pais,
+        provincia: state.cliente.provincia,
+        localidad: state.cliente.localidad,
+        observaciones,
+        items: state.carrito.map((it) => ({
+          productoPrecampaniaId: Number(it.producto.id),
+          cantidad: Math.max(1, Number(it.cantidad || 1))
+        }))
+      };
+
+      const r = await fetch('/semillasya/api/semillasya/solicitud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar la solicitud');
+
+      state.carrito = [];
+      renderCarrito();
+      $('obs').value = '';
+      alert('Recibimos tu solicitud. Disponibilidad y entrega sujetas a confirmación.');
+    }
+
+    async function cargarProductos() {
+      const r = await fetch('/semillasya/api/semillasya/catalogo');
+      state.productos = await r.json();
+      popularFiltros();
+      renderCatalogo();
+    }
+
+    ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
+    $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
+    $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
+    $('cambiarProvincia').addEventListener('click', () => {
+      $('catalogoWrap').classList.add('hidden');
+      $('ubicacionGate').classList.remove('hidden');
+    });
+
+    renderBrands();
+    cargarClientePersistido();
+    if (state.cliente?.personaId) {
+      $('nombreIngreso').value = state.cliente.nombre;
+      $('whatsappIngreso').value = state.cliente.telefono;
+      $('paisSelect').value = state.cliente.pais;
+      $('provinciaSelect').value = state.cliente.provincia;
+      $('localidadIngreso').value = state.cliente.localidad;
+      mostrarCatalogoConUbicacion();
+    }
+    cargarProductos().catch(() => {
+      $('catalog').innerHTML = '<p>No se pudo cargar el catálogo de PRECAMPAÑA.</p>';
+    });
+  </script>
+</body>
+</html>

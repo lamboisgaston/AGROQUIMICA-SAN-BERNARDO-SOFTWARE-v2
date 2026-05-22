@@ -3,6 +3,8 @@ const money = (v) => '$' + Number(v || 0).toFixed(2);
 
 let ventaId = null;
 let venta = null;
+let listasComerciales = [];
+let productosListaComercial = [];
 let productos = [];
 let resultadosProductosVisibles = [];
 let indiceProductoSeleccionado = -1;
@@ -26,6 +28,10 @@ let productosPresupuestoVisibles = [];
 let pedidoProveedorId = null;
 let pedidoItems = [];
 let productosPedidoVisibles = [];
+let catalogoGuaschCategorias = [];
+let precampaniaSemilleros = [];
+let precampaniaProductos = [];
+let precampaniaContextoCarga = { semillero: '', categoria: '' };
 const VENTA_ACTIVA_STORAGE_KEY = 'venta_activa_id';
 
 function setVentaActivaId(id) {
@@ -135,15 +141,26 @@ function renderProductoCard(p, opciones = {}) {
   const imagenHtml = imagen
     ? `<img src="${imagen}" alt="${p.nombre || 'Producto'}" class="producto-card-img" loading="lazy" />`
     : '<div class="producto-card-placeholder">Sin foto</div>';
-  const precio = money(p.precioPesosCalculado || p.precioVentaPesos || p.precioFinalPesos || 0);
+  const esPrecampania = Boolean(p._precampania);
+  const precio = money(p.precioPesosCalculado || p.precioVentaPesos || p.precioFinalPesos || p.precioFinal || p.precioUsd || 0);
   const stock = Number(p.stock ?? 0);
+  const metaHtml = esPrecampania
+    ? `
+      <div class="producto-meta">Categoría: <strong>${p.categoria || '-'}</strong> · Envase: <strong>${p.envase || '-'}</strong></div>
+      <div class="producto-meta">Precio USD: <strong>${money(p.precioUsd || 0)}</strong> · Precio final: <strong>${money(p.precioFinal || 0)}</strong></div>
+      <div class="producto-meta">Estado: <strong>${p.estado || '-'}</strong> · Margen: <strong>${Number(p.margenPorcentaje || 0).toFixed(2)}%</strong></div>
+      ${p.gananciaEstimada != null ? `<div class="producto-meta">Ganancia estimada: <strong>${money(p.gananciaEstimada)}</strong></div>` : ''}
+    `
+    : `
+      <div class="producto-meta">Categorías: <strong>${(p.categorias || []).map((c) => c.nombre).join(', ') || p.categoria || '-'}</strong></div>
+      <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
+      <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
+    `;
   return `<div class="item producto-card ${seleccionado ? 'item-seleccionado' : ''}">
     <div class="producto-media">${imagenHtml}</div>
     <div class="producto-info">
       <div class="producto-titulo">${p.nombre || '-'}</div>
-      <div class="producto-meta">Categorías: <strong>${(p.categorias || []).map((c) => c.nombre).join(', ') || p.categoria || '-'}</strong></div>
-      <div class="producto-meta">Marca: <strong>${p.marca || '-'}</strong> · Unidad: <strong>${p.unidad || '-'}</strong></div>
-      <div class="producto-meta">Precio: <strong>${precio}</strong> · Stock: <strong>${stock}</strong></div>
+      ${metaHtml}
       ${proveedoresTexto ? `<div class="producto-meta">Proveedores: <strong>${proveedoresTexto}</strong></div>` : ''}
       ${mostrarCosto ? `<div class="producto-meta">Costo compra: <strong>${p.monedaCompra || p.monedaCosto || 'ARS'} ${money(p.costoCompra ?? p.costoBase)}</strong> · Convertido: <strong>${money(p.costoCompraPesos)}</strong></div>` : ''}
     </div>
@@ -254,7 +271,23 @@ async function renderProductos() {
     return;
   }
   try {
-    const lista = await buscarProductos(q);
+    const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
+    const lista = tipoOperacion === 'PRECAMPAÑA'
+      ? productosListaComercial
+        .filter((p) => (p.nombreProducto || '').toLowerCase().includes(q.toLowerCase()))
+        .map((p) => ({
+          id: p.id,
+          nombre: p.nombreProducto,
+          categoria: p.categoria,
+          envase: p.envase,
+          precioUsd: Number(p.precioUsd || p.precioNeto || 0),
+          precioFinal: Number(p.precioFinal || p.precioSugeridoPublico || p.precioNeto || 0),
+          estado: p.estado,
+          margenPorcentaje: Number(p.margenPorcentaje || 0),
+          gananciaEstimada: p.gananciaEstimada == null ? null : Number(p.gananciaEstimada),
+          _precampania: true
+        }))
+      : await buscarProductos(q);
     resultadosProductosVisibles = lista;
     if (lista.length === 0) indiceProductoSeleccionado = -1;
     if (lista.length > 0 && (indiceProductoSeleccionado < 0 || indiceProductoSeleccionado >= lista.length)) {
@@ -269,13 +302,37 @@ async function renderProductos() {
 }
 
 async function agregarProductoAlCarrito(productoId) {
+  const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
   if (!ventaId) {
-    const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    const listaComercialId = $('#lista-comercial-select')?.value ? Number($('#lista-comercial-select').value) : null;
+    const v = await api('/mostrador/ventas', { method: 'POST', body: JSON.stringify({ tipoOperacion, listaComercialId }) });
     ventaId = v.id;
     setVentaActivaId(ventaId);
   }
   if (!productoId) return setMsg('Producto inválido');
   try {
+    if (tipoOperacion === 'PRECAMPAÑA') {
+      const listaComercialId = Number($('#lista-comercial-select').value || 0);
+      const calc = await api('/api/precios-precampaña/calcular', { method: 'POST', body: JSON.stringify({ listaComercialId, productoListaComercialId: Number(productoId) }) });
+      $('#precio-precampania-detalle').innerHTML = `<div class="item">Base: ${money(calc.precioBase)} | Final: ${money(calc.precioFinal)} | Reglas: ${(calc.reglasAplicadas || []).map(r => `${r.nombre}(${r.valor}%)`).join(', ') || 'sin reglas'}</div>`;
+      await api(`/mostrador/ventas/${ventaId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({
+          productoId,
+          cantidad: 1,
+          precioUnitario: Number(calc.precioFinal || 0),
+          tipoOperacion: 'PRECAMPAÑA',
+          productoListaComercialId: Number(productoId)
+        })
+      });
+      await refreshVenta();
+      await loadCaja20();
+      $('#buscar-producto').value = '';
+      indiceProductoSeleccionado = -1;
+      renderProductos();
+      $('#buscar-producto').focus();
+      return setMsg(`Producto PRECAMPAÑA agregado con precio final ${money(calc.precioFinal)}.`);
+    }
     const producto = resultadosProductosVisibles.find((p) => Number(p.id) === Number(productoId)) || productos.find((p) => Number(p.id) === Number(productoId));
     console.log('Producto agregado al carrito:', producto || { id: productoId });
     await api(`/mostrador/ventas/${ventaId}/items`, { method: 'POST', body: JSON.stringify({ productoId, cantidad: 1 }) });
@@ -289,6 +346,173 @@ async function agregarProductoAlCarrito(productoId) {
     console.error('[mostrador][carrito] error al agregar producto', { productoId, error: err });
     setMsg(`Error al agregar producto: ${err.message}`);
   }
+}
+
+async function cargarListasComerciales() {
+  listasComerciales = await api('/api/listas-comerciales');
+  const select = $('#lista-comercial-select');
+  if (!select) return;
+  select.innerHTML = listasComerciales.map((l) => `<option value="${l.id}">${l.nombre} - ${l.empresaComercial?.nombre || ''}</option>`).join('');
+}
+
+async function cargarProductosListaComercial() {
+  const listaId = Number($('#lista-comercial-select')?.value || 0);
+  if (!listaId) return;
+  productosListaComercial = await api(`/api/listas-comerciales/${listaId}/productos`);
+  catalogoGuaschCategorias = construirCatalogoGuasch(productosListaComercial);
+  renderCatalogoGuasch();
+}
+
+function extraerMetaGuasch(skuExterno = '') {
+  const raw = String(skuExterno || '');
+  if (!raw.startsWith('GUASCH|')) return {};
+  const payload = raw.slice('GUASCH|'.length);
+  try {
+    const decoded = atob(payload);
+    const obj = JSON.parse(decoded);
+    return {
+      cat: obj.categoria || 'SIN_CATEGORIA',
+      subcat: obj.subcategoria || null,
+      estado: obj.estado || 'DISPONIBLE',
+      ...obj
+    };
+  } catch {
+    const chunks = raw.split('|').slice(1);
+    const meta = {};
+    for (const chunk of chunks) {
+      const [k, ...rest] = chunk.split('=');
+      meta[k] = rest.join('=');
+    }
+    return meta;
+  }
+}
+
+function normalizarCategoriaGuasch(item) {
+  const nombre = String(item.nombre || '').trim();
+  let categoria = String(item.categoria || 'SIN_CATEGORIA').trim();
+  let subcategoria = item.subcategoria ? String(item.subcategoria).trim() : null;
+
+  if (categoria.includes('/')) {
+    const [cat, subcat] = categoria.split('/').map((v) => v.trim()).filter(Boolean);
+    if (cat) categoria = cat;
+    if (!subcategoria && subcat) subcategoria = subcat;
+  }
+
+  const alfalfas = new Set(['Brava', 'Armona', 'Pampa Flor', 'Vector', 'Sirosal', 'CUF 101', 'Aurora']);
+  if (alfalfas.has(nombre)) {
+    categoria = 'Pasturas';
+    subcategoria = 'Alfalfas';
+  }
+
+  if (nombre === 'Raigrás Anual Tetraploide Macho') {
+    categoria = 'Pasturas';
+    subcategoria = 'Gramíneas Forrajeras Templadas';
+  }
+
+  return { categoria, subcategoria };
+}
+
+function construirCatalogoGuasch(productos = []) {
+  const porCategoria = new Map();
+  for (const p of productos) {
+    const meta = extraerMetaGuasch(p.skuExterno);
+    const categoriaRaw = meta.cat && meta.cat !== '-' ? meta.cat : 'SIN_CATEGORIA';
+    const normalizado = normalizarCategoriaGuasch({
+      nombre: p.nombreProducto,
+      categoria: categoriaRaw,
+      subcategoria: meta.subcat || null
+    });
+    const estado = (meta.estado || 'DISPONIBLE').toUpperCase();
+    const precioFinal = p.precioSugeridoPublico;
+    const tienePrecio = Number(p.precioNeto || 0) > 0;
+    const item = {
+      id: p.id,
+      nombre: p.nombreProducto || '-',
+      unidad: p.unidad || '-',
+      estado,
+      categoria: normalizado.categoria,
+      subcategoria: normalizado.subcategoria,
+      categoriaOrden: Number(meta.categoriaOrden || 99999),
+      subcategoriaOrden: Number(meta.subcategoriaOrden || 99999),
+      ordenCatalogo: Number(meta.ordenCatalogo || 99999),
+      tienePrecio,
+      precioFinal
+    };
+    if (!porCategoria.has(item.categoria)) porCategoria.set(item.categoria, []);
+    porCategoria.get(item.categoria).push(item);
+  }
+  return Array.from(porCategoria.entries())
+    .map(([categoria, items]) => {
+      const subMap = new Map();
+      for (const item of items) {
+        const sub = item.subcategoria || 'SIN_SUBCATEGORIA';
+        if (!subMap.has(sub)) subMap.set(sub, []);
+        subMap.get(sub).push(item);
+      }
+      const subcategorias = Array.from(subMap.entries()).map(([subcategoria, subItems]) => ({
+        subcategoria,
+        subcategoriaOrden: Math.min(...subItems.map((i) => Number(i.subcategoriaOrden || 99999))),
+        items: subItems.sort((a, b) => a.ordenCatalogo - b.ordenCatalogo)
+      })).sort((a, b) => a.subcategoriaOrden - b.subcategoriaOrden);
+
+      return {
+        categoria,
+        categoriaOrden: Math.min(...items.map((i) => Number(i.categoriaOrden || 99999))),
+        items: items.sort((a, b) => a.ordenCatalogo - b.ordenCatalogo),
+        subcategorias
+      };
+    })
+    .sort((a, b) => a.categoriaOrden - b.categoriaOrden);
+}
+
+function renderCatalogoGuasch() {
+  const panel = $('#catalogo-guasch-panel');
+  if (!panel) return;
+  const total = productosListaComercial.length;
+  if (!total) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  const todos = catalogoGuaschCategorias.flatMap((c) => c.items);
+  const porEstado = { DISPONIBLE: 0, CONSULTAR: 0, AGOTADO: 0, SIN_STOCK: 0 };
+  let sinPrecio = 0;
+  let precioFinalNull = 0;
+  for (const it of todos) {
+    porEstado[it.estado] = (porEstado[it.estado] || 0) + 1;
+    if (!it.tienePrecio) sinPrecio += 1;
+    if (it.precioFinal == null) precioFinalNull += 1;
+  }
+  $('#catalogo-guasch-resumen').innerHTML = `
+    <div class="item"><strong>Total productos importados:</strong> ${total}</div>
+    <div class="item"><strong>Cantidad por categoría:</strong> ${catalogoGuaschCategorias.map((c) => `${c.categoria}: ${c.items.length}`).join(' | ')}</div>
+    <div class="item"><strong>DISPONIBLE:</strong> ${porEstado.DISPONIBLE || 0} · <strong>CONSULTAR:</strong> ${porEstado.CONSULTAR || 0} · <strong>AGOTADO:</strong> ${porEstado.AGOTADO || 0} · <strong>SIN_STOCK:</strong> ${porEstado.SIN_STOCK || 0}</div>
+    <div class="item"><strong>Productos sin precio:</strong> ${sinPrecio}</div>
+    <div class="item"><strong>Productos con precioFinal null:</strong> ${precioFinalNull}</div>
+  `;
+
+  $('#catalogo-guasch-acordeon').innerHTML = catalogoGuaschCategorias.map((grupo) => {
+    const cantSinPrecio = grupo.items.filter((i) => !i.tienePrecio).length;
+    const estadosNoDisponibles = grupo.items.filter((i) => i.estado !== 'DISPONIBLE').length;
+    const posibleFaltante = cantSinPrecio > 0 || estadosNoDisponibles > 0;
+    const bandera = posibleFaltante ? '<span class="badge-alerta">Posibles faltantes/errores</span>' : '<span class="badge-ok">Completa</span>';
+    return `
+      <details class="categoria-acordeon" open>
+        <summary>${grupo.categoria} (${grupo.items.length}) ${bandera}</summary>
+        <div class="categoria-auditoria-meta">Sin precio: <strong>${cantSinPrecio}</strong> · No disponibles: <strong>${estadosNoDisponibles}</strong></div>
+        <div class="lista">
+          ${grupo.subcategorias.map((sub) => `
+          <div class="item"><strong>${sub.subcategoria === 'SIN_SUBCATEGORIA' ? 'Sin subcategoría' : sub.subcategoria}</strong> (${sub.items.length})</div>
+          ${sub.items.map((i) => `
+            <div class="item auditoria-item ${i.tienePrecio ? '' : 'auditoria-item-alerta'}">
+              <strong>${i.nombre}</strong> · ${i.unidad} · Estado: <strong>${i.estado}</strong> · Precio final: <strong>${i.precioFinal == null ? 'SIN PRECIO' : money(i.precioFinal)}</strong> ${i.tienePrecio ? '' : '<span class="badge-alerta">SIN PRECIO</span>'}
+            </div>
+          `).join('')}
+        `).join('')}
+        </div>
+      </details>
+    `;
+  }).join('');
 }
 
 function renderCarrito() {
@@ -835,8 +1059,8 @@ function renderRemitoItems() {
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
 const ROLE_MODULES = {
-  ADMINISTRADOR_GENERAL: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
-  GERENTE: ['clientes','productos','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  ADMINISTRADOR_GENERAL: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
+  GERENTE: ['clientes','productos','productos-precampania','categorias','presupuestos','pedidos','ventas','caja','cuenta-corriente','proveedores','stock','remitos','reportes','eliminados','estado-sistema'],
   MOSTRADOR: ['ventas','clientes','productos','categorias','presupuestos','stock'],
   CAJA: ['caja','cuenta-corriente','reportes']
 };
@@ -915,6 +1139,96 @@ async function abrirModulo(modulo) {
   if (modulo === 'cuenta-corriente') {
     await loadResumenCuentaCorriente();
   }
+  if (modulo === 'productos-precampania') {
+    await loadProductosPrecampania();
+  }
+}
+
+function resetFormularioPrecampania() {
+  $('#pre-id').value = '';
+  $('#pre-nombre').value = '';
+  $('#pre-categoria').value = precampaniaContextoCarga.categoria || '';
+  $('#pre-envase').value = '';
+  $('#pre-descripcion').value = '';
+  $('#pre-estado').value = 'CONSULTAR';
+  $('#pre-moneda-compra').value = 'ARS';
+  $('#pre-costo-compra').value = '0';
+  $('#pre-tipo-cambio').value = '1';
+  $('#pre-porcentaje-flete').value = '0';
+  $('#pre-porcentaje-iva').value = '0';
+  $('#pre-porcentaje-margen').value = '0';
+  $('#pre-usa-precio-manual').value = 'false';
+  $('#pre-precio-manual').value = '';
+  $('#pre-precio-final').value = '0';
+  $('#pre-visible').value = 'false';
+  if (precampaniaContextoCarga.semillero) $('#pre-semillero').value = precampaniaContextoCarga.semillero;
+  calcularPreviewPrecampania();
+}
+
+function calcularPreviewPrecampania() {
+  const monedaCompra = ($('#pre-moneda-compra')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+  const costoCompra = Number($('#pre-costo-compra')?.value || 0);
+  const tipoCambio = Number($('#pre-tipo-cambio')?.value || 1) || 1;
+  const porcentajeFlete = Number($('#pre-porcentaje-flete')?.value || 0);
+  const porcentajeIva = Number($('#pre-porcentaje-iva')?.value || 0);
+  const porcentajeMargen = Number($('#pre-porcentaje-margen')?.value || 0);
+  const usaPrecioManual = ($('#pre-usa-precio-manual')?.value || 'false') === 'true';
+  const precioManual = Number($('#pre-precio-manual')?.value || 0);
+
+  const base = monedaCompra === 'USD' ? (costoCompra * tipoCambio) : costoCompra;
+  const baseConFlete = base * (1 + (porcentajeFlete / 100));
+  const baseConIva = baseConFlete * (1 + (porcentajeIva / 100));
+  const precioFinalCalculado = baseConIva * (1 + (porcentajeMargen / 100));
+  const precioFinal = usaPrecioManual ? precioManual : precioFinalCalculado;
+  const ganancia = precioFinal - baseConIva;
+
+  if ($('#pre-precio-final')) $('#pre-precio-final').value = String(Number.isFinite(precioFinal) ? Number(precioFinal.toFixed(2)) : 0);
+  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(base || 0);
+  if ($('#pre-calc-flete')) $('#pre-calc-flete').textContent = money(baseConFlete || 0);
+  if ($('#pre-calc-iva')) $('#pre-calc-iva').textContent = money(baseConIva || 0);
+  if ($('#pre-calc-final')) $('#pre-calc-final').textContent = money(precioFinal || 0);
+  if ($('#pre-calc-ganancia')) $('#pre-calc-ganancia').textContent = money(ganancia || 0);
+  if ($('#pre-calc-margen')) $('#pre-calc-margen').textContent = `${Number.isFinite(porcentajeMargen) ? porcentajeMargen : 0}%${usaPrecioManual ? ' (manual activo)' : ''}`;
+}
+
+function renderSemillerosPrecampania() {
+  const selForm = $('#pre-semillero');
+  const selFiltro = $('#pre-filtro-semillero');
+  if (selForm) {
+    selForm.innerHTML = precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('');
+    if (precampaniaContextoCarga.semillero) selForm.value = precampaniaContextoCarga.semillero;
+  }
+  if (selFiltro) {
+    selFiltro.innerHTML = `<option value="TODOS">Todos los semilleros</option>${precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('')}`;
+  }
+}
+
+function renderProductosPrecampania() {
+  const q = ($('#pre-buscar')?.value || '').trim().toLowerCase();
+  const semilleroFiltro = $('#pre-filtro-semillero')?.value || 'TODOS';
+  const categoriaFiltro = ($('#pre-filtro-categoria')?.value || '').trim().toLowerCase();
+  const lista = precampaniaProductos.filter((p) => {
+    const matchQ = !q || [p.nombre, p.semilleroLaboratorio, p.categoria, p.presentacionEnvase].some((v) => String(v || '').toLowerCase().includes(q));
+    const matchSem = semilleroFiltro === 'TODOS' || p.semilleroLaboratorio === semilleroFiltro;
+    const matchCat = !categoriaFiltro || String(p.categoria || '').toLowerCase().includes(categoriaFiltro);
+    return matchQ && matchSem && matchCat;
+  });
+  $('#pre-lista').innerHTML = lista.length
+    ? lista.map((p) => `<div class="item"><strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | ${p.categoria || '-'} | ${p.presentacionEnvase || '-'} | ${p.estado || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'}
+      <button data-pre-editar="${p.id}">Editar</button>
+      <button data-pre-duplicar="${p.id}">Duplicar</button>
+      <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button>
+      <button data-pre-eliminar="${p.id}">Desactivar</button>
+    </div>`).join('')
+    : '<div class="item">Sin productos precampaña.</div>';
+}
+
+async function loadProductosPrecampania() {
+  const data = await api('/api/productos-precampania');
+  precampaniaSemilleros = Array.isArray(data?.semilleros) ? data.semilleros : [];
+  precampaniaProductos = Array.isArray(data?.productos) ? data.productos : [];
+  renderSemillerosPrecampania();
+  renderProductosPrecampania();
 }
 
 
@@ -1069,12 +1383,133 @@ volverInicio();
 
 $('#btn-nueva').addEventListener('click', async () => {
   try {
-    const v = await api('/mostrador/ventas', { method: 'POST', body: '{}' });
+    const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
+    const listaComercialId = tipoOperacion === 'PRECAMPAÑA' ? Number($('#lista-comercial-select')?.value || 0) : null;
+    const v = await api('/mostrador/ventas', { method: 'POST', body: JSON.stringify({ tipoOperacion, listaComercialId }) });
     ventaId = v.id;
     await refreshVenta();
     setMsg('Venta creada');
   } catch (e) { setMsg(e.message); }
 });
+
+$('#tipo-operacion-venta')?.addEventListener('change', async (e) => {
+  const esPre = e.target.value === 'PRECAMPAÑA';
+  $('#label-lista-comercial')?.classList.toggle('hidden', !esPre);
+  $('#buscar-producto')?.classList.toggle('hidden', esPre);
+  $('#resultados-productos')?.classList.toggle('hidden', esPre);
+  if (esPre) {
+    await cargarListasComerciales();
+    await cargarProductosListaComercial();
+  } else {
+    productosListaComercial = [];
+    catalogoGuaschCategorias = [];
+    $('#catalogo-guasch-panel')?.classList.add('hidden');
+    $('#precio-precampania-detalle').innerHTML = '';
+  }
+});
+$('#lista-comercial-select')?.addEventListener('change', async () => {
+  await cargarProductosListaComercial();
+});
+$('#pre-buscar')?.addEventListener('input', renderProductosPrecampania);
+$('#pre-filtro-semillero')?.addEventListener('change', renderProductosPrecampania);
+$('#pre-filtro-categoria')?.addEventListener('input', renderProductosPrecampania);
+$('#btn-precampania-nuevo')?.addEventListener('click', resetFormularioPrecampania);
+$('#pre-semillero')?.addEventListener('change', (e) => { precampaniaContextoCarga.semillero = e.target.value; });
+$('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga.categoria = e.target.value; });
+['pre-moneda-compra', 'pre-costo-compra', 'pre-tipo-cambio', 'pre-porcentaje-flete', 'pre-porcentaje-iva', 'pre-porcentaje-margen', 'pre-precio-manual', 'pre-usa-precio-manual']
+  .forEach((id) => {
+    $(id)?.addEventListener('input', calcularPreviewPrecampania);
+    $(id)?.addEventListener('change', calcularPreviewPrecampania);
+  });
+$('#pre-lista')?.addEventListener('click', async (e) => {
+  const editar = e.target.closest('button[data-pre-editar]');
+  if (editar) {
+    const id = Number(editar.dataset.preEditar);
+    const p = precampaniaProductos.find((x) => x.id === id);
+    if (!p) return;
+    $('#pre-id').value = String(p.id);
+    $('#pre-nombre').value = p.nombre || '';
+    $('#pre-semillero').value = p.semilleroLaboratorio || '';
+    $('#pre-categoria').value = p.categoria || '';
+    $('#pre-envase').value = p.presentacionEnvase || '';
+    $('#pre-descripcion').value = p.descripcion || '';
+    $('#pre-estado').value = p.estado || 'CONSULTAR';
+    $('#pre-moneda-compra').value = p.monedaCompra || 'ARS';
+    $('#pre-costo-compra').value = p.costoCompra == null ? '0' : String(p.costoCompra);
+    $('#pre-tipo-cambio').value = p.tipoCambio == null ? '1' : String(p.tipoCambio);
+    $('#pre-porcentaje-flete').value = p.porcentajeFlete == null ? '0' : String(p.porcentajeFlete);
+    $('#pre-porcentaje-iva').value = p.porcentajeIva == null ? '0' : String(p.porcentajeIva);
+    $('#pre-porcentaje-margen').value = p.porcentajeMargen == null ? '0' : String(p.porcentajeMargen);
+    $('#pre-usa-precio-manual').value = p.usaPrecioManual ? 'true' : 'false';
+    $('#pre-precio-manual').value = p.precioManual == null ? '' : String(p.precioManual);
+    $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
+    $('#pre-visible').value = p.visibleEnSemillasYa ? 'true' : 'false';
+    calcularPreviewPrecampania();
+    return;
+  }
+  const duplicar = e.target.closest('button[data-pre-duplicar]');
+  if (duplicar) {
+    const id = Number(duplicar.dataset.preDuplicar);
+    const p = precampaniaProductos.find((x) => x.id === id);
+    if (!p) return;
+    const { id: _id, createdAt, updatedAt, ...payload } = p;
+    payload.nombre = `${p.nombre || 'Producto'} (Copia)`;
+    await api('/api/productos-precampania', { method: 'POST', body: JSON.stringify(payload) });
+    await loadProductosPrecampania();
+    setMsg('Producto precampaña duplicado', 'info');
+    return;
+  }
+  const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
+  if (toggleVisible) {
+    const id = Number(toggleVisible.dataset.preToggleVisible);
+    const p = precampaniaProductos.find((x) => x.id === id);
+    if (!p) return;
+    await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, visibleEnSemillasYa: !p.visibleEnSemillasYa }) });
+    await loadProductosPrecampania();
+    setMsg('Visibilidad en SemillasYa actualizada', 'info');
+    return;
+  }
+  const eliminar = e.target.closest('button[data-pre-eliminar]');
+  if (!eliminar) return;
+  const id = Number(eliminar.dataset.preEliminar);
+  await api(`/api/productos-precampania/${id}`, { method: 'DELETE' });
+  await loadProductosPrecampania();
+  setMsg('Producto precampaña desactivado', 'info');
+});
+$('#btn-precampania-guardar')?.addEventListener('click', async () => {
+  calcularPreviewPrecampania();
+  const id = Number($('#pre-id').value || 0);
+  const payload = {
+    nombre: ($('#pre-nombre').value || '').trim(),
+    semilleroLaboratorio: $('#pre-semillero').value,
+    categoria: ($('#pre-categoria').value || '').trim(),
+    presentacionEnvase: ($('#pre-envase').value || '').trim(),
+    descripcion: ($('#pre-descripcion').value || '').trim(),
+    estado: $('#pre-estado').value,
+    monedaCompra: $('#pre-moneda-compra').value,
+    costoCompra: Number($('#pre-costo-compra').value || 0),
+    tipoCambio: Number($('#pre-tipo-cambio').value || 1),
+    porcentajeFlete: Number($('#pre-porcentaje-flete').value || 0),
+    porcentajeIva: Number($('#pre-porcentaje-iva').value || 0),
+    porcentajeMargen: Number($('#pre-porcentaje-margen').value || 0),
+    usaPrecioManual: $('#pre-usa-precio-manual').value === 'true',
+    precioManual: ($('#pre-precio-manual').value || '').trim(),
+    precioInternoManual: ($('#pre-precio-manual').value || '').trim(),
+    visibleEnSemillasYa: $('#pre-visible').value === 'true'
+  };
+  if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
+  if (id) {
+    await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    setMsg('Producto precampaña actualizado', 'info');
+  } else {
+    await api('/api/productos-precampania', { method: 'POST', body: JSON.stringify(payload) });
+    setMsg('Producto precampaña creado', 'info');
+  }
+  resetFormularioPrecampania();
+  await loadProductosPrecampania();
+});
+
+calcularPreviewPrecampania();
 
 $('#buscar-producto').addEventListener('input', renderProductos);
 $('#buscar-producto').addEventListener('keydown', async (e) => {

@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido } = require('@prisma/client');
+const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido, TipoOperacionVenta, TipoReglaComercial } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 
 const app = express();
@@ -8,6 +8,11 @@ const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
 console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
 
 app.use(express.json());
+app.use('/semillasya/api', (req, _res, next) => {
+  req.url = req.url.replace(/^\/api/, '');
+  next();
+});
+
 
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -27,6 +32,24 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+
+
+function normalizarTelefono(valor) {
+  return String(valor || '').replace(/\D+/g, '');
+}
+
+function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, pais, provincia, localidad, items }) {
+  const resumenItems = items.slice(0, 6).map((it) => `${it.nombreProducto} x ${it.cantidad}`).join(', ');
+  const extra = items.length > 6 ? ` (+${items.length - 6} más)` : '';
+  return [
+    `Nueva solicitud SemillasYa #${presupuestoId}`,
+    `Cliente: ${nombre}`,
+    `País: ${pais || 'No informado'}`,
+    `Provincia: ${provincia || 'No informada'}`,
+    `Localidad: ${localidad || 'No informada'}`,
+    `Ítems: ${resumenItems || 'Sin ítems'}${extra}`
+  ].join(' | ');
+}
 
 function formatMoney(value) {
   return '$' + Number(value || 0).toFixed(2);
@@ -159,6 +182,19 @@ function calcularTotalesConDescuento(items = [], descuentoTipo = null, descuento
     total
   };
 }
+
+function aplicarReglasComerciales(base, reglas = []) {
+  let precio = Number(base || 0);
+  const detalle = [];
+  for (const regla of reglas.sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0))) {
+    const valor = Number(regla.valor || 0);
+    const delta = precio * (valor / 100);
+    if (regla.tipo === TipoReglaComercial.DESCUENTO_PORCENTAJE || regla.tipo === TipoReglaComercial.BONIFICACION_PORCENTAJE) precio -= delta;
+    else precio += delta;
+    detalle.push({ reglaId: regla.id, nombre: regla.nombre, tipo: regla.tipo, valor, precioParcial: precio });
+  }
+  return { precioFinal: Math.max(0, precio), detalle };
+}
 const usuarios = [
   { usuario: 'admin', password: 'admin123', rol: 'ADMINISTRADOR_GENERAL' },
   { usuario: 'gerente', password: 'gerente123', rol: 'GERENTE' },
@@ -168,7 +204,7 @@ const registrosEliminados = [];
 const PASSWORD_ELIMINACION = '12345';
 
 app.get('/', (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
+  res.redirect(302, '/semillasya');
 });
 
 app.post('/login', (req, res) => {
@@ -669,6 +705,61 @@ function obtenerCategoriaDelegate() {
   return delegate;
 }
 
+
+function calcularPrecioProductoPrecampania(producto = {}) {
+  const usaPrecioManual = Boolean(producto.usaPrecioManual);
+  const precioManual = numeroSeguro(producto.precioManual ?? producto.precioInternoManual ?? 0);
+  if (usaPrecioManual) {
+    return Number(precioManual.toFixed(2));
+  }
+  const monedaCompra = String(producto.monedaCompra || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+  const costoCompra = numeroSeguro(producto.costoCompra ?? 0);
+  const tipoCambio = numeroSeguro(producto.tipoCambio, 1);
+  const porcentajeFlete = numeroSeguro(producto.porcentajeFlete ?? 0);
+  const porcentajeIva = numeroSeguro(producto.porcentajeIva ?? 0);
+  const porcentajeMargen = numeroSeguro(producto.porcentajeMargen ?? 0);
+
+  const base = monedaCompra === 'USD' ? (costoCompra * tipoCambio) : costoCompra;
+  const baseConFlete = base * (1 + (porcentajeFlete / 100));
+  const baseConIva = baseConFlete * (1 + (porcentajeIva / 100));
+  const final = baseConIva * (1 + (porcentajeMargen / 100));
+  return Number(numeroSeguro(final).toFixed(2));
+}
+
+function normalizarPayloadProductoPrecampania(payload = {}) {
+  const moneda = String(payload.monedaCompra || 'ARS').trim().toUpperCase();
+  const monedaCompra = moneda === 'USD' ? 'USD' : 'ARS';
+  const usaPrecioManual = Boolean(payload.usaPrecioManual);
+  const precioManual = payload.precioManual == null || payload.precioManual === '' ? null : Number(payload.precioManual);
+  const base = {
+    nombre: String(payload.nombre || '').trim(),
+    semilleroLaboratorio: String(payload.semilleroLaboratorio || '').trim(),
+    categoria: String(payload.categoria || '').trim(),
+    presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
+    descripcion: String(payload.descripcion || '').trim(),
+    precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
+    monedaCompra,
+    costoCompra: Number(payload.costoCompra || 0),
+    tipoCambio: Number(payload.tipoCambio || 1),
+    porcentajeFlete: Number(payload.porcentajeFlete || 0),
+    porcentajeIva: Number(payload.porcentajeIva || 0),
+    porcentajeMargen: Number(payload.porcentajeMargen || 0),
+    precioManual,
+    usaPrecioManual,
+    estado: ['DISPONIBLE','CONSULTAR','AGOTADO'].includes(String(payload.estado || '')) ? payload.estado : 'CONSULTAR',
+    publicadoWeb: Boolean(payload.publicadoWeb),
+    visibleEnSemillasYa: Boolean(payload.visibleEnSemillasYa)
+  };
+  if (base.visibleEnSemillasYa) {
+    base.publicadoWeb = true;
+  }
+  base.precioVentaFinal = calcularPrecioProductoPrecampania(base);
+  if (base.usaPrecioManual && base.precioInternoManual == null && base.precioManual != null) {
+    base.precioInternoManual = base.precioManual;
+  }
+  return base;
+}
+
 function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
   const monedaBruta = String(payload.monedaCompra ?? payload.monedaCosto ?? '').trim().toUpperCase();
   const monedaCompraPayload = ['USD', 'DOLAR', 'DÓLAR', 'DOLARES', 'DÓLARES'].includes(monedaBruta)
@@ -771,20 +862,21 @@ app.get('/productos/buscar', asyncHandler(async (req, res) => {
 
 app.post('/productos', asyncHandler(async (req, res) => {
   try {
-    console.log('[producto-guardado][backend] POST /productos payload', req.body);
+    const { id: _idIgnorado, ...payloadSinId } = req.body || {};
+    console.log('[producto-guardado][backend] POST /productos payload', payloadSinId);
     const totalCategoriasActivas = await obtenerCategoriaDelegate().count({ where: { activo: true } });
-    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
+    const errorValidacion = validarPayloadProducto({ ...payloadSinId, __requiereCategoria: totalCategoriasActivas > 0 });
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] POST /productos validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
     }
     const tipoCambioActual = await obtenerTipoCambioActual();
-    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
+    const categoriaIds = parseCategoriaIds(payloadSinId?.categoriaIds);
     const categorias = await obtenerCategoriaDelegate().findMany({ where: { id: { in: categoriaIds }, activo: true } });
     if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
-    const data = normalizarPayloadProducto({ ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
+    const data = normalizarPayloadProducto({ ...payloadSinId, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
-    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? Array.from(new Set(req.body.proveedorIds.map(Number).filter(Number.isInteger))) : [];
+    const proveedorIds = Array.isArray(payloadSinId?.proveedorIds) ? Array.from(new Set(payloadSinId.proveedorIds.map(Number).filter(Number.isInteger))) : [];
     const producto = await prisma.producto.create({ data: { ...data, categorias: { connect: categoriaIds.map((id) => ({ id })) } } });
     console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
     if (proveedorIds.length) {
@@ -1715,8 +1807,115 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 }));
 
 app.post('/mostrador/ventas', asyncHandler(async (req, res) => {
-  const venta = await prisma.venta.create({ data: {} });
+  const tipoOperacion = req.body?.tipoOperacion === TipoOperacionVenta.PRECAMPAÑA ? TipoOperacionVenta.PRECAMPAÑA : TipoOperacionVenta.MOSTRADOR;
+  const listaComercialId = tipoOperacion === TipoOperacionVenta.PRECAMPAÑA ? parsePositiveInt(req.body?.listaComercialId) : null;
+  const venta = await prisma.venta.create({ data: { tipoOperacion, listaComercialId } });
   res.status(201).json(venta);
+}));
+
+app.get('/api/listas-comerciales', asyncHandler(async (_req, res) => {
+  const listas = await prisma.listaComercial.findMany({ include: { empresaComercial: true, reglas: true }, orderBy: { updatedAt: 'desc' } });
+  res.json(listas);
+}));
+
+app.post('/api/listas-comerciales', asyncHandler(async (req, res) => {
+  const { empresaComercialId, empresa, nombre, codigo, moneda, vigenteDesde, vigenteHasta, reglas = [] } = req.body || {};
+  let empresaId = parsePositiveInt(empresaComercialId);
+  if (!empresaId) {
+    if (!empresa?.nombre) return res.status(400).json({ error: 'empresaComercialId o empresa.nombre es obligatorio' });
+    const creada = await prisma.empresaComercial.create({ data: { nombre: String(empresa.nombre).trim(), tipo: empresa.tipo || 'LABORATORIO' } });
+    empresaId = creada.id;
+  }
+  const lista = await prisma.listaComercial.create({
+    data: {
+      empresaComercialId: empresaId, nombre: String(nombre || '').trim(), codigo: codigo || null, moneda: moneda || 'ARS',
+      vigenteDesde: vigenteDesde ? new Date(vigenteDesde) : null, vigenteHasta: vigenteHasta ? new Date(vigenteHasta) : null,
+      reglas: { create: Array.isArray(reglas) ? reglas.map((r, idx) => ({ nombre: r.nombre || `Regla ${idx + 1}`, tipo: r.tipo || TipoReglaComercial.DESCUENTO_PORCENTAJE, valor: Number(r.valor || 0), orden: Number(r.orden || idx) })) : [] }
+    }, include: { reglas: true, empresaComercial: true }
+  });
+  res.status(201).json(lista);
+}));
+
+app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
+  const listaComercialId = parsePositiveInt(req.params.id);
+  if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
+  const productos = await prisma.productoListaComercial.findMany({ where: { listaComercialId, activo: true }, orderBy: { createdAt: 'asc' } });
+  res.json(productos);
+}));
+
+const SEMILLEROS_PRECAMPAÑA = ['Guasch', 'CAPS', 'Garden', 'Gasty', 'Chuchuy', 'Florensa', 'Picasso'];
+
+app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
+  const productos = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
+  res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, productos });
+}));
+
+app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  const semillero = String(payload.semilleroLaboratorio || '').trim();
+  if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
+  const data = normalizarPayloadProductoPrecampania(payload);
+  const creado = await prisma.productoPrecampania.create({ data: { ...data, semilleroLaboratorio: semillero } });
+  res.status(201).json(creado);
+}));
+
+app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const payload = req.body || {};
+  const semillero = String(payload.semilleroLaboratorio || '').trim();
+  if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
+  const data = normalizarPayloadProductoPrecampania(payload);
+  const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, semilleroLaboratorio: semillero } });
+  res.json(actualizado);
+}));
+
+app.delete('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  await prisma.productoPrecampania.update({ where: { id }, data: { activo: false } });
+  res.json({ ok: true });
+}));
+
+app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
+  const productos = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true }
+  });
+  res.json(productos);
+}));
+
+app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
+  const productos = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true }
+  });
+  res.json(productos);
+}));
+
+app.post('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) => {
+  const listaComercialId = parsePositiveInt(req.params.id);
+  if (!listaComercialId) return res.status(400).json({ error: 'id inválido' });
+  const payload = req.body || {};
+  const creado = await prisma.productoListaComercial.create({ data: { listaComercialId, nombreProducto: String(payload.nombreProducto || '').trim(), skuExterno: payload.skuExterno || null, unidad: payload.unidad || null, precioNeto: Number(payload.precioNeto || 0), precioSugeridoPublico: payload.precioSugeridoPublico == null ? null : Number(payload.precioSugeridoPublico), descuentoPorcentaje: Number(payload.descuentoPorcentaje || 0), bonificacionPorcentaje: Number(payload.bonificacionPorcentaje || 0), ivaPorcentaje: Number(payload.ivaPorcentaje ?? 21), fletePorcentaje: Number(payload.fletePorcentaje || 0), margenPorcentaje: Number(payload.margenPorcentaje || 0), financiacionPorcentaje: Number(payload.financiacionPorcentaje || 0), moneda: payload.moneda || 'ARS' } });
+  res.status(201).json(creado);
+}));
+
+app.post('/api/precios-precampaña/calcular', asyncHandler(async (req, res) => {
+  const { listaComercialId, productoListaComercialId } = req.body || {};
+  const listaId = parsePositiveInt(listaComercialId);
+  const productoId = parsePositiveInt(productoListaComercialId);
+  if (!listaId || !productoId) return res.status(400).json({ error: 'listaComercialId y productoListaComercialId son obligatorios' });
+  const [producto, reglas] = await Promise.all([
+    prisma.productoListaComercial.findFirst({ where: { id: productoId, listaComercialId: listaId } }),
+    prisma.reglaComercialLista.findMany({ where: { listaComercialId: listaId, activa: true } })
+  ]);
+  if (!producto) return res.status(404).json({ error: 'Producto de lista no encontrado' });
+  const precioBase = producto.precioNeto > 0 ? Number(producto.precioNeto) : Number(producto.precioSugeridoPublico || 0);
+  const calculo = aplicarReglasComerciales(precioBase, reglas);
+  res.json({ precioBase, reglasAplicadas: calculo.detalle, precioFinal: calculo.precioFinal, moneda: producto.moneda });
 }));
 
 app.get('/mostrador/ventas/:id', asyncHandler(async (req, res) => {
@@ -2483,6 +2682,162 @@ app.use((err, req, res, next) => {
   if (process.env.NODE_ENV !== 'production') response.stack = err.stack;
   res.status(500).json(response);
 });
+
+
+
+app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
+  const { personaId, nombre, telefono, pais, provincia, localidad, observaciones, items } = req.body || {};
+
+  const nombreLimpio = String(nombre || '').trim();
+  const telefonoLimpio = normalizarTelefono(telefono);
+  const paisLimpio = String(pais || '').trim();
+  const provinciaLimpia = String(provincia || '').trim();
+  const localidadLimpia = String(localidad || '').trim();
+  const observacionesLimpias = String(observaciones || '').trim();
+  const itemsEntrada = Array.isArray(items) ? items : [];
+
+  if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
+  if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
+  if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
+  if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
+  if (!itemsEntrada.length) return res.status(400).json({ error: 'Debe incluir al menos un item' });
+
+  const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoPrecampaniaId)).filter(Boolean);
+  if (ids.length !== itemsEntrada.length) return res.status(400).json({ error: 'productoPrecampaniaId inválido en items' });
+
+  const cantidades = itemsEntrada.map((it) => parsePositiveInt(it.cantidad)).filter(Boolean);
+  if (cantidades.length !== itemsEntrada.length) return res.status(400).json({ error: 'cantidad inválida en items' });
+
+  const productosLista = await prisma.productoPrecampania.findMany({
+    where: { id: { in: ids }, activo: true, visibleEnSemillasYa: true }
+  });
+  const productosById = new Map(productosLista.map((p) => [p.id, p]));
+  const faltantes = ids.filter((id) => !productosById.has(id));
+  if (faltantes.length) return res.status(400).json({ error: `Productos de precampaña no encontrados: ${faltantes.join(', ')}` });
+
+  const resultado = await prisma.$transaction(async (tx) => {
+    let personaExistente = null;
+    if (parsePositiveInt(personaId)) {
+      personaExistente = await tx.persona.findFirst({ where: { id: parsePositiveInt(personaId), eliminado: false } });
+    }
+    if (!personaExistente) {
+      personaExistente = await tx.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+    }
+    const observacionesPersona = [
+      paisLimpio ? `País: ${paisLimpio}` : null,
+      provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
+      localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
+      'Origen: SEMILLASYA_WEB',
+      observacionesLimpias ? `Obs: ${observacionesLimpias}` : null
+    ].filter(Boolean).join(' | ');
+
+    const persona = personaExistente
+      ? await tx.persona.update({ where: { id: personaExistente.id }, data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona } })
+      : await tx.persona.create({ data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona } });
+
+    const itemsCalculados = [];
+    for (let i = 0; i < itemsEntrada.length; i += 1) {
+      const item = itemsEntrada[i];
+      const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
+      const cantidad = parsePositiveInt(item.cantidad);
+      const precioUnitario = Number(productoLista.precioVentaFinal || 0);
+
+      let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombre, unidad: productoLista.presentacionEnvase || '', eliminado: false } });
+      if (!productoERP) {
+        productoERP = await tx.producto.create({ data: { nombre: productoLista.nombre, categoria: 'SEMILLASYA', marca: productoLista.semilleroLaboratorio || 'SEMILLASYA', unidad: productoLista.presentacionEnvase || '', precioVenta: precioUnitario, precioFinalPesos: precioUnitario, stock: 0 } });
+      }
+
+      itemsCalculados.push({
+        productoId: productoERP.id,
+        cantidad,
+        precioUnitario,
+        subtotal: precioUnitario * cantidad,
+        nombreProducto: productoLista.nombre
+      });
+    }
+
+    const subtotal = itemsCalculados.reduce((acc, it) => acc + it.subtotal, 0);
+    const presupuesto = await tx.presupuesto.create({
+      data: {
+        personaId: persona.id,
+        tipoDestinatario: TipoDestinatarioPresupuesto.EXISTENTE,
+        estado: enumValuesSafe(EstadoPresupuesto).includes('WEB_SOLICITADO') ? 'WEB_SOLICITADO' : EstadoPresupuesto.BORRADOR,
+        subtotal,
+        total: subtotal,
+        observaciones: [
+          'Solicitud originada en SEMILLASYA_WEB',
+          paisLimpio ? `País: ${paisLimpio}` : null,
+          provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
+          localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
+          observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
+        ].filter(Boolean).join(' | ')
+      }
+    });
+
+    await tx.presupuestoItem.createMany({
+      data: itemsCalculados.map((it) => ({ presupuestoId: presupuesto.id, productoId: it.productoId, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.subtotal }))
+    });
+
+    return { persona, presupuesto, itemsCalculados };
+  });
+
+  const mensajeInterno = armarMensajeWhatsAppSemillasYaInterno({
+    presupuestoId: resultado.presupuesto.id,
+    nombre: nombreLimpio,
+    pais: paisLimpio,
+    provincia: provinciaLimpia,
+    localidad: localidadLimpia,
+    items: resultado.itemsCalculados
+  });
+
+  res.status(201).json({
+    ok: true,
+    personaId: resultado.persona.id,
+    presupuestoId: resultado.presupuesto.id,
+    mensaje: 'Solicitud recibida. Te vamos a responder por WhatsApp.',
+    whatsappInterno: { mensaje: mensajeInterno }
+  });
+}));
+
+app.get('/semillasya', (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
+});
+
+app.use('/semillasya', express.static(require('path').join(__dirname, 'app')));
+
+app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
+  const { nombre, telefono, pais, provincia, localidad } = req.body || {};
+  const nombreLimpio = String(nombre || '').trim();
+  const telefonoLimpio = normalizarTelefono(telefono);
+  const paisLimpio = String(pais || '').trim();
+  const provinciaLimpia = String(provincia || '').trim();
+  const localidadLimpia = String(localidad || '').trim();
+
+  if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
+  if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
+  if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
+  if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
+  if (!localidadLimpia) return res.status(400).json({ error: 'localidad es obligatoria' });
+
+  const observacionesPersona = [
+    `País: ${paisLimpio}`,
+    `Provincia: ${provinciaLimpia}`,
+    `Localidad: ${localidadLimpia}`,
+    'Origen: SEMILLASYA_WEB'
+  ].join(' | ');
+
+  const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+  const persona = personaExistente
+    ? await prisma.persona.update({
+      where: { id: personaExistente.id },
+      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+    })
+    : await prisma.persona.create({
+      data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
+    });
+
+  res.status(201).json({ ok: true, personaId: persona.id });
+}));
 
 app.get('/app', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'index.html'));

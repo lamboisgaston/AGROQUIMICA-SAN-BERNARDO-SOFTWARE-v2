@@ -242,6 +242,9 @@ model Venta {
   updatedAt DateTime    @updatedAt
   medioPago MedioPago?
   movimientosCuentaCorriente MovimientoCuentaCorriente[]
+  tipoOperacion TipoOperacionVenta @default(MOSTRADOR)
+  listaComercialId Int?
+  listaComercial ListaComercial? @relation(fields: [listaComercialId], references: [id])
 }
 
 model CierreCajaDiario {
@@ -348,4 +351,118 @@ enum TipoMovimientoCuentaCorriente {
 enum TipoCliente {
   PERSONAL
   EMPRESA
+}
+
+
+
+enum EstadoProductoPrecampania {
+  DISPONIBLE
+  CONSULTAR
+  AGOTADO
+}
+
+model ProductoPrecampania {
+  id                   Int      @id @default(autoincrement())
+  nombre               String
+  semilleroLaboratorio String
+  categoria            String
+  presentacionEnvase   String
+  descripcion          String
+  precioInternoManual  Float?
+  monedaCompra         String   @default("ARS")
+  costoCompra          Float    @default(0)
+  tipoCambio           Float    @default(1)
+  porcentajeFlete      Float    @default(0)
+  porcentajeIva        Float    @default(0)
+  porcentajeMargen     Float    @default(0)
+  precioVentaFinal     Float    @default(0)
+  precioManual         Float?
+  usaPrecioManual      Boolean  @default(false)
+  estado               EstadoProductoPrecampania @default(CONSULTAR)
+  publicadoWeb         Boolean  @default(false)
+  visibleEnSemillasYa  Boolean  @default(false)
+  activo               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+model EmpresaComercial {
+  id Int @id @default(autoincrement())
+  nombre String
+  tipo String @default("LABORATORIO")
+  cuit String?
+  contactoComercial String?
+  observaciones String?
+  activo Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  listasComerciales ListaComercial[]
+}
+
+model ListaComercial {
+  id Int @id @default(autoincrement())
+  empresaComercialId Int
+  empresaComercial EmpresaComercial @relation(fields: [empresaComercialId], references: [id])
+  nombre String
+  codigo String?
+  moneda String @default("ARS")
+  vigenteDesde DateTime?
+  vigenteHasta DateTime?
+  activa Boolean @default(true)
+  metadata String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  productos ProductoListaComercial[]
+  reglas ReglaComercialLista[]
+  ventas Venta[]
+}
+
+model ProductoListaComercial {
+  id Int @id @default(autoincrement())
+  listaComercialId Int
+  listaComercial ListaComercial @relation(fields: [listaComercialId], references: [id], onDelete: Cascade)
+  skuExterno String?
+  nombreProducto String
+  unidad String?
+  precioNeto Float @default(0)
+  precioSugeridoPublico Float?
+  descuentoPorcentaje Float @default(0)
+  bonificacionPorcentaje Float @default(0)
+  ivaPorcentaje Float @default(21)
+  fletePorcentaje Float @default(0)
+  margenPorcentaje Float @default(0)
+  financiacionPorcentaje Float @default(0)
+  moneda String @default("ARS")
+  activo Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listaComercialId, nombreProducto])
+}
+
+model ReglaComercialLista {
+  id Int @id @default(autoincrement())
+  listaComercialId Int
+  listaComercial ListaComercial @relation(fields: [listaComercialId], references: [id], onDelete: Cascade)
+  nombre String
+  tipo TipoReglaComercial
+  valor Float @default(0)
+  orden Int @default(0)
+  activa Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TipoOperacionVenta {
+  MOSTRADOR
+  PRECAMPAÑA
+}
+
+enum TipoReglaComercial {
+  DESCUENTO_PORCENTAJE
+  BONIFICACION_PORCENTAJE
+  RECARGO_PORCENTAJE
+  IVA_PORCENTAJE
+  FLETE_PORCENTAJE
+  MARGEN_PORCENTAJE
+  FINANCIACION_PORCENTAJE
 }
