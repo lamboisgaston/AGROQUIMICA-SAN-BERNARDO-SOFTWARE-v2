@@ -100,7 +100,7 @@
       </div>
 
       <aside class="panel">
-        <h2 class="title">Licitación</h2>
+        <h2 class="title">Solicitud de presupuesto</h2>
         <div id="cart"></div>
         <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
         <hr style="border:none;border-top:1px solid var(--line);margin: .8rem 0;" />
@@ -108,7 +108,7 @@
         <label>Teléfono WhatsApp</label><input id="telefono" placeholder="549..." />
         <label>Localidad</label><input id="localidad" />
         <label>Observaciones</label><textarea id="obs" rows="3"></textarea>
-        <button class="btn btn-wa" id="enviar">Enviar licitación por WhatsApp</button>
+        <button class="btn btn-wa" id="enviar">Solicitar presupuesto por WhatsApp</button>
       </aside>
     </section>
   </main>
@@ -213,25 +213,35 @@
       });
     }
 
-    function enviarWhatsApp() {
+    async function enviarWhatsApp() {
       if (!state.carrito.length) return alert('Agregá al menos un producto.');
       const nombre = $('nombre').value.trim();
       const telefono = $('telefono').value.trim();
       const localidad = $('localidad').value.trim();
-      const obs = $('obs').value.trim();
+      const observaciones = $('obs').value.trim();
+      if (!nombre) return alert('Completá tu nombre.');
+      if (!telefono) return alert('Completá tu WhatsApp.');
 
-      const productos = state.carrito.map((it) => `- ${it.producto.nombreProducto} | ${marcaProducto(it.producto)} | ${categoriaProducto(it.producto)} | ${presentacionProducto(it.producto)} | Cantidad: ${it.cantidad}`).join('\n');
-      const texto = [
-        'Hola, quiero solicitar presupuesto por estas semillas…',
-        `Nombre: ${nombre || 'No informado'}`,
-        `Teléfono: ${telefono || 'No informado'}`,
-        `Localidad: ${localidad || 'No informada'}`,
-        'Productos:',
-        productos,
-        `Observaciones: ${obs || 'Sin observaciones'}`
-      ].join('\n');
+      const payload = {
+        nombre,
+        telefono,
+        localidad,
+        observaciones,
+        items: state.carrito.map((it) => ({
+          productoListaComercialId: Number(it.producto.id),
+          cantidad: Math.max(1, Number(it.cantidad || 1))
+        }))
+      };
 
-      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+      const r = await fetch('/api/semillasya/solicitud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar la solicitud');
+
+      window.open(data.whatsappUrl, '_blank');
     }
 
     async function cargarListas() {
@@ -250,7 +260,7 @@
 
     ['buscar', 'filtroCategoria', 'filtroMarca', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('lista').addEventListener('change', (e) => cargarProductos(e.target.value));
-    $('enviar').addEventListener('click', enviarWhatsApp);
+    $('enviar').addEventListener('click', () => enviarWhatsApp().catch((e) => alert(e.message)));
 
     renderBrands();
     cargarListas().catch(() => {
