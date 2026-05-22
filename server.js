@@ -1288,7 +1288,7 @@ app.get('/clientes/semillasya', asyncHandler(async (_req, res) => {
       nombre: c.nombre,
       telefono: c.telefono,
       provincia: meta.provincia || null,
-      localidad: meta.localidad || null,
+      localidad: meta.ciudad || meta.localidad || null,
       fechaAlta: c.id,
       solicitudes: solicitudesMap.get(c.id) || 0
     };
@@ -2829,13 +2829,13 @@ app.use((err, req, res, next) => {
 
 
 app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
-  const { personaId, nombre, telefono, pais, provincia, localidad, observaciones, items } = req.body || {};
+  const { personaId, nombre, telefono, pais, provincia, ciudad, localidad, observaciones, items } = req.body || {};
 
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
   const paisLimpio = String(pais || '').trim();
   const provinciaLimpia = String(provincia || '').trim();
-  const localidadLimpia = String(localidad || '').trim();
+  const ciudadLimpia = String(ciudad || localidad || '').trim();
   const observacionesLimpias = String(observaciones || '').trim();
   const itemsEntrada = Array.isArray(items) ? items : [];
 
@@ -2869,7 +2869,7 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
     const observacionesPersona = [
       paisLimpio ? `País: ${paisLimpio}` : null,
       provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
-      localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
+      ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
       'Origen: SEMILLASYA_WEB',
       observacionesLimpias ? `Obs: ${observacionesLimpias}` : null
     ].filter(Boolean).join(' | ');
@@ -2913,7 +2913,7 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
           'Solicitud originada en SEMILLASYA_WEB',
           paisLimpio ? `País: ${paisLimpio}` : null,
           provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
-          localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
+          ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
           observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
         ].filter(Boolean).join(' | ')
       }
@@ -2931,7 +2931,8 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
     nombre: nombreLimpio,
     pais: paisLimpio,
     provincia: provinciaLimpia,
-    localidad: localidadLimpia,
+    ciudad: ciudadLimpia,
+    localidad: ciudadLimpia,
     items: resultado.itemsCalculados
   });
 
@@ -2951,27 +2952,27 @@ app.get('/semillasya', (req, res) => {
 app.use('/semillasya', express.static(require('path').join(__dirname, 'app')));
 
 app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
-  const { nombre, telefono, pais, provincia, localidad } = req.body || {};
+  const { nombre, telefono, pais, provincia, ciudad, localidad } = req.body || {};
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
   const paisLimpio = String(pais || '').trim();
   const provinciaLimpia = String(provincia || '').trim();
-  const localidadLimpia = String(localidad || '').trim();
+  const ciudadLimpia = String(ciudad || localidad || '').trim();
 
   if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
   if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
   if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
   if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
-  if (!localidadLimpia) return res.status(400).json({ error: 'localidad es obligatoria' });
+  if (!ciudadLimpia) return res.status(400).json({ error: 'ciudad/localidad es obligatoria' });
 
   const observacionesPersona = [
     `País: ${paisLimpio}`,
     `Provincia: ${provinciaLimpia}`,
-    `Localidad: ${localidadLimpia}`,
+    `Ciudad/Localidad: ${ciudadLimpia}`,
     'Origen: SEMILLASYA_WEB'
   ].join(' | ');
 
-  const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, localidad: localidadLimpia });
+  const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, ciudad: ciudadLimpia, localidad: ciudadLimpia });
   const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
   const persona = personaExistente
     ? await prisma.persona.update({
@@ -2989,34 +2990,35 @@ app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
     telefono: persona.telefono,
     pais: paisLimpio,
     provincia: provinciaLimpia,
-    localidad: localidadLimpia
+    ciudad: ciudadLimpia,
+    localidad: ciudadLimpia
   });
 }));
 
 app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
   req.body = req.body || {};
   return await (async () => {
-    const { nombre, telefono, pais, provincia, localidad } = req.body || {};
+    const { nombre, telefono, pais, provincia, ciudad, localidad } = req.body || {};
     const nombreLimpio = String(nombre || '').trim();
     const telefonoLimpio = normalizarTelefono(telefono);
     const paisLimpio = String(pais || '').trim();
     const provinciaLimpia = String(provincia || '').trim();
-    const localidadLimpia = String(localidad || '').trim();
+    const ciudadLimpia = String(ciudad || localidad || '').trim();
 
     if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
     if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
     if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
     if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
-    if (!localidadLimpia) return res.status(400).json({ error: 'localidad es obligatoria' });
+    if (!ciudadLimpia) return res.status(400).json({ error: 'ciudad/localidad es obligatoria' });
 
     const observacionesPersona = [
       `País: ${paisLimpio}`,
       `Provincia: ${provinciaLimpia}`,
-      `Localidad: ${localidadLimpia}`,
+      `Ciudad/Localidad: ${ciudadLimpia}`,
       'Origen: SEMILLASYA_WEB'
     ].join(' | ');
 
-    const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, localidad: localidadLimpia });
+    const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, ciudad: ciudadLimpia, localidad: ciudadLimpia });
     const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
     const persona = personaExistente
       ? await prisma.persona.update({

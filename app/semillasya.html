@@ -115,18 +115,9 @@
         <h2>Entrá a SemillasYa</h2>
         <p>Decinos dónde estás para mostrarte semillas disponibles para tu zona.</p>
         <div class="row">
-          <label for="nombreIngreso">Nombre</label>
-          <input id="nombreIngreso" />
-        </div>
-        <div class="row">
-          <label for="whatsappIngreso">WhatsApp</label>
-          <input id="whatsappIngreso" placeholder="549..." />
-        </div>
-        <div class="row">
           <label for="paisSelect">País</label>
           <select id="paisSelect">
-            <option value="Argentina">Argentina</option>
-            <option value="Otro país">Otro país</option>
+            <option value="Argentina" selected>Argentina</option>
           </select>
         </div>
         <div class="row">
@@ -143,8 +134,16 @@
           </select>
         </div>
         <div class="row">
-          <label for="localidadIngreso">Localidad</label>
-          <input id="localidadIngreso" />
+          <label for="ciudadIngreso">Ciudad / localidad</label>
+          <input id="ciudadIngreso" />
+        </div>
+        <div class="row">
+          <label for="nombreIngreso">Nombre</label>
+          <input id="nombreIngreso" />
+        </div>
+        <div class="row">
+          <label for="whatsappIngreso">WhatsApp</label>
+          <input id="whatsappIngreso" placeholder="549..." />
         </div>
         <button class="btn btn-add" id="confirmarUbicacion">Ingresar a SemillasYa</button>
       </div>
@@ -290,8 +289,8 @@
     function cargarClientePersistido() {
       try {
         const cliente = JSON.parse(localStorage.getItem('semillasyaCliente') || 'null');
-        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.pais && cliente?.provincia && cliente?.localidad) {
-          state.cliente = cliente;
+        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.pais && cliente?.provincia && (cliente?.ciudad || cliente?.localidad)) {
+          state.cliente = { ...cliente, ciudad: cliente.ciudad || cliente.localidad };
         }
       } catch (_e) {}
     }
@@ -299,7 +298,7 @@
     function mostrarCatalogoConUbicacion() {
       $('ubicacionGate').classList.add('hidden');
       $('catalogoWrap').classList.remove('hidden');
-      $('ubicacionActualTexto').textContent = `Hola ${state.cliente.nombre}, estás viendo SemillasYa para ${state.cliente.provincia}`;
+      $('ubicacionActualTexto').textContent = `Estás viendo SemillasYa para ${state.cliente.ciudad}, ${state.cliente.provincia}`;
     }
 
     async function crearOActualizarClienteWeb(payload) {
@@ -325,16 +324,16 @@
       const telefono = $('whatsappIngreso').value.trim();
       const pais = $('paisSelect').value;
       const provincia = $('provinciaSelect').value;
-      const localidad = $('localidadIngreso').value.trim();
-      if (!nombre) return alert('Completá tu nombre.');
-      if (!telefono) return alert('Completá tu WhatsApp.');
+      const ciudad = $('ciudadIngreso').value.trim();
       if (!pais) return alert('Completá el país.');
       if (!provincia) return alert('Completá la provincia.');
-      if (!localidad) return alert('Completá la localidad.');
+      if (!ciudad) return alert('Completá la ciudad/localidad.');
+      if (!nombre) return alert('Completá tu nombre.');
+      if (!telefono) return alert('Completá tu WhatsApp.');
 
-      const data = await crearOActualizarClienteWeb({ nombre, telefono, pais, provincia, localidad });
+      const data = await crearOActualizarClienteWeb({ nombre, telefono, pais, provincia, ciudad, localidad: ciudad });
 
-      state.cliente = { personaId: data.personaId, nombre, telefono, pais, provincia, localidad };
+      state.cliente = { personaId: data.personaId, pais, provincia, ciudad, nombre, telefono };
       localStorage.setItem('semillasyaCliente', JSON.stringify(state.cliente));
       mostrarCatalogoConUbicacion();
       if (!state.catalogoCargado) await cargarProductos();
@@ -351,7 +350,8 @@
         telefono: state.cliente.telefono,
         pais: state.cliente.pais,
         provincia: state.cliente.provincia,
-        localidad: state.cliente.localidad,
+        ciudad: state.cliente.ciudad,
+        localidad: state.cliente.ciudad,
         observaciones,
         items: state.carrito.map((it) => ({
           productoPrecampaniaId: Number(it.producto.id),
@@ -401,12 +401,14 @@
       $('whatsappIngreso').value = state.cliente.telefono;
       $('paisSelect').value = state.cliente.pais;
       $('provinciaSelect').value = state.cliente.provincia;
-      $('localidadIngreso').value = state.cliente.localidad;
+      $('ciudadIngreso').value = state.cliente.ciudad;
       mostrarCatalogoConUbicacion();
     }
-    cargarProductos().catch(() => {
-      $('catalog').innerHTML = '<p>No se pudo cargar el catálogo de PRECAMPAÑA.</p>';
-    });
+    if (state.cliente?.personaId) {
+      cargarProductos().catch(() => {
+        $('catalog').innerHTML = '<p>No se pudo cargar el catálogo de PRECAMPAÑA.</p>';
+      });
+    }
   </script>
 </body>
 </html>
