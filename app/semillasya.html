@@ -90,8 +90,7 @@
       <div class="panel">
         <h2 class="title">Catálogo público</h2>
         <div class="filters">
-          <select id="lista"></select>
-          <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
+                    <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
           <select id="filtroMarca"><option value="TODAS">Todas las marcas</option></select>
           <select id="filtroEstado"><option value="TODOS">Todos los estados</option><option value="DISPONIBLE">Disponible</option><option value="CONSULTAR">Consultar</option></select>
           <input id="buscar" placeholder="Buscar por producto, marca o presentación" />
@@ -123,7 +122,7 @@
       { nombre: 'Florensa', logo: '/assets/marcas/florensa.png' }
     ];
 
-    const state = { listas: [], productos: [], carrito: [] };
+    const state = { productos: [], carrito: [] };
     const $ = (id) => document.getElementById(id);
 
     function estadoProducto(p) {
@@ -133,8 +132,8 @@
     }
 
     function categoriaProducto(p) { return p.categoria || 'General'; }
-    function marcaProducto(p) { return p.marca || p.proveedor || p.listaEmpresa || 'Sin marca'; }
-    function presentacionProducto(p) { return p.presentacion || p.unidad || p.um || 'Sin especificar'; }
+    function marcaProducto(p) { return p.semilleroLaboratorio || 'Sin marca'; }
+    function presentacionProducto(p) { return p.presentacionEnvase || 'Sin especificar'; }
 
     function renderBrands() {
       $('brands').innerHTML = marcasVisibles.map((m, i) => `
@@ -165,7 +164,7 @@
       const fe = $('filtroEstado').value;
 
       const list = state.productos.filter((p) => {
-        const txt = `${p.nombreProducto || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
+        const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
         const est = estadoProducto(p);
         if (fc !== 'TODAS' && categoriaProducto(p) !== fc) return false;
         if (fm !== 'TODAS' && marcaProducto(p) !== fm) return false;
@@ -177,7 +176,8 @@
       $('catalog').innerHTML = list.map((p) => `
         <article class="product">
           <span class="status ${estadoProducto(p)}">${estadoProducto(p)}</span>
-          <strong>${p.nombreProducto || 'Producto sin nombre'}</strong>
+          <strong>${p.nombre || 'Producto sin nombre'}</strong>
+          <span class="meta">Descripción: ${p.descripcion || '-'}</span>
           <span class="meta">Marca/laboratorio: ${marcaProducto(p)}</span>
           <span class="meta">Categoría: ${categoriaProducto(p)}</span>
           <span class="meta">Presentación: ${presentacionProducto(p)}</span>
@@ -197,7 +197,7 @@
       $('cartEmpty').style.display = state.carrito.length ? 'none' : 'block';
       $('cart').innerHTML = state.carrito.map((it, idx) => `
         <div class="cart-item">
-          <div class="cart-row"><strong>${it.producto.nombreProducto}</strong><button class="btn btn-outline" data-rm="${idx}">Quitar</button></div>
+          <div class="cart-row"><strong>${it.producto.nombre}</strong><button class="btn btn-outline" data-rm="${idx}">Quitar</button></div>
           <div class="small">${marcaProducto(it.producto)} · ${categoriaProducto(it.producto)} · ${presentacionProducto(it.producto)}</div>
           <div class="cart-row" style="margin-top:.35rem;">
             <span class="small">Cantidad</span>
@@ -228,7 +228,7 @@
         localidad,
         observaciones,
         items: state.carrito.map((it) => ({
-          productoListaComercialId: Number(it.producto.id),
+          productoPrecampaniaId: Number(it.producto.id),
           cantidad: Math.max(1, Number(it.cantidad || 1))
         }))
       };
@@ -247,26 +247,18 @@
       alert('Recibimos tu solicitud. Te vamos a responder por WhatsApp con precio, disponibilidad y fecha estimada de entrega.');
     }
 
-    async function cargarListas() {
-      const r = await fetch('/api/listas-comerciales');
-      state.listas = await r.json();
-      $('lista').innerHTML = state.listas.map(l => `<option value="${l.id}">${l.nombre} · ${l.empresaComercial?.nombre || 'Proveedor'}</option>`).join('');
-      if (state.listas.length) await cargarProductos(state.listas[0].id);
-    }
-
-    async function cargarProductos(listaId) {
-      const r = await fetch(`/api/semillasya/listas-comerciales/${listaId}/productos`);
+    async function cargarProductos() {
+      const r = await fetch('/api/semillasya/productos');
       state.productos = await r.json();
       popularFiltros();
       renderCatalogo();
     }
 
     ['buscar', 'filtroCategoria', 'filtroMarca', 'filtroEstado'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
-    $('lista').addEventListener('change', (e) => cargarProductos(e.target.value));
-    $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
+        $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
 
     renderBrands();
-    cargarListas().catch(() => {
+    cargarProductos().catch(() => {
       $('catalog').innerHTML = '<p>No se pudo cargar el catálogo de PRECAMPAÑA.</p>';
     });
   </script>
