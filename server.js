@@ -28,6 +28,27 @@ function escapeHtml(value) {
 }
 
 
+
+function normalizarTelefono(valor) {
+  return String(valor || '').replace(/\D+/g, '');
+}
+
+function armarMensajeWhatsAppSemillasYa({ nombre, localidad, observaciones, items, presupuestoId }) {
+  const lineasItems = items.map((it) => `- ${it.nombreProducto} x ${it.cantidad}`);
+  return [
+    `Hola, soy ${nombre}. Quiero solicitar presupuesto por estas semillas:`,
+    '',
+    ...lineasItems,
+    '',
+    `Localidad: ${localidad || 'No informada'}`,
+    `Observaciones: ${observaciones || 'Sin observaciones'}`,
+    '',
+    `Número de solicitud: ${presupuestoId}`,
+    '',
+    'El equipo responde con disponibilidad, precio final y entrega estimada.'
+  ].join('\n');
+}
+
 function formatMoney(value) {
   return '$' + Number(value || 0).toFixed(2);
 }
@@ -2552,6 +2573,104 @@ app.use((err, req, res, next) => {
   res.status(500).json(response);
 });
 
+
+
+app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
+  const { nombre, telefono, localidad, observaciones, items } = req.body || {};
+
+  const nombreLimpio = String(nombre || '').trim();
+  const telefonoLimpio = normalizarTelefono(telefono);
+  const localidadLimpia = String(localidad || '').trim();
+  const observacionesLimpias = String(observaciones || '').trim();
+  const itemsEntrada = Array.isArray(items) ? items : [];
+
+  if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
+  if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
+  if (!itemsEntrada.length) return res.status(400).json({ error: 'Debe incluir al menos un item' });
+
+  const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoListaComercialId)).filter(Boolean);
+  if (ids.length !== itemsEntrada.length) return res.status(400).json({ error: 'productoListaComercialId inválido en items' });
+
+  const cantidades = itemsEntrada.map((it) => parsePositiveInt(it.cantidad)).filter(Boolean);
+  if (cantidades.length !== itemsEntrada.length) return res.status(400).json({ error: 'cantidad inválida en items' });
+
+  const productosLista = await prisma.productoListaComercial.findMany({
+    where: { id: { in: ids }, activo: true },
+    include: { listaComercial: { include: { reglas: { where: { activa: true } } } } }
+  });
+  const productosById = new Map(productosLista.map((p) => [p.id, p]));
+  const faltantes = ids.filter((id) => !productosById.has(id));
+  if (faltantes.length) return res.status(400).json({ error: `Productos de lista no encontrados: ${faltantes.join(', ')}` });
+
+  const resultado = await prisma.$transaction(async (tx) => {
+    const personaExistente = await tx.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
+    const observacionesPersona = [
+      localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
+      'Origen: SEMILLASYA_WEB',
+      observacionesLimpias ? `Obs: ${observacionesLimpias}` : null
+    ].filter(Boolean).join(' | ');
+
+    const persona = personaExistente
+      ? await tx.persona.update({ where: { id: personaExistente.id }, data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona } })
+      : await tx.persona.create({ data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona } });
+
+    const itemsCalculados = [];
+    for (let i = 0; i < itemsEntrada.length; i += 1) {
+      const item = itemsEntrada[i];
+      const productoLista = productosById.get(parsePositiveInt(item.productoListaComercialId));
+      const cantidad = parsePositiveInt(item.cantidad);
+      const precioBase = Number(productoLista.precioNeto > 0 ? productoLista.precioNeto : productoLista.precioSugeridoPublico || 0);
+      const calculo = aplicarReglasComerciales(precioBase, productoLista.listaComercial?.reglas || []);
+      const precioUnitario = Number(calculo.precioFinal || 0);
+
+      let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombreProducto, unidad: productoLista.unidad || '', eliminado: false } });
+      if (!productoERP) {
+        productoERP = await tx.producto.create({ data: { nombre: productoLista.nombreProducto, categoria: 'SEMILLASYA', marca: productoLista.listaComercial?.nombre || 'SEMILLASYA', unidad: productoLista.unidad || '', precioVenta: precioUnitario, precioFinalPesos: precioUnitario, stock: 0 } });
+      }
+
+      itemsCalculados.push({
+        productoId: productoERP.id,
+        cantidad,
+        precioUnitario,
+        subtotal: precioUnitario * cantidad,
+        nombreProducto: productoLista.nombreProducto
+      });
+    }
+
+    const subtotal = itemsCalculados.reduce((acc, it) => acc + it.subtotal, 0);
+    const presupuesto = await tx.presupuesto.create({
+      data: {
+        personaId: persona.id,
+        tipoDestinatario: TipoDestinatarioPresupuesto.EXISTENTE,
+        estado: enumValuesSafe(EstadoPresupuesto).includes('WEB_SOLICITADO') ? 'WEB_SOLICITADO' : EstadoPresupuesto.BORRADOR,
+        subtotal,
+        total: subtotal,
+        observaciones: [
+          'Solicitud originada en SEMILLASYA_WEB',
+          localidadLimpia ? `Localidad: ${localidadLimpia}` : null,
+          observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
+        ].filter(Boolean).join(' | ')
+      }
+    });
+
+    await tx.presupuestoItem.createMany({
+      data: itemsCalculados.map((it) => ({ presupuestoId: presupuesto.id, productoId: it.productoId, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.subtotal }))
+    });
+
+    return { persona, presupuesto, itemsCalculados };
+  });
+
+  const mensaje = armarMensajeWhatsAppSemillasYa({
+    nombre: nombreLimpio,
+    localidad: localidadLimpia,
+    observaciones: observacionesLimpias,
+    items: resultado.itemsCalculados,
+    presupuestoId: resultado.presupuesto.id
+  });
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+
+  res.status(201).json({ ok: true, personaId: resultado.persona.id, presupuestoId: resultado.presupuesto.id, whatsappUrl, mensaje });
+}));
 
 app.get('/semillasya', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
