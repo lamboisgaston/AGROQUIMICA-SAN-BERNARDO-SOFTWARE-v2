@@ -66,7 +66,6 @@ model Proveedor {
   eliminadoAt       DateTime?
   eliminadoPor      String?
   motivoEliminacion String?
-  observaciones     String?
 }
 
 model Pedido {
@@ -180,7 +179,6 @@ model Persona {
   eliminadoAt       DateTime?
   eliminadoPor      String?
   motivoEliminacion String?
-  observaciones     String?
 }
 
 model Presupuesto {
