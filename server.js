@@ -8,6 +8,11 @@ const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
 console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
 
 app.use(express.json());
+app.use('/semillasya/api', (req, _res, next) => {
+  req.url = req.url.replace(/^\/api/, '');
+  next();
+});
+
 
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -199,7 +204,7 @@ const registrosEliminados = [];
 const PASSWORD_ELIMINACION = '12345';
 
 app.get('/', (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
+  res.redirect(302, '/semillasya');
 });
 
 app.post('/login', (req, res) => {
@@ -2796,6 +2801,8 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
 app.get('/semillasya', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
 });
+
+app.use('/semillasya', express.static(require('path').join(__dirname, 'app')));
 
 app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
   const { nombre, telefono, pais, provincia, localidad } = req.body || {};
