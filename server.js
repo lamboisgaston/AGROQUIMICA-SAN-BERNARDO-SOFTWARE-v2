@@ -2871,7 +2871,15 @@ app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
       data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona }
     });
 
-  res.status(201).json({ ok: true, personaId: persona.id });
+  res.status(201).json({
+    ok: true,
+    personaId: persona.id,
+    nombre: persona.nombre,
+    telefono: persona.telefono,
+    pais: paisLimpio,
+    provincia: provinciaLimpia,
+    localidad: localidadLimpia
+  });
 }));
 
 app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
