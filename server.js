@@ -1337,8 +1337,11 @@ function validarClienteParaPresupuesto(persona) {
   return null;
 }
 
-app.get('/presupuestos', asyncHandler(async (_req, res) => {
+app.get('/presupuestos', asyncHandler(async (req, res) => {
+  const tipoOperacion = String(req.query?.tipoOperacion || '').toUpperCase();
+  const where = tipoOperacion ? { tipoOperacion } : undefined;
   const presupuestos = await prisma.presupuesto.findMany({
+    where,
     include: { persona: true, items: { include: { producto: true } } },
     orderBy: { createdAt: 'desc' }
   });
@@ -1354,7 +1357,7 @@ app.get('/presupuestos/:id', asyncHandler(async (req, res) => {
 }));
 
 async function guardarPresupuesto(req, res, id = null) {
-  const { clienteId, personaId: personaIdBody, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, ajusteRedondeo, observaciones, validez, aliasTransferencia, datosBancarios, estado } = req.body || {};
+  const { clienteId, personaId: personaIdBody, nombreLibre, tipoDestinatario, items, descuentoTipo, descuentoValor, ajusteRedondeo, observaciones, validez, aliasTransferencia, datosBancarios, estado, origen, tipoOperacion } = req.body || {};
   const tipo = Object.values(TipoDestinatarioPresupuesto).includes(tipoDestinatario) ? tipoDestinatario : TipoDestinatarioPresupuesto.EXISTENTE;
   const personaId = parsePositiveInt(clienteId ?? personaIdBody);
   const nombreLibreLimpio = String(nombreLibre || '').trim();
@@ -1397,7 +1400,9 @@ async function guardarPresupuesto(req, res, id = null) {
     validez: validez || null,
     aliasTransferencia: aliasTransferencia || null,
     datosBancarios: datosBancarios || null,
-    estado: Object.values(EstadoPresupuesto).includes(estado) ? estado : EstadoPresupuesto.BORRADOR
+    estado: Object.values(EstadoPresupuesto).includes(estado) ? estado : EstadoPresupuesto.BORRADOR,
+    origen: origen === 'SEMILLASYA' ? 'SEMILLASYA' : 'MOSTRADOR',
+    tipoOperacion: tipoOperacion === 'PRECAMPAÑA' ? 'PRECAMPAÑA' : 'MOSTRADOR'
   };
   const saved = await prisma.$transaction(async tx => {
     const pres = id ? await tx.presupuesto.update({ where: { id }, data: payload }) : await tx.presupuesto.create({ data: payload });
@@ -1580,7 +1585,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
     <div class="head">
       <div>
         <h1>Agroquímica y Fumigaciones San Bernardo</h1>
-        <div class="institutional-signature">Creadores de las plataformas de gestión:<br/>www.jardinerosya.com<br/>www.fumigadoresya.com</div>
+        <div class="institutional-signature">www.hubya.tech</div>
         <div>Dirección: Chile 1455</div>
       </div>
       <div>
@@ -1693,9 +1698,10 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     doc.rect(left, top, width, 84).fill('#f6f6f6');
     doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica San Bernardo', left + 12, top + 12, { width: width * 0.55 });
     doc.fontSize(11).text('Ingeniería Lambois', left + 12, top + 32, { width: width * 0.55 });
-    doc.fillColor('#334155').font('Helvetica').fontSize(8).text('Creadores de las plataformas de gestión:', left + 12, top + 46, { width: width * 0.55 });
-    doc.text('www.jardinerosya.com', left + 12, top + 56, { width: width * 0.55 });
-    doc.text('www.fumigadoresya.com', left + 12, top + 66, { width: width * 0.55 });
+    const esPre = p.tipoOperacion === 'PRECAMPAÑA' || p.origen === 'SEMILLASYA';
+    doc.fillColor('#334155').font('Helvetica').fontSize(11).text(esPre ? 'SemillasYa' : 'Agroquímica San Bernardo', left + 12, top + 46, { width: width * 0.55 });
+    doc.fontSize(9).text('Plataformas HUBYA', left + 12, top + 60, { width: width * 0.55 });
+    doc.text('www.hubya.tech', left + 12, top + 72, { width: width * 0.55 });
     doc.fillColor('#111');
     doc.font('Helvetica').fontSize(11).text(`Presupuesto #${p.id}`, right - 170, top + 12, { width: 160, align: 'right' });
     doc.text(`Fecha: ${fecha}`, right - 170, top + 28, { width: 160, align: 'right' });
@@ -1868,6 +1874,26 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   const data = normalizarPayloadProductoPrecampania(payload);
   const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, semilleroLaboratorio: semillero } });
   res.json(actualizado);
+}));
+
+
+app.post('/api/productos-precampania/:id/duplicar-mostrador', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const pre = await prisma.productoPrecampania.findUnique({ where: { id } });
+  if (!pre || !pre.activo) return res.status(404).json({ error: 'Producto precampaña no encontrado' });
+  const precio = Number(pre.usaPrecioManual ? (pre.precioManual ?? pre.precioVentaFinal) : pre.precioVentaFinal || 0);
+  const creado = await prisma.producto.create({ data: {
+    nombre: pre.nombre,
+    categoria: pre.categoria || 'SEMILLASYA',
+    marca: pre.semilleroLaboratorio || 'SEMILLASYA',
+    unidad: pre.presentacionEnvase || '',
+    precioVenta: precio,
+    precioFinalPesos: precio,
+    observaciones: `Creado desde ProductoPrecampania ID ${pre.id} / SemillasYa`,
+    stock: 0
+  } });
+  res.status(201).json(creado);
 }));
 
 app.delete('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
@@ -2430,7 +2456,7 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   </head>
   <body>
     <h1>${escapeHtml(negocio)}</h1>
-    <p class="institutional-signature">Creadores de las plataformas de gestión:<br/>www.jardinerosya.com<br/>www.fumigadoresya.com</p>
+    <p class="institutional-signature">www.hubya.tech</p>
     <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
     <p><strong>Número de venta:</strong> #${venta.id}</p>
     <p><strong>Cliente:</strong> ${escapeHtml(cliente)}</p>
@@ -2777,9 +2803,9 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
       const cantidad = parsePositiveInt(item.cantidad);
       const precioUnitario = Number(productoLista.precioVentaFinal || 0);
 
-      let productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombre, unidad: productoLista.presentacionEnvase || '', eliminado: false } });
+      const productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombre, unidad: productoLista.presentacionEnvase || '', eliminado: false } });
       if (!productoERP) {
-        productoERP = await tx.producto.create({ data: { nombre: productoLista.nombre, categoria: 'SEMILLASYA', marca: productoLista.semilleroLaboratorio || 'SEMILLASYA', unidad: productoLista.presentacionEnvase || '', precioVenta: precioUnitario, precioFinalPesos: precioUnitario, stock: 0 } });
+        throw new Error(`No existe producto mostrador para ${productoLista.nombre}. Duplicar desde Precampaña primero.`);
       }
 
       itemsCalculados.push({
@@ -2799,6 +2825,8 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
         estado: enumValuesSafe(EstadoPresupuesto).includes('WEB_SOLICITADO') ? 'WEB_SOLICITADO' : EstadoPresupuesto.BORRADOR,
         subtotal,
         total: subtotal,
+        origen: 'SEMILLASYA',
+        tipoOperacion: 'PRECAMPAÑA',
         observaciones: [
           'Solicitud originada en SEMILLASYA_WEB',
           paisLimpio ? `País: ${paisLimpio}` : null,

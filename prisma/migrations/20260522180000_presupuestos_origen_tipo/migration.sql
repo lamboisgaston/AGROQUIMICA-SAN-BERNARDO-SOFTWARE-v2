@@ -1,0 +1,12 @@
+ALTER TABLE "Presupuesto" ADD COLUMN IF NOT EXISTS "origen" TEXT NOT NULL DEFAULT 'MOSTRADOR';
+ALTER TABLE "Presupuesto" ADD COLUMN IF NOT EXISTS "tipoOperacion" TEXT NOT NULL DEFAULT 'MOSTRADOR';
+
+UPDATE "Presupuesto"
+SET "origen" = CASE
+  WHEN "observaciones" ILIKE '%SEMILLASYA%' THEN 'SEMILLASYA'
+  ELSE COALESCE("origen", 'MOSTRADOR')
+END,
+"tipoOperacion" = CASE
+  WHEN "observaciones" ILIKE '%SEMILLASYA%' THEN 'PRECAMPAÑA'
+  ELSE COALESCE("tipoOperacion", 'MOSTRADOR')
+END;

@@ -36,6 +36,7 @@ model Producto {
   eliminadoAt       DateTime?
   eliminadoPor      String?
   motivoEliminacion String?
+  observaciones     String?
 }
 
 model Categoria {
@@ -65,6 +66,7 @@ model Proveedor {
   eliminadoAt       DateTime?
   eliminadoPor      String?
   motivoEliminacion String?
+  observaciones     String?
 }
 
 model Pedido {
@@ -178,6 +180,7 @@ model Persona {
   eliminadoAt       DateTime?
   eliminadoPor      String?
   motivoEliminacion String?
+  observaciones     String?
 }
 
 model Presupuesto {
@@ -196,6 +199,8 @@ model Presupuesto {
   aliasTransferencia String?
   datosBancarios     String?
   estado             EstadoPresupuesto   @default(BORRADOR)
+  origen             String              @default("MOSTRADOR")
+  tipoOperacion      String              @default("MOSTRADOR")
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   items              PresupuestoItem[]

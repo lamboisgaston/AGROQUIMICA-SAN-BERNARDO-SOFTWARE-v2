@@ -23,6 +23,7 @@ let presupuestoClienteId = null;
 let presupuestoTipoDestinatario = 'A_QUIEN_CORRESPONDA';
 let presupuestoNombreLibre = '';
 let presupuestoItems = [];
+let presupuestoTipoOperacion = 'MOSTRADOR';
 let filtroProductosPresupuesto = '';
 let productosPresupuestoVisibles = [];
 let pedidoProveedorId = null;
@@ -917,7 +918,7 @@ function armarMensajeWhatsappPresupuesto(presupuestoId, total) {
 }
 
 async function loadPresupuestos() {
-  const lista = await api('/presupuestos');
+  const lista = await api(`/presupuestos?tipoOperacion=${encodeURIComponent(presupuestoTipoOperacion)}`);
   $('#pres-lista').innerHTML = lista.map(p => {
     const telefonoCliente = normalizarTelefonoWhatsapp(p.persona?.telefono || p.persona?.telefonoPrincipal || '');
     const puedeWhatsapp = Boolean(telefonoCliente);
@@ -1217,7 +1218,7 @@ function renderProductosPrecampania() {
     ? lista.map((p) => `<div class="item"><strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | ${p.categoria || '-'} | ${p.presentacionEnvase || '-'} | ${p.estado || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'}
       <button data-pre-editar="${p.id}">Editar</button>
       <button data-pre-duplicar="${p.id}">Duplicar</button>
-      <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button>
+      <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar="${p.id}">Duplicar a Mostrador</button>
       <button data-pre-eliminar="${p.id}">Desactivar</button>
     </div>`).join('')
     : '<div class="item">Sin productos precampaña.</div>';
@@ -1460,6 +1461,11 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     return;
   }
   const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
+  const duplicarPre = e.target.closest('[data-pre-duplicar]');
+  if (duplicarPre) {
+    await api(`/api/productos-precampania/${Number(duplicarPre.dataset.preDuplicar)}/duplicar-mostrador`, { method: 'POST', body: '{}' });
+    setMsg('Producto duplicado a mostrador', 'ok');
+  }
   if (toggleVisible) {
     const id = Number(toggleVisible.dataset.preToggleVisible);
     const p = precampaniaProductos.find((x) => x.id === id);
@@ -2253,7 +2259,7 @@ $('#pres-guardar').addEventListener('click', async () => {
     const ajusteRedondeo = Number($('#pres-ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#pres-condicion-pago-prevista').value || null;
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
-    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value }) });
+    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor }) => ({ productoId, cantidad, precioUnitario, descuentoTipo, descuentoValor })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value, origen: presupuestoTipoOperacion === 'PRECAMPAÑA' ? 'SEMILLASYA' : 'MOSTRADOR', tipoOperacion: presupuestoTipoOperacion }) });
     presupuestoItems = [];
     presupuestoClienteId = null;
     presupuestoNombreLibre = '';
@@ -2629,3 +2635,6 @@ $('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema)
 
 
 if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }
+
+$('#pres-tab-mostrador')?.addEventListener('click', async () => { presupuestoTipoOperacion = 'MOSTRADOR'; await loadPresupuestos(); });
+$('#pres-tab-precampania')?.addEventListener('click', async () => { presupuestoTipoOperacion = 'PRECAMPAÑA'; await loadPresupuestos(); });
