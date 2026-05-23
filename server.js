@@ -2898,19 +2898,20 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
       const item = itemsEntrada[i];
       const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
       const cantidad = parsePositiveInt(item.cantidad);
-      const precioUnitario = Number(productoLista.precioVentaFinal || 0);
-
-      const productoERP = await tx.producto.findFirst({ where: { nombre: productoLista.nombre, unidad: productoLista.presentacionEnvase || '', eliminado: false } });
-      if (!productoERP) {
-        throw new Error(`No existe producto mostrador para ${productoLista.nombre}. Duplicar desde Precampaña primero.`);
-      }
+      const precioUnitario = Number(productoLista.precioVentaFinal || productoLista.precioInternoManual || 0);
+      const observacionItem = String(item.observaciones || '').trim() || null;
 
       itemsCalculados.push({
-        productoId: productoERP.id,
+        productoId: null,
+        productoPrecampaniaId: productoLista.id,
         cantidad,
         precioUnitario,
         subtotal: precioUnitario * cantidad,
-        nombreProducto: productoLista.nombre
+        nombreProducto: productoLista.nombre,
+        cultivo: String(productoLista.cultivo || productoLista.categoria || '').trim() || null,
+        semillero: String(productoLista.semilleroLaboratorio || '').trim() || null,
+        presentacion: String(productoLista.presentacionEnvase || '').trim() || null,
+        observaciones: observacionItem
       });
     }
 
@@ -2935,7 +2936,19 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
     });
 
     await tx.presupuestoItem.createMany({
-      data: itemsCalculados.map((it) => ({ presupuestoId: presupuesto.id, productoId: it.productoId, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.subtotal }))
+      data: itemsCalculados.map((it) => ({
+        presupuestoId: presupuesto.id,
+        productoId: it.productoId,
+        productoPrecampaniaId: it.productoPrecampaniaId,
+        nombreProducto: it.nombreProducto,
+        cultivo: it.cultivo,
+        semillero: it.semillero,
+        presentacion: it.presentacion,
+        cantidad: it.cantidad,
+        precioUnitario: it.precioUnitario,
+        subtotal: it.subtotal,
+        observaciones: it.observaciones
+      }))
     });
 
     return { persona, presupuesto, itemsCalculados };
