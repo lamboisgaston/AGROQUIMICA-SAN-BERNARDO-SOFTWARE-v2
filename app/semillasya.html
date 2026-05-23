@@ -174,21 +174,19 @@
 
     <section class="section">
       <div class="panel">
-        <h2 class="title">Elegí cultivo y variedad</h2>
-        <p class="helper-text">Primero seleccioná cultivo para ver todas las variedades disponibles. Después podés filtrar por semillero.</p>
-        <h3 class="selector-cultivo-title">Elegí el cultivo que necesitás</h3>
-        <div class="filters">
-          <select id="filtroCultivo"><option value="TODOS">Todos los cultivos</option></select>
-          <select id="filtroSemillero"><option value="TODOS">Todos los semilleros</option></select>
-          <input id="buscar" placeholder="Buscar por producto, semillero, cultivo o presentación" />
+        <h2 class="title">¿Qué cultivo necesitás?</h2>
+        <p class="helper-text">Seleccioná un cultivo para ver variedades y agregar productos a tu solicitud de cotización.</p>
+        <div class="catalog" id="cultivosCatalog"></div>
+        <div id="pantallaProductos" class="hidden">
+          <button class="btn btn-outline" id="volverCultivos">← Volver</button>
+          <h3 class="selector-cultivo-title" id="cultivoElegidoTitulo"></h3>
+          <div class="catalog" id="catalog"></div>
         </div>
       </div>
     </section>
 
     <section class="section layout">
       <div class="panel">
-        <div class="catalog" id="catalog"></div>
-      </div>
 
       <aside class="panel cart-panel">
         <h2 class="title">Solicitud de cotización</h2>
@@ -219,7 +217,7 @@
       carrito: [],
       cliente: null,
       catalogoCargado: false,
-      semilleroSeleccionado: '',
+      cultivoSeleccionado: '',
       cultivosDisponibles: [],
       semillerosDisponibles: []
     };
@@ -257,13 +255,12 @@
       });
     }
 
-    function popularFiltros() {
-      const cultivosOrigen = state.cultivosDisponibles.length ? state.cultivosDisponibles : [...new Set(state.productos.map(cultivoProducto))];
-      const semillerosOrigen = state.semillerosDisponibles.length ? state.semillerosDisponibles : [...new Set(state.productos.map(marcaProducto))];
-      const cultivos = ['TODOS', ...cultivosOrigen.filter(Boolean)];
-      const semilleros = ['TODOS', ...semillerosOrigen.filter(Boolean)];
-      $('filtroCultivo').innerHTML = cultivos.map(v => `<option value="${v}">${v}</option>`).join('');
-      $('filtroSemillero').innerHTML = semilleros.map(v => `<option value="${v}">${v}</option>`).join('');
+    function renderCultivos() {
+      const baseCultivos = state.cultivosDisponibles.length ? state.cultivosDisponibles : [...new Set(state.productos.map(cultivoProducto))];
+      const cultivs = ['Cebolla','Bermuda','Alfalfa','Rye Grass','Maíz','Sorgo','Trigo','Avena','Pasturas','Césped','Hortícolas'];
+      const list = cultivs.filter((c) => baseCultivos.includes(c)).concat(baseCultivos.filter((c)=>!cultivs.includes(c)));
+      $('cultivosCatalog').innerHTML = list.map((c)=>`<article class="product"><strong style="font-size:1.2rem;">${c}</strong><button class="btn btn-add" data-cultivo="${c}">Ver productos</button></article>`).join('');
+      document.querySelectorAll('[data-cultivo]').forEach((btn)=>btn.onclick=()=>{ state.cultivoSeleccionado = btn.dataset.cultivo; renderCatalogoCultivo(); });
     }
 
     function agregarCarrito(producto) {
@@ -273,31 +270,18 @@
       renderCarrito();
     }
 
-    function renderCatalogo() {
-      const q = $('buscar').value.toLowerCase().trim();
-      const fc = $('filtroCultivo').value;
-      const fm = $('filtroSemillero').value;
-
-      const list = state.productos.filter((p) => {
-        const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
-        if (fc !== 'TODOS' && cultivoProducto(p) !== fc) return false;
-        if (fm !== 'TODOS' && String(marcaProducto(p)).toLowerCase() !== String(fm).toLowerCase()) return false;
-        if (q && !txt.includes(q)) return false;
-        return true;
-      });
-
+    function renderCatalogoCultivo() {
+      $('pantallaProductos').classList.remove('hidden');
+      $('cultivoElegidoTitulo').textContent = state.cultivoSeleccionado;
+      const list = state.productos.filter((p) => cultivoProducto(p) === state.cultivoSeleccionado);
       $('catalog').innerHTML = list.map((p) => `
         <article class="product">
           <strong>${p.nombre || 'Producto sin nombre'}</strong>
-          ${imagenProducto(p) ? `<img src="${imagenProducto(p)}" alt="${p.nombre || 'Producto'}" loading="lazy" />` : ''}
-          <span class="meta">Descripción: ${p.descripcion || '-'}</span>
           <span class="meta">Semillero: ${marcaProducto(p)}</span>
-          <span class="meta">Cultivo: ${cultivoProducto(p)}</span>
           <span class="meta">Presentación: ${presentacionProducto(p)}</span>
-          <button class="btn btn-add" data-add="${p.id}">Agregar</button>
+          <button class="btn btn-add" data-add="${p.id}">Agregar a cotización</button>
         </article>
-      `).join('') || '<p>No hay productos para esos filtros.</p>';
-
+      `).join('') || '<p>No hay productos para este cultivo.</p>';
       document.querySelectorAll('[data-add]').forEach((btn) => {
         btn.onclick = () => {
           const p = state.productos.find((x) => String(x.id) === String(btn.dataset.add));
@@ -438,17 +422,16 @@
       state.cultivosDisponibles = Array.isArray(data?.cultivos) ? data.cultivos : [];
       state.semillerosDisponibles = Array.isArray(data?.semilleros) ? data.semilleros : [];
       state.catalogoCargado = true;
-      popularFiltros();
-      renderCatalogo();
+      renderCultivos();
       if (!state.productos.length) {
         $('catalog').innerHTML = '<p>Todavía no hay productos publicados para tu zona.</p>';
       }
     }
 
-    ['buscar', 'filtroCultivo', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
     $('continuarTerritorio').addEventListener('click', mostrarPasoContacto);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
+    $('volverCultivos').addEventListener('click', () => { $('pantallaProductos').classList.add('hidden'); state.cultivoSeleccionado = ''; });
     $('cambiarProvincia').addEventListener('click', () => {
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');

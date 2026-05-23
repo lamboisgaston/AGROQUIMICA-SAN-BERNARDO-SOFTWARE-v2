@@ -1297,14 +1297,9 @@ function resetFormularioPrecampania() {
   $('#pre-categoria').value = precampaniaContextoCarga.categoria || '';
   $('#pre-envase').value = '';
   $('#pre-descripcion').value = '';
-  $('#pre-moneda-compra').value = 'ARS';
   $('#pre-costo-compra').value = '0';
-  $('#pre-tipo-cambio').value = '1';
   $('#pre-porcentaje-flete').value = '0';
-  $('#pre-porcentaje-iva').value = '0';
   $('#pre-porcentaje-margen').value = '0';
-  $('#pre-usa-precio-manual').value = 'false';
-  $('#pre-precio-manual').value = '';
   $('#pre-precio-final').value = '0';
   $('#pre-visible').value = 'false';
   if (precampaniaContextoCarga.cultivo) $('#pre-cultivo').value = precampaniaContextoCarga.cultivo;
@@ -1313,29 +1308,20 @@ function resetFormularioPrecampania() {
 }
 
 function calcularPreviewPrecampania() {
-  const monedaCompra = ($('#pre-moneda-compra')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
-  const costoCompra = Number($('#pre-costo-compra')?.value || 0);
-  const tipoCambio = Number($('#pre-tipo-cambio')?.value || 1) || 1;
+  const costoBase = Number($('#pre-costo-compra')?.value || 0);
   const porcentajeFlete = Number($('#pre-porcentaje-flete')?.value || 0);
-  const porcentajeIva = Number($('#pre-porcentaje-iva')?.value || 0);
   const porcentajeMargen = Number($('#pre-porcentaje-margen')?.value || 0);
-  const usaPrecioManual = ($('#pre-usa-precio-manual')?.value || 'false') === 'true';
-  const precioManual = Number($('#pre-precio-manual')?.value || 0);
 
-  const base = monedaCompra === 'USD' ? (costoCompra * tipoCambio) : costoCompra;
-  const baseConFlete = base * (1 + (porcentajeFlete / 100));
-  const baseConIva = baseConFlete * (1 + (porcentajeIva / 100));
-  const precioFinalCalculado = baseConIva * (1 + (porcentajeMargen / 100));
-  const precioFinal = usaPrecioManual ? precioManual : precioFinalCalculado;
-  const ganancia = precioFinal - baseConIva;
+  const flete = costoBase * (porcentajeFlete / 100);
+  const subtotal = costoBase + flete;
+  const margen = subtotal * (porcentajeMargen / 100);
+  const precioFinal = subtotal + margen;
 
   if ($('#pre-precio-final')) $('#pre-precio-final').value = String(Number.isFinite(precioFinal) ? Number(precioFinal.toFixed(2)) : 0);
-  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(base || 0);
-  if ($('#pre-calc-flete')) $('#pre-calc-flete').textContent = money(baseConFlete || 0);
-  if ($('#pre-calc-iva')) $('#pre-calc-iva').textContent = money(baseConIva || 0);
+  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(costoBase || 0);
+  if ($('#pre-calc-flete')) $('#pre-calc-flete').textContent = money(flete || 0);
   if ($('#pre-calc-final')) $('#pre-calc-final').textContent = money(precioFinal || 0);
-  if ($('#pre-calc-ganancia')) $('#pre-calc-ganancia').textContent = money(ganancia || 0);
-  if ($('#pre-calc-margen')) $('#pre-calc-margen').textContent = `${Number.isFinite(porcentajeMargen) ? porcentajeMargen : 0}%${usaPrecioManual ? ' (manual activo)' : ''}`;
+  if ($('#pre-calc-margen')) $('#pre-calc-margen').textContent = `${Number.isFinite(porcentajeMargen) ? porcentajeMargen : 0}%`;
 }
 
 function renderSemillerosPrecampania() {
@@ -1371,13 +1357,14 @@ function renderProductosPrecampania() {
     const matchCat = !categoriaFiltro || String(p.categoria || '').toLowerCase().includes(categoriaFiltro);
     return matchQ && matchSem && matchCultivo && matchCat;
   });
+  const agrupado = new Map();
+  lista.forEach((p) => {
+    const key = p.cultivo || 'Sin cultivo';
+    if (!agrupado.has(key)) agrupado.set(key, []);
+    agrupado.get(key).push(p);
+  });
   $('#pre-lista').innerHTML = lista.length
-    ? lista.map((p) => `<div class="item"><strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | Cultivo: ${p.cultivo || 'Otro'} | ${p.presentacionEnvase || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'}
-      <button data-pre-editar="${p.id}">Editar</button>
-      <button data-pre-duplicar="${p.id}">Duplicar</button>
-      <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar="${p.id}">Duplicar a Mostrador</button>
-      <button data-pre-eliminar="${p.id}">Desactivar</button>
-    </div>`).join('')
+    ? Array.from(agrupado.entries()).map(([cultivo, items]) => `<div class="item"><strong>${cultivo.toUpperCase()}</strong></div>${items.map((p) => `<div class="item">- <strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | ${p.presentacionEnvase || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'} <button data-pre-editar="${p.id}">Editar</button> <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></div>`).join('')}`).join('')
     : '<div class="item">Sin productos precampaña.</div>';
 }
 
@@ -1577,7 +1564,7 @@ $('#btn-precampania-nuevo')?.addEventListener('click', resetFormularioPrecampani
 $('#pre-cultivo')?.addEventListener('change', (e) => { precampaniaContextoCarga.cultivo = e.target.value; });
 $('#pre-semillero')?.addEventListener('change', (e) => { precampaniaContextoCarga.semillero = e.target.value; });
 $('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga.categoria = e.target.value; });
-['pre-moneda-compra', 'pre-costo-compra', 'pre-tipo-cambio', 'pre-porcentaje-flete', 'pre-porcentaje-iva', 'pre-porcentaje-margen', 'pre-precio-manual', 'pre-usa-precio-manual']
+['pre-costo-compra', 'pre-porcentaje-flete', 'pre-porcentaje-margen']
   .forEach((id) => {
     $(id)?.addEventListener('input', calcularPreviewPrecampania);
     $(id)?.addEventListener('change', calcularPreviewPrecampania);
@@ -1596,14 +1583,9 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     $('#pre-categoria').value = p.categoria || '';
     $('#pre-envase').value = p.presentacionEnvase || '';
     $('#pre-descripcion').value = p.descripcion || '';
-    $('#pre-moneda-compra').value = p.monedaCompra || 'ARS';
     $('#pre-costo-compra').value = p.costoCompra == null ? '0' : String(p.costoCompra);
-    $('#pre-tipo-cambio').value = p.tipoCambio == null ? '1' : String(p.tipoCambio);
     $('#pre-porcentaje-flete').value = p.porcentajeFlete == null ? '0' : String(p.porcentajeFlete);
-    $('#pre-porcentaje-iva').value = p.porcentajeIva == null ? '0' : String(p.porcentajeIva);
     $('#pre-porcentaje-margen').value = p.porcentajeMargen == null ? '0' : String(p.porcentajeMargen);
-    $('#pre-usa-precio-manual').value = p.usaPrecioManual ? 'true' : 'false';
-    $('#pre-precio-manual').value = p.precioManual == null ? '' : String(p.precioManual);
     $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
     $('#pre-visible').value = p.visibleEnSemillasYa ? 'true' : 'false';
     calcularPreviewPrecampania();
@@ -1622,9 +1604,9 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     return;
   }
   const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
-  const duplicarPre = e.target.closest('[data-pre-duplicar]');
+  const duplicarPre = e.target.closest('[data-pre-duplicar-mostrador]');
   if (duplicarPre) {
-    await api(`/api/productos-precampania/${Number(duplicarPre.dataset.preDuplicar)}/duplicar-mostrador`, { method: 'POST', body: '{}' });
+    await api(`/api/productos-precampania/${Number(duplicarPre.dataset.preDuplicarMostrador)}/duplicar-mostrador`, { method: 'POST', body: '{}' });
     setMsg('Producto duplicado a mostrador', 'ok');
   }
   if (toggleVisible) {
@@ -1653,15 +1635,12 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     categoria: ($('#pre-categoria').value || '').trim(),
     presentacionEnvase: ($('#pre-envase').value || '').trim(),
     descripcion: ($('#pre-descripcion').value || '').trim(),
-    monedaCompra: $('#pre-moneda-compra').value,
     costoCompra: Number($('#pre-costo-compra').value || 0),
-    tipoCambio: Number($('#pre-tipo-cambio').value || 1),
     porcentajeFlete: Number($('#pre-porcentaje-flete').value || 0),
-    porcentajeIva: Number($('#pre-porcentaje-iva').value || 0),
     porcentajeMargen: Number($('#pre-porcentaje-margen').value || 0),
-    usaPrecioManual: $('#pre-usa-precio-manual').value === 'true',
-    precioManual: ($('#pre-precio-manual').value || '').trim(),
-    precioInternoManual: ($('#pre-precio-manual').value || '').trim(),
+    usaPrecioManual: false,
+    precioManual: '',
+    precioInternoManual: '',
     visibleEnSemillasYa: $('#pre-visible').value === 'true'
   };
   if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
