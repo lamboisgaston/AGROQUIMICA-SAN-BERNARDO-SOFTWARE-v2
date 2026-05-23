@@ -62,20 +62,27 @@
       justify-content: space-between;
     }
 
-    .brands { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; }
+    .brands { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .85rem; }
     .brand-card {
-      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-      min-height: 92px; display: flex; align-items: center; justify-content: center; padding: .8rem;
-      box-shadow: 0 8px 20px rgba(18, 62, 40, .08);
+      background: var(--card); border: 2px solid var(--line); border-radius: 16px;
+      min-height: 124px; display: flex; align-items: center; justify-content: center; padding: 1rem;
+      box-shadow: 0 10px 24px rgba(18, 62, 40, .08);
+      cursor: pointer;
+      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
     }
-    .brand-card img { max-width: 100%; max-height: 56px; object-fit: contain; }
-    .brand-card span { font-weight: 800; text-align: center; }
+    .brand-card:hover { transform: translateY(-2px); }
+    .brand-card.is-active { border-color: var(--green-500); box-shadow: 0 12px 26px rgba(20, 108, 67, .22); background: #f3fdf7; }
+    .brand-card img { max-width: 100%; max-height: 66px; object-fit: contain; }
+    .brand-card span { font-weight: 900; text-align: center; font-size: 1.2rem; letter-spacing: .03em; }
+    .brand-logo-fallback { font-size: 1.45rem !important; }
 
     .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; align-items: start; }
     .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: .9rem; }
     .cart-panel { position: sticky; top: 12px; }
     .product { box-shadow: 0 10px 20px rgba(15,81,50,.08); }
-    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .7rem; }
+    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+    .selector-cultivo-title { font-size: clamp(1.35rem, 2.5vw, 1.9rem); margin: 0 0 .7rem; color: var(--green-900); }
+    .helper-text { color: var(--muted); margin: 0 0 1rem; font-weight: 600; }
 
     input, select, textarea {
       width: 100%; border: 1px solid #c8dacd; border-radius: 10px; padding: .65rem .75rem; font: inherit;
@@ -165,14 +172,20 @@
       <div class="brands" id="brands"></div>
     </section>
 
-    <section class="section layout">
+    <section class="section">
       <div class="panel">
-        <h2 class="title">Cultivo y productos</h2>
+        <h2 class="title">Elegí cultivo y variedad</h2>
+        <p class="helper-text">Primero seleccioná semillero y cultivo para ver opciones disponibles.</p>
+        <h3 class="selector-cultivo-title">Elegí el cultivo que necesitás</h3>
         <div class="filters">
-                    <select id="filtroCultivo"><option value="TODOS">Todos los cultivos</option></select>
-          <select id="filtroSemillero"><option value="TODAS">Todos los semilleros</option></select>
+          <select id="filtroCultivo"><option value="TODOS">Todos los cultivos</option></select>
           <input id="buscar" placeholder="Buscar por producto, semillero, cultivo o presentación" />
         </div>
+      </div>
+    </section>
+
+    <section class="section layout">
+      <div class="panel">
         <div class="catalog" id="catalog"></div>
       </div>
 
@@ -204,7 +217,8 @@
       productos: [],
       carrito: [],
       cliente: null,
-      catalogoCargado: false
+      catalogoCargado: false,
+      semilleroSeleccionado: ''
     };
     const $ = (id) => document.getElementById(id);
 
@@ -216,19 +230,34 @@
     function marcaProducto(p) { return p.semilleroLaboratorio || 'Sin marca'; }
     function presentacionProducto(p) { return p.presentacionEnvase || 'Sin especificar'; }
 
+    function inicialesMarca(nombre) {
+      return String(nombre || '')
+        .trim()
+        .split(/\s+/)
+        .map((w) => w[0] || '')
+        .join('')
+        .toUpperCase()
+        .slice(0, 8);
+    }
+
     function renderBrands() {
       $('brands').innerHTML = marcasVisibles.map((m, i) => `
-        <article class="brand-card">
-          <img src="${m.logo}" alt="${m.nombre}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${m.nombre.replace(/'/g, "\\'")}'}))" />
+        <article class="brand-card ${state.semilleroSeleccionado === m.nombre ? 'is-active' : ''}" data-brand="${m.nombre}">
+          <img src="${m.logo}" alt="${m.nombre}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${inicialesMarca(m.nombre)}',className:'brand-logo-fallback'}))" />
         </article>
       `).join('');
+      document.querySelectorAll('[data-brand]').forEach((card) => {
+        card.onclick = () => {
+          state.semilleroSeleccionado = card.dataset.brand;
+          renderBrands();
+          renderCatalogo();
+        };
+      });
     }
 
     function popularFiltros() {
       const cultivos = ['TODOS', ...new Set(state.productos.map(cultivoProducto))];
-      const marcas = ['TODAS', ...new Set(state.productos.map(marcaProducto))];
       $('filtroCultivo').innerHTML = cultivos.map(v => `<option value="${v}">${v}</option>`).join('');
-      $('filtroSemillero').innerHTML = marcas.map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
     function agregarCarrito(producto) {
@@ -241,12 +270,16 @@
     function renderCatalogo() {
       const q = $('buscar').value.toLowerCase().trim();
       const fc = $('filtroCultivo').value;
-      const fm = $('filtroSemillero').value;
+      const fm = state.semilleroSeleccionado;
+      if (!fm) {
+        $('catalog').innerHTML = '<p>Seleccioná un semillero para ver los productos disponibles.</p>';
+        return;
+      }
 
       const list = state.productos.filter((p) => {
         const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
         if (fc !== 'TODOS' && cultivoProducto(p) !== fc) return false;
-        if (fm !== 'TODAS' && marcaProducto(p) !== fm) return false;
+        if (fm !== 'TODAS' && String(marcaProducto(p)).toLowerCase() !== String(fm).toLowerCase()) return false;
         if (q && !txt.includes(q)) return false;
         return true;
       });
@@ -408,7 +441,7 @@
       }
     }
 
-    ['buscar', 'filtroCultivo', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
+    ['buscar', 'filtroCultivo'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
     $('continuarTerritorio').addEventListener('click', mostrarPasoContacto);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
