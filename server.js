@@ -1933,7 +1933,7 @@ app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) =
 }));
 
 const SEMILLEROS_PRECAMPAÑA = ['Guasch', 'CAPS', 'Garden', 'Gasty', 'Chuchuy', 'Florensa', 'Picasso'];
-const CULTIVOS_PRECAMPAÑA = ['Alfalfa', 'Rye Grass / Raigrás', 'Cebolla', 'Bermuda', 'Maíz', 'Sorgo', 'Trigo', 'Avena', 'Pasturas', 'Césped', 'Hortícolas', 'Otro'];
+const CULTIVOS_PRECAMPAÑA = ['Alfalfa', 'Cebolla', 'Bermuda', 'Rye Grass', 'Maíz', 'Sorgo', 'Trigo', 'Avena', 'Pasturas', 'Césped', 'Hortícolas', 'Otro'];
 
 app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
@@ -1947,6 +1947,7 @@ app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
   const cultivo = String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro';
   if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
+  if (!CULTIVOS_PRECAMPAÑA.includes(cultivo)) return res.status(400).json({ error: 'cultivo inválido' });
   const data = normalizarPayloadProductoPrecampania(payload);
   const creado = await prisma.productoPrecampania.create({ data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.status(201).json(creado);
@@ -1960,6 +1961,7 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
   const cultivo = String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro';
   if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
+  if (!CULTIVOS_PRECAMPAÑA.includes(cultivo)) return res.status(400).json({ error: 'cultivo inválido' });
   const data = normalizarPayloadProductoPrecampania(payload);
   const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.json(actualizado);
