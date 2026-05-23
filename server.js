@@ -739,6 +739,7 @@ function normalizarPayloadProductoPrecampania(payload = {}) {
     nombre: String(payload.nombre || '').trim(),
     semilleroLaboratorio: String(payload.semilleroLaboratorio || '').trim(),
     categoria: String(payload.categoria || '').trim(),
+    cultivo: String(payload.cultivo || '').trim() || null,
     presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
     descripcion: String(payload.descripcion || '').trim(),
     precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
@@ -1932,10 +1933,11 @@ app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) =
 }));
 
 const SEMILLEROS_PRECAMPAÑA = ['Guasch', 'CAPS', 'Garden', 'Gasty', 'Chuchuy', 'Florensa', 'Picasso'];
+const CULTIVOS_PRECAMPAÑA = ['Alfalfa', 'Rye Grass / Raigrás', 'Cebolla', 'Bermuda', 'Maíz', 'Sorgo', 'Trigo', 'Avena', 'Pasturas', 'Césped', 'Hortícolas', 'Otro'];
 
 app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
   const productos = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
-  res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, productos });
+  res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, cultivos: CULTIVOS_PRECAMPAÑA, productos });
 }));
 
 app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
@@ -1989,7 +1991,7 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true }
   });
   res.json(productos);
 }));
@@ -1998,7 +2000,7 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, presentacionEnvase: true, descripcion: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true }
   });
   res.json(productos);
 }));

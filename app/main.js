@@ -36,7 +36,8 @@ let productosPedidoVisibles = [];
 let catalogoGuaschCategorias = [];
 let precampaniaSemilleros = [];
 let precampaniaProductos = [];
-let precampaniaContextoCarga = { semillero: '', categoria: '' };
+let precampaniaContextoCarga = { cultivo: '', semillero: '', categoria: '' };
+let precampaniaCultivos = [];
 const VENTA_ACTIVA_STORAGE_KEY = 'venta_activa_id';
 
 function setVentaActivaId(id) {
@@ -1292,10 +1293,10 @@ async function cargarClientesSemillasYa() {
 function resetFormularioPrecampania() {
   $('#pre-id').value = '';
   $('#pre-nombre').value = '';
+  $('#pre-cultivo').value = precampaniaContextoCarga.cultivo || '';
   $('#pre-categoria').value = precampaniaContextoCarga.categoria || '';
   $('#pre-envase').value = '';
   $('#pre-descripcion').value = '';
-  $('#pre-estado').value = 'CONSULTAR';
   $('#pre-moneda-compra').value = 'ARS';
   $('#pre-costo-compra').value = '0';
   $('#pre-tipo-cambio').value = '1';
@@ -1306,6 +1307,7 @@ function resetFormularioPrecampania() {
   $('#pre-precio-manual').value = '';
   $('#pre-precio-final').value = '0';
   $('#pre-visible').value = 'false';
+  if (precampaniaContextoCarga.cultivo) $('#pre-cultivo').value = precampaniaContextoCarga.cultivo;
   if (precampaniaContextoCarga.semillero) $('#pre-semillero').value = precampaniaContextoCarga.semillero;
   calcularPreviewPrecampania();
 }
@@ -1337,6 +1339,15 @@ function calcularPreviewPrecampania() {
 }
 
 function renderSemillerosPrecampania() {
+  const selCultivoForm = $('#pre-cultivo');
+  const selCultivoFiltro = $('#pre-filtro-cultivo');
+  if (selCultivoForm) {
+    selCultivoForm.innerHTML = precampaniaCultivos.map((c) => `<option value="${c}">${c}</option>`).join('');
+    if (precampaniaContextoCarga.cultivo) selCultivoForm.value = precampaniaContextoCarga.cultivo;
+  }
+  if (selCultivoFiltro) {
+    selCultivoFiltro.innerHTML = `<option value="TODOS">Todos los cultivos</option>${precampaniaCultivos.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
+  }
   const selForm = $('#pre-semillero');
   const selFiltro = $('#pre-filtro-semillero');
   if (selForm) {
@@ -1351,15 +1362,17 @@ function renderSemillerosPrecampania() {
 function renderProductosPrecampania() {
   const q = ($('#pre-buscar')?.value || '').trim().toLowerCase();
   const semilleroFiltro = $('#pre-filtro-semillero')?.value || 'TODOS';
+  const cultivoFiltro = $('#pre-filtro-cultivo')?.value || 'TODOS';
   const categoriaFiltro = ($('#pre-filtro-categoria')?.value || '').trim().toLowerCase();
   const lista = precampaniaProductos.filter((p) => {
-    const matchQ = !q || [p.nombre, p.semilleroLaboratorio, p.categoria, p.presentacionEnvase].some((v) => String(v || '').toLowerCase().includes(q));
+    const matchQ = !q || [p.nombre, p.semilleroLaboratorio, p.cultivo, p.categoria, p.presentacionEnvase].some((v) => String(v || '').toLowerCase().includes(q));
     const matchSem = semilleroFiltro === 'TODOS' || p.semilleroLaboratorio === semilleroFiltro;
+    const matchCultivo = cultivoFiltro === 'TODOS' || (p.cultivo || 'Otro') === cultivoFiltro;
     const matchCat = !categoriaFiltro || String(p.categoria || '').toLowerCase().includes(categoriaFiltro);
-    return matchQ && matchSem && matchCat;
+    return matchQ && matchSem && matchCultivo && matchCat;
   });
   $('#pre-lista').innerHTML = lista.length
-    ? lista.map((p) => `<div class="item"><strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | ${p.categoria || '-'} | ${p.presentacionEnvase || '-'} | ${p.estado || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'}
+    ? lista.map((p) => `<div class="item"><strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | Cultivo: ${p.cultivo || 'Otro'} | ${p.presentacionEnvase || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'}
       <button data-pre-editar="${p.id}">Editar</button>
       <button data-pre-duplicar="${p.id}">Duplicar</button>
       <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar="${p.id}">Duplicar a Mostrador</button>
@@ -1371,6 +1384,7 @@ function renderProductosPrecampania() {
 async function loadProductosPrecampania() {
   const data = await api('/api/productos-precampania');
   precampaniaSemilleros = Array.isArray(data?.semilleros) ? data.semilleros : [];
+  precampaniaCultivos = Array.isArray(data?.cultivos) ? data.cultivos : [];
   precampaniaProductos = Array.isArray(data?.productos) ? data.productos : [];
   renderSemillerosPrecampania();
   renderProductosPrecampania();
@@ -1557,8 +1571,10 @@ $('#lista-comercial-select')?.addEventListener('change', async () => {
 });
 $('#pre-buscar')?.addEventListener('input', renderProductosPrecampania);
 $('#pre-filtro-semillero')?.addEventListener('change', renderProductosPrecampania);
+$('#pre-filtro-cultivo')?.addEventListener('change', renderProductosPrecampania);
 $('#pre-filtro-categoria')?.addEventListener('input', renderProductosPrecampania);
 $('#btn-precampania-nuevo')?.addEventListener('click', resetFormularioPrecampania);
+$('#pre-cultivo')?.addEventListener('change', (e) => { precampaniaContextoCarga.cultivo = e.target.value; });
 $('#pre-semillero')?.addEventListener('change', (e) => { precampaniaContextoCarga.semillero = e.target.value; });
 $('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga.categoria = e.target.value; });
 ['pre-moneda-compra', 'pre-costo-compra', 'pre-tipo-cambio', 'pre-porcentaje-flete', 'pre-porcentaje-iva', 'pre-porcentaje-margen', 'pre-precio-manual', 'pre-usa-precio-manual']
@@ -1574,11 +1590,11 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     if (!p) return;
     $('#pre-id').value = String(p.id);
     $('#pre-nombre').value = p.nombre || '';
+    $('#pre-cultivo').value = p.cultivo || 'Otro';
     $('#pre-semillero').value = p.semilleroLaboratorio || '';
     $('#pre-categoria').value = p.categoria || '';
     $('#pre-envase').value = p.presentacionEnvase || '';
     $('#pre-descripcion').value = p.descripcion || '';
-    $('#pre-estado').value = p.estado || 'CONSULTAR';
     $('#pre-moneda-compra').value = p.monedaCompra || 'ARS';
     $('#pre-costo-compra').value = p.costoCompra == null ? '0' : String(p.costoCompra);
     $('#pre-tipo-cambio').value = p.tipoCambio == null ? '1' : String(p.tipoCambio);
@@ -1631,11 +1647,11 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   const id = Number($('#pre-id').value || 0);
   const payload = {
     nombre: ($('#pre-nombre').value || '').trim(),
+    cultivo: $('#pre-cultivo').value,
     semilleroLaboratorio: $('#pre-semillero').value,
     categoria: ($('#pre-categoria').value || '').trim(),
     presentacionEnvase: ($('#pre-envase').value || '').trim(),
     descripcion: ($('#pre-descripcion').value || '').trim(),
-    estado: $('#pre-estado').value,
     monedaCompra: $('#pre-moneda-compra').value,
     costoCompra: Number($('#pre-costo-compra').value || 0),
     tipoCambio: Number($('#pre-tipo-cambio').value || 1),
