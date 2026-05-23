@@ -175,10 +175,11 @@
     <section class="section">
       <div class="panel">
         <h2 class="title">Elegí cultivo y variedad</h2>
-        <p class="helper-text">Primero seleccioná semillero y cultivo para ver opciones disponibles.</p>
+        <p class="helper-text">Primero seleccioná cultivo para ver todas las variedades disponibles. Después podés filtrar por semillero.</p>
         <h3 class="selector-cultivo-title">Elegí el cultivo que necesitás</h3>
         <div class="filters">
           <select id="filtroCultivo"><option value="TODOS">Todos los cultivos</option></select>
+          <select id="filtroSemillero"><option value="TODOS">Todos los semilleros</option></select>
           <input id="buscar" placeholder="Buscar por producto, semillero, cultivo o presentación" />
         </div>
       </div>
@@ -250,14 +251,15 @@
         card.onclick = () => {
           state.semilleroSeleccionado = card.dataset.brand;
           renderBrands();
-          renderCatalogo();
         };
       });
     }
 
     function popularFiltros() {
       const cultivos = ['TODOS', ...new Set(state.productos.map(cultivoProducto))];
+      const semilleros = ['TODOS', ...new Set(state.productos.map(marcaProducto))];
       $('filtroCultivo').innerHTML = cultivos.map(v => `<option value="${v}">${v}</option>`).join('');
+      $('filtroSemillero').innerHTML = semilleros.map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
     function agregarCarrito(producto) {
@@ -270,16 +272,12 @@
     function renderCatalogo() {
       const q = $('buscar').value.toLowerCase().trim();
       const fc = $('filtroCultivo').value;
-      const fm = state.semilleroSeleccionado;
-      if (!fm) {
-        $('catalog').innerHTML = '<p>Seleccioná un semillero para ver los productos disponibles.</p>';
-        return;
-      }
+      const fm = $('filtroSemillero').value;
 
       const list = state.productos.filter((p) => {
         const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
         if (fc !== 'TODOS' && cultivoProducto(p) !== fc) return false;
-        if (fm !== 'TODAS' && String(marcaProducto(p)).toLowerCase() !== String(fm).toLowerCase()) return false;
+        if (fm !== 'TODOS' && String(marcaProducto(p)).toLowerCase() !== String(fm).toLowerCase()) return false;
         if (q && !txt.includes(q)) return false;
         return true;
       });
@@ -432,7 +430,7 @@
       const r = await fetch('/api/semillasya/catalogo');
       if (!r.ok) throw new Error('No se pudo cargar el catálogo de PRECAMPAÑA.');
       const data = await r.json();
-      state.productos = Array.isArray(data) ? data : [];
+      state.productos = Array.isArray(data?.productos) ? data.productos : [];
       state.catalogoCargado = true;
       popularFiltros();
       renderCatalogo();
@@ -441,7 +439,7 @@
       }
     }
 
-    ['buscar', 'filtroCultivo'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
+    ['buscar', 'filtroCultivo', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
     $('continuarTerritorio').addEventListener('click', mostrarPasoContacto);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));

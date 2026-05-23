@@ -1664,6 +1664,7 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     visibleEnSemillasYa: $('#pre-visible').value === 'true'
   };
   if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
+  if (!String(payload.cultivo || '').trim()) return setMsg('Cultivo obligatorio', 'warning');
   if (id) {
     await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     setMsg('Producto precampaña actualizado', 'info');

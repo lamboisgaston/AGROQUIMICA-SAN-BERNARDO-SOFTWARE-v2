@@ -371,7 +371,7 @@ model ProductoPrecampania {
   nombre               String
   semilleroLaboratorio String
   categoria            String
-  cultivo              String?
+  cultivo              String   @default("Otro")
   presentacionEnvase   String
   descripcion          String
   precioInternoManual  Float?
