@@ -1643,7 +1643,11 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   if (!p) return res.status(404).send('No encontrado');
   const moneda = formatMoney;
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
-  const rows = p.items.map(i => `<tr><td>${escapeHtml(i.producto.nombre)}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`).join('');
+  const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
+  const rows = p.items.map((i) => {
+    const nombreProducto = i.producto?.nombre || i.descripcion || i.observaciones || 'Producto SemillasYa sin catálogo Mostrador';
+    return `<tr><td>${escapeHtml(nombreProducto)}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`;
+  }).join('');
   res.type('html').send(`<!doctype html>
 <html lang="es">
 <head>
@@ -1678,7 +1682,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
       </div>
     </div>
     <div class="box">
-      <strong>Cliente:</strong> ${escapeHtml(p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'))}<br/>
+      <strong>Cliente:</strong> ${escapeHtml(nombreCliente)}<br/>
       <strong>Teléfono:</strong> ${escapeHtml(p.persona?.telefono || '-')}<br/>
       <strong>CUIT/DNI:</strong> ${escapeHtml(p.persona?.cuitDni || '-')}
     </div>
