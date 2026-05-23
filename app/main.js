@@ -1167,7 +1167,26 @@ function renderRemitoItems() {
 
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
-const HOME_MODULES_BASE = ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya'];
+const HOME_MODULES_BASE = [
+  'clientes',
+  'productos',
+  'categorias',
+  'presupuestos',
+  'presupuestos-semillasya',
+  'pedidos',
+  'ventas',
+  'caja',
+  'cuenta-corriente',
+  'proveedores',
+  'stock',
+  'remitos',
+  'reportes',
+  'eliminados',
+  'estado-sistema',
+  'productos-precampania',
+  'clientes-semillasya',
+  'operaciones-semillasya'
+];
 const ROLE_MODULES = {
   ADMINISTRADOR_GENERAL: [...HOME_MODULES_BASE],
   GERENTE: [...HOME_MODULES_BASE],
