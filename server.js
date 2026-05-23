@@ -739,7 +739,7 @@ function normalizarPayloadProductoPrecampania(payload = {}) {
     nombre: String(payload.nombre || '').trim(),
     semilleroLaboratorio: String(payload.semilleroLaboratorio || '').trim(),
     categoria: String(payload.categoria || '').trim(),
-    cultivo: String(payload.cultivo || '').trim() || null,
+    cultivo: String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro',
     presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
     descripcion: String(payload.descripcion || '').trim(),
     precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
@@ -1936,7 +1936,8 @@ const SEMILLEROS_PRECAMPAÑA = ['Guasch', 'CAPS', 'Garden', 'Gasty', 'Chuchuy', 
 const CULTIVOS_PRECAMPAÑA = ['Alfalfa', 'Rye Grass / Raigrás', 'Cebolla', 'Bermuda', 'Maíz', 'Sorgo', 'Trigo', 'Avena', 'Pasturas', 'Césped', 'Hortícolas', 'Otro'];
 
 app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
-  const productos = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
+  const productosRaw = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
+  const productos = productosRaw.map((p) => ({ ...p, cultivo: String(p.cultivo || p.categoria || '').trim() || 'Otro' }));
   res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, cultivos: CULTIVOS_PRECAMPAÑA, productos });
 }));
 
@@ -1944,8 +1945,10 @@ app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const semillero = String(payload.semilleroLaboratorio || '').trim();
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
+  const cultivo = String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro';
+  if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
   const data = normalizarPayloadProductoPrecampania(payload);
-  const creado = await prisma.productoPrecampania.create({ data: { ...data, semilleroLaboratorio: semillero } });
+  const creado = await prisma.productoPrecampania.create({ data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.status(201).json(creado);
 }));
 
@@ -1955,8 +1958,10 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const semillero = String(payload.semilleroLaboratorio || '').trim();
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
+  const cultivo = String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro';
+  if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
   const data = normalizarPayloadProductoPrecampania(payload);
-  const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, semilleroLaboratorio: semillero } });
+  const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.json(actualizado);
 }));
 
@@ -1997,12 +2002,15 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
 }));
 
 app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
-  const productos = await prisma.productoPrecampania.findMany({
+  const productosRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true },
     orderBy: { createdAt: 'asc' },
     select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true }
   });
-  res.json(productos);
+  const productos = productosRaw.map((p) => ({ ...p, cultivo: String(p.cultivo || p.categoria || '').trim() || 'Otro' }));
+  const cultivos = [...new Set(productos.map((p) => p.cultivo).filter(Boolean))];
+  const semilleros = [...new Set(productos.map((p) => p.semilleroLaboratorio).filter(Boolean))];
+  res.json({ cultivos, semilleros, productos });
 }));
 
 app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
