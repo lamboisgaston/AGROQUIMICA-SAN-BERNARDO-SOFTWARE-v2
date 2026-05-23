@@ -7,7 +7,7 @@
     "dev": "npx prisma generate && npx prisma db push && node server.js",
     "prisma:generate": "prisma generate",
     "seed": "node prisma/seed.js",
-    "start": "prisma db push && node server.js",
+    "start": "prisma db push --accept-data-loss && node server.js",
     "import:productos": "python importar_productos_desde_xlsx.py",
     "import:clientes": "node importar_clientes.js clientes_recuperacion.csv",
     "prisma:migrate:dev": "prisma migrate dev --name init",
