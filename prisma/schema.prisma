@@ -215,12 +215,19 @@ enum TipoDestinatarioPresupuesto {
 model PresupuestoItem {
   id             Int         @id @default(autoincrement())
   presupuestoId  Int
-  productoId     Int
+  productoId     Int?
+  productoPrecampaniaId Int?
+  nombreProducto String?
+  cultivo        String?
+  semillero      String?
+  presentacion   String?
+  observaciones  String?
   cantidad       Int
   precioUnitario Float
   subtotal       Float
   presupuesto    Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
-  producto       Producto    @relation(fields: [productoId], references: [id])
+  producto       Producto?   @relation(fields: [productoId], references: [id])
+  productoPrecampania ProductoPrecampania? @relation(fields: [productoPrecampaniaId], references: [id])
 }
 
 enum EstadoPresupuesto {
@@ -390,6 +397,7 @@ model ProductoPrecampania {
   activo               Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+  presupuestoItems     PresupuestoItem[]
 }
 model EmpresaComercial {
   id Int @id @default(autoincrement())
