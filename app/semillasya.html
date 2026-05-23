@@ -219,7 +219,9 @@
       carrito: [],
       cliente: null,
       catalogoCargado: false,
-      semilleroSeleccionado: ''
+      semilleroSeleccionado: '',
+      cultivosDisponibles: [],
+      semillerosDisponibles: []
     };
     const $ = (id) => document.getElementById(id);
 
@@ -256,8 +258,10 @@
     }
 
     function popularFiltros() {
-      const cultivos = ['TODOS', ...new Set(state.productos.map(cultivoProducto))];
-      const semilleros = ['TODOS', ...new Set(state.productos.map(marcaProducto))];
+      const cultivosOrigen = state.cultivosDisponibles.length ? state.cultivosDisponibles : [...new Set(state.productos.map(cultivoProducto))];
+      const semillerosOrigen = state.semillerosDisponibles.length ? state.semillerosDisponibles : [...new Set(state.productos.map(marcaProducto))];
+      const cultivos = ['TODOS', ...cultivosOrigen.filter(Boolean)];
+      const semilleros = ['TODOS', ...semillerosOrigen.filter(Boolean)];
       $('filtroCultivo').innerHTML = cultivos.map(v => `<option value="${v}">${v}</option>`).join('');
       $('filtroSemillero').innerHTML = semilleros.map(v => `<option value="${v}">${v}</option>`).join('');
     }
@@ -431,6 +435,8 @@
       if (!r.ok) throw new Error('No se pudo cargar el catálogo de PRECAMPAÑA.');
       const data = await r.json();
       state.productos = Array.isArray(data?.productos) ? data.productos : [];
+      state.cultivosDisponibles = Array.isArray(data?.cultivos) ? data.cultivos : [];
+      state.semillerosDisponibles = Array.isArray(data?.semilleros) ? data.semilleros : [];
       state.catalogoCargado = true;
       popularFiltros();
       renderCatalogo();

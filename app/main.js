@@ -1342,7 +1342,7 @@ function renderSemillerosPrecampania() {
   const selCultivoForm = $('#pre-cultivo');
   const selCultivoFiltro = $('#pre-filtro-cultivo');
   if (selCultivoForm) {
-    selCultivoForm.innerHTML = precampaniaCultivos.map((c) => `<option value="${c}">${c}</option>`).join('');
+    selCultivoForm.innerHTML = `<option value="">Seleccionar cultivo</option>${precampaniaCultivos.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
     if (precampaniaContextoCarga.cultivo) selCultivoForm.value = precampaniaContextoCarga.cultivo;
   }
   if (selCultivoFiltro) {
@@ -1590,7 +1590,8 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     if (!p) return;
     $('#pre-id').value = String(p.id);
     $('#pre-nombre').value = p.nombre || '';
-    $('#pre-cultivo').value = p.cultivo || 'Otro';
+    $('#pre-cultivo').value = p.cultivo || '';
+    if (!$('#pre-cultivo').value && precampaniaCultivos.includes('Otro')) $('#pre-cultivo').value = 'Otro';
     $('#pre-semillero').value = p.semilleroLaboratorio || '';
     $('#pre-categoria').value = p.categoria || '';
     $('#pre-envase').value = p.presentacionEnvase || '';
