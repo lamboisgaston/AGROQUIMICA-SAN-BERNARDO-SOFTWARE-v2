@@ -1107,6 +1107,8 @@ async function loadTipoCambio() {
   const config = await api('/config/tipo-cambio');
   tipoCambioActual = Number(config.tipoCambioActual || 1);
   $('#tipo-cambio').value = tipoCambioActual;
+  if ($('#pre-tipo-cambio-global')) $('#pre-tipo-cambio-global').value = String(tipoCambioActual);
+  calcularPreviewPrecampania();
 }
 
 async function loadCategoriasProducto() {
@@ -1298,6 +1300,8 @@ function resetFormularioPrecampania() {
   $('#pre-envase').value = '';
   $('#pre-descripcion').value = '';
   $('#pre-costo-compra').value = '0';
+  $('#pre-moneda-compra').value = 'ARS';
+  $('#pre-tipo-cambio-global').value = String(tipoCambioActual || 1);
   $('#pre-porcentaje-flete').value = '0';
   $('#pre-porcentaje-margen').value = '0';
   $('#pre-precio-final').value = '0';
@@ -1309,19 +1313,24 @@ function resetFormularioPrecampania() {
 
 function calcularPreviewPrecampania() {
   const costoBase = Number($('#pre-costo-compra')?.value || 0);
+  const monedaCompra = $('#pre-moneda-compra')?.value === 'USD' ? 'USD' : 'ARS';
+  const tipoCambioGlobal = Number(tipoCambioActual || 1);
   const porcentajeFlete = Number($('#pre-porcentaje-flete')?.value || 0);
   const porcentajeMargen = Number($('#pre-porcentaje-margen')?.value || 0);
 
-  const flete = costoBase * (porcentajeFlete / 100);
-  const subtotal = costoBase + flete;
+  const costoBasePesos = monedaCompra === 'USD' ? (costoBase * tipoCambioGlobal) : costoBase;
+  const flete = costoBasePesos * (porcentajeFlete / 100);
+  const subtotal = costoBasePesos + flete;
   const margen = subtotal * (porcentajeMargen / 100);
   const precioFinal = subtotal + margen;
 
   if ($('#pre-precio-final')) $('#pre-precio-final').value = String(Number.isFinite(precioFinal) ? Number(precioFinal.toFixed(2)) : 0);
-  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(costoBase || 0);
+  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(costoBasePesos || 0);
   if ($('#pre-calc-flete')) $('#pre-calc-flete').textContent = money(flete || 0);
   if ($('#pre-calc-final')) $('#pre-calc-final').textContent = money(precioFinal || 0);
+  if ($('#pre-calc-estimado')) $('#pre-calc-estimado').textContent = money(precioFinal || 0);
   if ($('#pre-calc-margen')) $('#pre-calc-margen').textContent = `${Number.isFinite(porcentajeMargen) ? porcentajeMargen : 0}%`;
+  if ($('#pre-tipo-cambio-global')) $('#pre-tipo-cambio-global').value = String(tipoCambioGlobal);
 }
 
 function renderSemillerosPrecampania() {
@@ -1569,6 +1578,7 @@ $('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga
     $(id)?.addEventListener('input', calcularPreviewPrecampania);
     $(id)?.addEventListener('change', calcularPreviewPrecampania);
   });
+$('#pre-moneda-compra')?.addEventListener('change', calcularPreviewPrecampania);
 $('#pre-lista')?.addEventListener('click', async (e) => {
   const editar = e.target.closest('button[data-pre-editar]');
   if (editar) {
@@ -1584,6 +1594,8 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     $('#pre-envase').value = p.presentacionEnvase || '';
     $('#pre-descripcion').value = p.descripcion || '';
     $('#pre-costo-compra').value = p.costoCompra == null ? '0' : String(p.costoCompra);
+    $('#pre-moneda-compra').value = p.monedaCompra === 'USD' ? 'USD' : 'ARS';
+    $('#pre-tipo-cambio-global').value = String(tipoCambioActual || 1);
     $('#pre-porcentaje-flete').value = p.porcentajeFlete == null ? '0' : String(p.porcentajeFlete);
     $('#pre-porcentaje-margen').value = p.porcentajeMargen == null ? '0' : String(p.porcentajeMargen);
     $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
@@ -1636,6 +1648,7 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     presentacionEnvase: ($('#pre-envase').value || '').trim(),
     descripcion: ($('#pre-descripcion').value || '').trim(),
     costoCompra: Number($('#pre-costo-compra').value || 0),
+    monedaCompra: $('#pre-moneda-compra').value === 'USD' ? 'USD' : 'ARS',
     porcentajeFlete: Number($('#pre-porcentaje-flete').value || 0),
     porcentajeMargen: Number($('#pre-porcentaje-margen').value || 0),
     usaPrecioManual: false,

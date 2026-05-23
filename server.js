@@ -730,7 +730,7 @@ function calcularPrecioProductoPrecampania(producto = {}) {
   return Number(numeroSeguro(final).toFixed(2));
 }
 
-function normalizarPayloadProductoPrecampania(payload = {}) {
+function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1) {
   const moneda = String(payload.monedaCompra || 'ARS').trim().toUpperCase();
   const monedaCompra = moneda === 'USD' ? 'USD' : 'ARS';
   const usaPrecioManual = Boolean(payload.usaPrecioManual);
@@ -745,7 +745,7 @@ function normalizarPayloadProductoPrecampania(payload = {}) {
     precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
     monedaCompra,
     costoCompra: Number(payload.costoCompra || 0),
-    tipoCambio: Number(payload.tipoCambio || 1),
+    tipoCambio: Number(tipoCambioActual || 1),
     porcentajeFlete: Number(payload.porcentajeFlete || 0),
     porcentajeIva: Number(payload.porcentajeIva || 0),
     porcentajeMargen: Number(payload.porcentajeMargen || 0),
@@ -1948,7 +1948,8 @@ app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
   const cultivo = String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro';
   if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
   if (!CULTIVOS_PRECAMPAÑA.includes(cultivo)) return res.status(400).json({ error: 'cultivo inválido' });
-  const data = normalizarPayloadProductoPrecampania(payload);
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const data = normalizarPayloadProductoPrecampania(payload, tipoCambioActual);
   const creado = await prisma.productoPrecampania.create({ data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.status(201).json(creado);
 }));
@@ -1962,7 +1963,8 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   const cultivo = String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro';
   if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
   if (!CULTIVOS_PRECAMPAÑA.includes(cultivo)) return res.status(400).json({ error: 'cultivo inválido' });
-  const data = normalizarPayloadProductoPrecampania(payload);
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const data = normalizarPayloadProductoPrecampania(payload, tipoCambioActual);
   const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.json(actualizado);
 }));
@@ -2840,7 +2842,8 @@ app.use((err, req, res, next) => {
 
 
 
-app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
+app.post('/api/semillasya/solicitud', async (req, res) => {
+  try {
   const { personaId, nombre, telefono, pais, provincia, ciudad, localidad, observaciones, items } = req.body || {};
 
   const nombreLimpio = String(nombre || '').trim();
@@ -2851,24 +2854,24 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
   const observacionesLimpias = String(observaciones || '').trim();
   const itemsEntrada = Array.isArray(items) ? items : [];
 
-  if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
-  if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
-  if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
-  if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
-  if (!itemsEntrada.length) return res.status(400).json({ error: 'Debe incluir al menos un item' });
+  if (!nombreLimpio) return res.status(400).json({ ok: false, error: 'nombre es obligatorio' });
+  if (!telefonoLimpio) return res.status(400).json({ ok: false, error: 'telefono es obligatorio' });
+  if (!paisLimpio) return res.status(400).json({ ok: false, error: 'pais es obligatorio' });
+  if (!provinciaLimpia) return res.status(400).json({ ok: false, error: 'provincia es obligatoria' });
+  if (!itemsEntrada.length) return res.status(400).json({ ok: false, error: 'Debe incluir al menos un item' });
 
   const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoPrecampaniaId)).filter(Boolean);
-  if (ids.length !== itemsEntrada.length) return res.status(400).json({ error: 'productoPrecampaniaId inválido en items' });
+  if (ids.length !== itemsEntrada.length) return res.status(400).json({ ok: false, error: 'productoPrecampaniaId inválido en items' });
 
   const cantidades = itemsEntrada.map((it) => parsePositiveInt(it.cantidad)).filter(Boolean);
-  if (cantidades.length !== itemsEntrada.length) return res.status(400).json({ error: 'cantidad inválida en items' });
+  if (cantidades.length !== itemsEntrada.length) return res.status(400).json({ ok: false, error: 'cantidad inválida en items' });
 
   const productosLista = await prisma.productoPrecampania.findMany({
     where: { id: { in: ids }, activo: true, visibleEnSemillasYa: true }
   });
   const productosById = new Map(productosLista.map((p) => [p.id, p]));
   const faltantes = ids.filter((id) => !productosById.has(id));
-  if (faltantes.length) return res.status(400).json({ error: `Productos de precampaña no encontrados: ${faltantes.join(', ')}` });
+  if (faltantes.length) return res.status(400).json({ ok: false, error: `Productos de precampaña no encontrados: ${faltantes.join(', ')}` });
 
   const resultado = await prisma.$transaction(async (tx) => {
     let personaExistente = null;
@@ -2948,14 +2951,18 @@ app.post('/api/semillasya/solicitud', asyncHandler(async (req, res) => {
     items: resultado.itemsCalculados
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     ok: true,
-    personaId: resultado.persona.id,
     presupuestoId: resultado.presupuesto.id,
+    personaId: resultado.persona.id,
     mensaje: 'Solicitud recibida. Te vamos a responder por WhatsApp.',
     whatsappInterno: { mensaje: mensajeInterno }
   });
-}));
+  } catch (error) {
+    console.error('[semillasya][solicitud] error', error);
+    return res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor' });
+  }
+});
 
 app.get('/semillasya', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
