@@ -161,17 +161,17 @@
       </div>
 
     <section class="section">
-      <h2 class="title">Semilleros</h2>
+      <h2 class="title">Empresas / Semilleros</h2>
       <div class="brands" id="brands"></div>
     </section>
 
     <section class="section layout">
       <div class="panel">
-        <h2 class="title">Catálogo visual</h2>
+        <h2 class="title">Cultivo y productos</h2>
         <div class="filters">
-                    <select id="filtroCategoria"><option value="TODAS">Todas las categorías</option></select>
+                    <select id="filtroCultivo"><option value="TODOS">Todos los cultivos</option></select>
           <select id="filtroSemillero"><option value="TODAS">Todos los semilleros</option></select>
-          <input id="buscar" placeholder="Buscar por producto, semillero, categoría o presentación" />
+          <input id="buscar" placeholder="Buscar por producto, semillero, cultivo o presentación" />
         </div>
         <div class="catalog" id="catalog"></div>
       </div>
@@ -212,7 +212,7 @@
       return p?.imagenUrl || p?.fotoUrl || p?.imageUrl || p?.imagen || p?.foto || '';
     }
 
-    function categoriaProducto(p) { return p.categoria || 'General'; }
+    function cultivoProducto(p) { return p.cultivo || 'Otro'; }
     function marcaProducto(p) { return p.semilleroLaboratorio || 'Sin marca'; }
     function presentacionProducto(p) { return p.presentacionEnvase || 'Sin especificar'; }
 
@@ -225,9 +225,9 @@
     }
 
     function popularFiltros() {
-      const categorias = ['TODAS', ...new Set(state.productos.map(categoriaProducto))];
+      const cultivos = ['TODOS', ...new Set(state.productos.map(cultivoProducto))];
       const marcas = ['TODAS', ...new Set(state.productos.map(marcaProducto))];
-      $('filtroCategoria').innerHTML = categorias.map(v => `<option value="${v}">${v}</option>`).join('');
+      $('filtroCultivo').innerHTML = cultivos.map(v => `<option value="${v}">${v}</option>`).join('');
       $('filtroSemillero').innerHTML = marcas.map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
@@ -240,12 +240,12 @@
 
     function renderCatalogo() {
       const q = $('buscar').value.toLowerCase().trim();
-      const fc = $('filtroCategoria').value;
+      const fc = $('filtroCultivo').value;
       const fm = $('filtroSemillero').value;
 
       const list = state.productos.filter((p) => {
         const txt = `${p.nombre || ''} ${marcaProducto(p)} ${presentacionProducto(p)}`.toLowerCase();
-        if (fc !== 'TODAS' && categoriaProducto(p) !== fc) return false;
+        if (fc !== 'TODOS' && cultivoProducto(p) !== fc) return false;
         if (fm !== 'TODAS' && marcaProducto(p) !== fm) return false;
         if (q && !txt.includes(q)) return false;
         return true;
@@ -257,7 +257,7 @@
           ${imagenProducto(p) ? `<img src="${imagenProducto(p)}" alt="${p.nombre || 'Producto'}" loading="lazy" />` : ''}
           <span class="meta">Descripción: ${p.descripcion || '-'}</span>
           <span class="meta">Semillero: ${marcaProducto(p)}</span>
-          <span class="meta">Categoría: ${categoriaProducto(p)}</span>
+          <span class="meta">Cultivo: ${cultivoProducto(p)}</span>
           <span class="meta">Presentación: ${presentacionProducto(p)}</span>
           <button class="btn btn-add" data-add="${p.id}">Agregar</button>
         </article>
@@ -276,7 +276,7 @@
       $('cart').innerHTML = state.carrito.map((it, idx) => `
         <div class="cart-item">
           <div class="cart-row"><strong>${it.producto.nombre}</strong><button class="btn btn-outline" data-rm="${idx}">Quitar</button></div>
-          <div class="small">${marcaProducto(it.producto)} · ${categoriaProducto(it.producto)} · ${presentacionProducto(it.producto)}</div>
+          <div class="small">${marcaProducto(it.producto)} · ${cultivoProducto(it.producto)} · ${presentacionProducto(it.producto)}</div>
           <div class="cart-row" style="margin-top:.35rem;">
             <span class="small">Cantidad</span>
             <input class="qty" type="number" min="1" value="${it.cantidad}" data-qty="${idx}" />
@@ -408,7 +408,7 @@
       }
     }
 
-    ['buscar', 'filtroCategoria', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
+    ['buscar', 'filtroCultivo', 'filtroSemillero'].forEach((id) => $(id).addEventListener('input', renderCatalogo));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
     $('continuarTerritorio').addEventListener('click', mostrarPasoContacto);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));

@@ -62,26 +62,22 @@
       </div>
       <div class="filters">
         <select id="pre-filtro-semillero"><option value="TODOS">Todos los semilleros</option></select>
+        <select id="pre-filtro-cultivo"><option value="TODOS">Todos los cultivos</option></select>
         <input id="pre-filtro-categoria" placeholder="Filtrar por categoría" />
         <input id="pre-buscar" placeholder="Buscar por nombre, semillero, categoría o envase" />
       </div>
       <div id="pre-lista" class="lista"></div>
       <input id="pre-id" type="hidden" />
-      <label>Nombre <input id="pre-nombre" /></label>
+            <label>Cultivo
+        <select id="pre-cultivo"></select>
+      </label>
       <label>Semillero
         <select id="pre-semillero"></select>
       </label>
-      <label>Categoría <input id="pre-categoria" /></label>
-      <label>Envase <input id="pre-envase" /></label>
-      <label>Descripción <input id="pre-descripcion" /></label>
-      <label>Estado
-        <select id="pre-estado">
-          <option value="DISPONIBLE">DISPONIBLE</option>
-          <option value="CONSULTAR">CONSULTAR</option>
-          <option value="AGOTADO">AGOTADO</option>
-        </select>
-      </label>
-      <label>Moneda compra
+      <label>Presentación/Envase <input id="pre-envase" /></label>
+      <label>Nombre producto / variedad <input id="pre-nombre" /></label>
+            <label>Categoría (opcional) <input id="pre-categoria" /></label>
+                  <label>Moneda compra
         <select id="pre-moneda-compra">
           <option value="ARS">ARS</option>
           <option value="USD">USD</option>
