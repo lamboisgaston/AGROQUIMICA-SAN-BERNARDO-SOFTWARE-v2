@@ -405,7 +405,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await r.json();
+      const text = await r.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { throw new Error('Respuesta inválida del servidor.'); }
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar la solicitud');
 
       state.carrito = [];
