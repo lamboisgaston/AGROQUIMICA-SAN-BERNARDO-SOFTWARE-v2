@@ -1274,8 +1274,8 @@ async function abrirModulo(modulo) {
   if (modulo === 'productos-precampania') {
     await loadProductosPrecampania();
   }
-  if (modulo === 'presupuestos' || modulo === 'presupuestos-semillasya') {
-    const esSemillasYa = modulo === 'presupuestos-semillasya';
+  if (modulo === 'presupuestos' || modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya') {
+    const esSemillasYa = modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya';
     presupuestoModuloActivo = esSemillasYa ? 'SEMILLASYA' : 'MOSTRADOR';
     presupuestoTipoOperacion = esSemillasYa ? 'PRECAMPAÑA' : 'MOSTRADOR';
     const tituloModulo = $('#pres-titulo-modulo');
@@ -1365,7 +1365,7 @@ function renderSemillerosPrecampania() {
   const selForm = $('#pre-semillero');
   const selFiltro = $('#pre-filtro-semillero');
   if (selForm) {
-    selForm.innerHTML = precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('');
+    selForm.innerHTML = `<option value="">Seleccionar semillero</option>${precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('')}`;
     if (precampaniaContextoCarga.semillero) selForm.value = precampaniaContextoCarga.semillero;
   }
   if (selFiltro) {
@@ -1677,6 +1677,8 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   };
   if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
   if (!String(payload.cultivo || '').trim()) return setMsg('Cultivo obligatorio', 'warning');
+  if (!String(payload.semilleroLaboratorio || '').trim()) return setMsg('Semillero obligatorio', 'warning');
+  if (!String(payload.presentacionEnvase || '').trim()) return setMsg('Presentación obligatoria', 'warning');
   if (id) {
     await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     setMsg('Producto precampaña actualizado', 'info');
