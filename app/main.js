@@ -1345,6 +1345,12 @@ function resetFormularioPrecampania() {
   $('#pre-categoria').value = precampaniaContextoCarga.categoria || '';
   $('#pre-envase').value = '';
   $('#pre-descripcion').value = '';
+  $('#pre-descripcion-tecnica').value = '';
+  $('#pre-recomendaciones-uso').value = '';
+  $('#pre-epoca-siembra').value = '';
+  $('#pre-dosis-orientativa').value = '';
+  $('#pre-observaciones-comerciales').value = '';
+  $('#pre-imagen-url').value = '';
   $('#pre-costo-compra').value = '0';
   $('#pre-moneda-compra').value = 'ARS';
   $('#pre-tipo-cambio-global').value = String(tipoCambioActual || 1);
@@ -1453,13 +1459,14 @@ function renderProductosPrecampania() {
         <td>${p.semilleroLaboratorio || '-'}</td>
         <td>${p.nombre || '-'}</td>
         <td>${p.presentacionEnvase || '-'}</td>
+        <td>${p.imagenUrl ? `<img src="${p.imagenUrl}" alt="${p.nombre || 'Producto'}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />` : '-'}</td>
         <td>${money(precioUsd)}</td>
         <td>${money(precioFinalPesos)}</td>
         <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'Publicado' : 'Oculto'}</span></td>
         <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}" title="Publicar en SemillasYa"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span><span class="pre-toggle-label">${p.visibleEnSemillasYa ? 'Publicado' : 'Oculto'}</span></button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
       </tr>`;
     }).join('');
-    return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+    return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Foto</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   });
   $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos SemillasYa.</div>';
 }
@@ -1696,6 +1703,12 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     $('#pre-categoria').value = p.categoria || '';
     $('#pre-envase').value = p.presentacionEnvase || '';
     $('#pre-descripcion').value = p.descripcion || '';
+    $('#pre-descripcion-tecnica').value = p.descripcionTecnica || '';
+    $('#pre-recomendaciones-uso').value = p.recomendacionesUso || '';
+    $('#pre-epoca-siembra').value = p.epocaSiembra || '';
+    $('#pre-dosis-orientativa').value = p.dosisOrientativa || '';
+    $('#pre-observaciones-comerciales').value = p.observacionesComerciales || '';
+    $('#pre-imagen-url').value = p.imagenUrl || '';
     $('#pre-costo-compra').value = p.costoCompra == null ? '0' : String(p.costoCompra);
     $('#pre-moneda-compra').value = p.monedaCompra === 'USD' ? 'USD' : 'ARS';
     $('#pre-tipo-cambio-global').value = String(tipoCambioActual || 1);
@@ -1761,6 +1774,12 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     categoria: ($('#pre-categoria').value || '').trim(),
     presentacionEnvase: ($('#pre-envase').value || '').trim(),
     descripcion: ($('#pre-descripcion').value || '').trim(),
+    descripcionTecnica: ($('#pre-descripcion-tecnica').value || '').trim(),
+    recomendacionesUso: ($('#pre-recomendaciones-uso').value || '').trim(),
+    epocaSiembra: ($('#pre-epoca-siembra').value || '').trim(),
+    dosisOrientativa: ($('#pre-dosis-orientativa').value || '').trim(),
+    observacionesComerciales: ($('#pre-observaciones-comerciales').value || '').trim(),
+    imagenUrl: ($('#pre-imagen-url').value || '').trim(),
     costoCompra: Number($('#pre-costo-compra').value || 0),
     monedaCompra: $('#pre-moneda-compra').value === 'USD' ? 'USD' : 'ARS',
     porcentajeFlete: Number($('#pre-porcentaje-flete').value || 0),
@@ -1782,6 +1801,20 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   }
   resetFormularioPrecampania();
   await loadProductosPrecampania();
+});
+
+$('#btn-precampania-publicar-todos')?.addEventListener('click', async () => {
+  const data = await api('/api/productos-precampania/publicar-todos', { method: 'POST', body: '{}' });
+  await loadProductosPrecampania();
+  setMsg(`Publicados en SemillasYa: ${data?.totalActualizados || 0}`, 'ok');
+});
+
+$('#btn-precampania-descripcion-tecnica')?.addEventListener('click', () => {
+  setMsg('Completá y guardá: descripción técnica, recomendaciones, época, dosis y observaciones comerciales.', 'info');
+});
+
+$('#btn-precampania-foto')?.addEventListener('click', () => {
+  setMsg('Pegá URL de imagen en "Imagen URL" y guardá el producto.', 'info');
 });
 
 calcularPreviewPrecampania();

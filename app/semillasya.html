@@ -293,9 +293,12 @@
         });
       $('catalog').innerHTML = list.map((p) => `
         <article class="product">
+          ${imagenProducto(p) ? `<img src="${imagenProducto(p)}" alt="${p.nombre || 'Producto'}" />` : ''}
           <strong>${p.nombre || 'Producto sin nombre'}</strong>
+          <span class="meta">Cultivo: ${cultivoProducto(p)}</span>
           <span class="meta">Semillero: ${marcaProducto(p)}</span>
           <span class="meta">Presentación: ${presentacionProducto(p)}</span>
+          ${p.descripcionTecnica ? `<span class="meta">${String(p.descripcionTecnica).slice(0, 140)}${String(p.descripcionTecnica).length > 140 ? '…' : ''}</span>` : ''}
           <button class="btn btn-add" data-add="${p.id}">Agregar a cotización</button>
         </article>
       `).join('') || '<p>No hay productos para este cultivo.</p>';

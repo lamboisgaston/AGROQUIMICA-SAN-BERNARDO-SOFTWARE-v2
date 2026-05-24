@@ -381,6 +381,12 @@ model ProductoPrecampania {
   cultivo              String   @default("Otro")
   presentacionEnvase   String
   descripcion          String
+  descripcionTecnica   String   @default("")
+  recomendacionesUso   String   @default("")
+  epocaSiembra         String   @default("")
+  dosisOrientativa     String   @default("")
+  observacionesComerciales String @default("")
+  imagenUrl            String   @default("")
   precioInternoManual  Float?
   monedaCompra         String   @default("ARS")
   costoCompra          Float    @default(0)
