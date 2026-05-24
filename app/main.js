@@ -1324,7 +1324,6 @@ function resetFormularioPrecampania() {
   $('#pre-porcentaje-flete').value = '0';
   $('#pre-porcentaje-margen').value = '0';
   $('#pre-precio-final').value = '0';
-  $('#pre-visible').value = 'false';
   if (precampaniaContextoCarga.cultivo) $('#pre-cultivo').value = precampaniaContextoCarga.cultivo;
   if (precampaniaContextoCarga.semillero) $('#pre-semillero').value = precampaniaContextoCarga.semillero;
   calcularPreviewPrecampania();
@@ -1429,8 +1428,8 @@ function renderProductosPrecampania() {
         <td>${p.presentacionEnvase || '-'}</td>
         <td>${money(precioUsd)}</td>
         <td>${money(precioFinalPesos)}</td>
-        <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'Visible' : 'Oculto'}</span></td>
-        <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'}</button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
+        <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'ON' : 'OFF'}</span></td>
+        <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <label class="switch-inline" title="Publicar en SemillasYa"><input type="checkbox" data-pre-toggle-visible="${p.id}" ${p.visibleEnSemillasYa ? 'checked' : ''}><span>${p.visibleEnSemillasYa ? 'ON' : 'OFF'}</span></label> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
       </tr>`;
     }).join('');
     return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
@@ -1661,7 +1660,6 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     $('#pre-porcentaje-flete').value = p.porcentajeFlete == null ? '0' : String(p.porcentajeFlete);
     $('#pre-porcentaje-margen').value = p.porcentajeMargen == null ? '0' : String(p.porcentajeMargen);
     $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
-    $('#pre-visible').value = p.visibleEnSemillasYa ? 'true' : 'false';
     calcularPreviewPrecampania();
     return;
   }
@@ -1677,7 +1675,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     setMsg('Producto precampaña duplicado', 'info');
     return;
   }
-  const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
+  const toggleVisible = e.target.closest('input[data-pre-toggle-visible]');
   const duplicarPre = e.target.closest('[data-pre-duplicar-mostrador]');
   if (duplicarPre) {
     await api(`/api/productos-precampania/${Number(duplicarPre.dataset.preDuplicarMostrador)}/duplicar-mostrador`, { method: 'POST', body: '{}' });
@@ -1687,7 +1685,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     const id = Number(toggleVisible.dataset.preToggleVisible);
     const p = precampaniaProductos.find((x) => x.id === id);
     if (!p) return;
-    await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, visibleEnSemillasYa: !p.visibleEnSemillasYa }) });
+    await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, visibleEnSemillasYa: toggleVisible.checked }) });
     await loadProductosPrecampania();
     setMsg('Visibilidad en SemillasYa actualizada', 'info');
     return;
@@ -1715,8 +1713,7 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     porcentajeMargen: Number($('#pre-porcentaje-margen').value || 0),
     usaPrecioManual: false,
     precioManual: '',
-    precioInternoManual: '',
-    visibleEnSemillasYa: $('#pre-visible').value === 'true'
+    precioInternoManual: ''
   };
   if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
   if (!String(payload.cultivo || '').trim()) return setMsg('Cultivo obligatorio', 'warning');

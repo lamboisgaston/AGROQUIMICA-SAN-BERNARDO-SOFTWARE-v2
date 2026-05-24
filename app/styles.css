@@ -61,6 +61,8 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .pre-table th { color: #334155; background: #f8fafc; }
 .pre-actions { min-width: 290px; }
 .pre-actions button { margin: 0 4px 4px 0; }
+.switch-inline { display: inline-flex; align-items: center; gap: .35rem; margin: 0 4px 4px 0; font-size: .85rem; }
+.switch-inline input { width: 18px; height: 18px; cursor: pointer; }
 .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
 .pill.ok { background: #dcfce7; color: #166534; }
 .pill.off { background: #fee2e2; color: #991b1b; }
