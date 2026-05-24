@@ -52,6 +52,18 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .dashboard-card h3 { margin: 0; font-size: 13px; }
 .dashboard-card p { margin: 0; color: #475569; font-size: 11px; }
 .dashboard-card button { width: fit-content; background: #1d4ed8; color: #fff; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+.pre-cultivo-group { margin: 0 0 14px; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; padding: 10px; }
+.pre-cultivo-group h3 { margin: 0 0 8px; font-size: 14px; color: #0f172a; display: flex; align-items: baseline; gap: 8px; }
+.pre-cultivo-group h3 small { color: #64748b; font-weight: 500; }
+.pre-table-wrap { overflow-x: auto; }
+.pre-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pre-table th, .pre-table td { border-bottom: 1px solid #e2e8f0; padding: 7px 6px; text-align: left; vertical-align: top; }
+.pre-table th { color: #334155; background: #f8fafc; }
+.pre-actions { min-width: 290px; }
+.pre-actions button { margin: 0 4px 4px 0; }
+.pill { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.pill.ok { background: #dcfce7; color: #166534; }
+.pill.off { background: #fee2e2; color: #991b1b; }
 .mostrador-ux .input-grande { font-size: 14px; padding: 6px; width: 100%; }
 .btn-grande { font-size: 12px; padding: 6px 8px; }
 .cliente-buscador-row { display:grid; gap:6px; grid-template-columns: 2fr repeat(3, minmax(110px,1fr)); align-items:center; }
