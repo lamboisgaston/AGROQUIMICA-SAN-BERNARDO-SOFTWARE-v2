@@ -1398,11 +1398,44 @@ function renderProductosPrecampania() {
     const matchCat = !categoriaFiltro || String(p.categoria || '').toLowerCase().includes(categoriaFiltro);
     return matchQ && matchVisible && matchSem && matchCultivo && matchCat;
   });
-  $('#pre-lista').innerHTML = lista.length
-    ? lista
-      .map((p) => `<div class="item"><strong>${p.nombre}</strong> | Cultivo: ${p.cultivo || 'Otro'} | Semillero: ${p.semilleroLaboratorio || '-'} | Presentación: ${p.presentacionEnvase || '-'} | Precio interno: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'} <button data-pre-editar="${p.id}">Editar</button> <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></div>`)
-      .join('')
-    : '<div class="item">Sin productos precampaña.</div>';
+  const ordenada = [...lista].sort((a, b) => {
+    const cultivoA = String(a.cultivo || a.categoria || 'Otro');
+    const cultivoB = String(b.cultivo || b.categoria || 'Otro');
+    const semA = String(a.semilleroLaboratorio || '');
+    const semB = String(b.semilleroLaboratorio || '');
+    const nomA = String(a.nombre || '');
+    const nomB = String(b.nombre || '');
+    const preA = String(a.presentacionEnvase || '');
+    const preB = String(b.presentacionEnvase || '');
+    return cultivoA.localeCompare(cultivoB, 'es') || semA.localeCompare(semB, 'es') || nomA.localeCompare(nomB, 'es') || preA.localeCompare(preB, 'es');
+  });
+  const porCultivo = ordenada.reduce((acc, p) => {
+    const cultivo = String(p.cultivo || p.categoria || 'Otro').trim() || 'Otro';
+    if (!acc[cultivo]) acc[cultivo] = [];
+    acc[cultivo].push(p);
+    return acc;
+  }, {});
+
+  const bloques = Object.entries(porCultivo).map(([cultivo, productos]) => {
+    const rows = productos.map((p) => {
+      const precioUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
+      const margenFactor = 1 + (Number(p.porcentajeMargen || 0) / 100);
+      const fleteFactor = 1 + (Number(p.porcentajeFlete || 0) / 100);
+      const precioFinalPesos = precioUsd * Number(tipoCambioActual || 1) * margenFactor * fleteFactor;
+      return `<tr>
+        <td>${cultivo}</td>
+        <td>${p.semilleroLaboratorio || '-'}</td>
+        <td>${p.nombre || '-'}</td>
+        <td>${p.presentacionEnvase || '-'}</td>
+        <td>${money(precioUsd)}</td>
+        <td>${money(precioFinalPesos)}</td>
+        <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'Visible' : 'Oculto'}</span></td>
+        <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'}</button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
+      </tr>`;
+    }).join('');
+    return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  });
+  $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos precampaña.</div>';
 }
 
 async function loadProductosPrecampania() {
