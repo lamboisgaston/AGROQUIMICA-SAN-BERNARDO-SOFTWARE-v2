@@ -1167,6 +1167,7 @@ function renderRemitoItems() {
 
 const ROLE_STORAGE_KEY = 'agro_sb_active_role';
 const ROLE_NAME_STORAGE_KEY = 'agro_sb_active_role_name';
+const BUSINESS_STORAGE_KEY = 'agro_sb_active_business';
 const HOME_MODULES_BASE = [
   'clientes',
   'productos',
@@ -1195,6 +1196,11 @@ const ROLE_MODULES = {
 };
 let activeRole = null;
 let activeRoleName = '';
+let activeBusiness = null;
+const BUSINESS_MODULES = {
+  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema'],
+  SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya']
+};
 
 function renderUsuarioActivo() {
   const el = $('#usuario-activo');
@@ -1204,12 +1210,27 @@ function renderUsuarioActivo() {
 
 function applyRoleModules() {
   const allowed = new Set(ROLE_MODULES[activeRole] || []);
+  const allowedBusiness = new Set(BUSINESS_MODULES[activeBusiness] || []);
   document.querySelectorAll('[data-module-card]').forEach((card) => {
-    card.classList.toggle('hidden', !allowed.has(card.dataset.moduleCard));
+    const modulo = card.dataset.moduleCard;
+    card.classList.toggle('hidden', !allowed.has(modulo) || !allowedBusiness.has(modulo));
   });
 }
 
+function seleccionarBusiness(business) {
+  activeBusiness = business;
+  localStorage.setItem(BUSINESS_STORAGE_KEY, business);
+  $('#business-selector')?.classList.add('hidden');
+  if (activeRole) {
+    applyRoleModules();
+    volverInicio();
+    return;
+  }
+  $('#role-selector')?.classList.remove('hidden');
+}
+
 function seleccionarRol(role, roleName) {
+  if (!activeBusiness) return;
   activeRole = role;
   activeRoleName = roleName;
   localStorage.setItem(ROLE_STORAGE_KEY, role);
@@ -1227,16 +1248,19 @@ function cambiarUsuario() {
   renderUsuarioActivo();
   document.querySelectorAll('.app-shell').forEach((el) => el.classList.add('hidden'));
   $('#home-dashboard')?.classList.add('hidden');
-  $('#role-selector')?.classList.remove('hidden');
+  $('#business-selector')?.classList.remove('hidden');
+  $('#role-selector')?.classList.add('hidden');
 }
 async function abrirModulo(modulo) {
   if (!activeRole) return;
   const roleSelector = $('#role-selector');
+  const businessSelector = $('#business-selector');
   const home = $('#home-dashboard');
   const appShell = document.querySelectorAll('.app-shell');
   const modulos = document.querySelectorAll('[data-modulo]');
   if (!home) return;
   roleSelector?.classList.add('hidden');
+  businessSelector?.classList.add('hidden');
   home.classList.add('hidden');
   appShell.forEach((el) => el.classList.remove('hidden'));
   modulos.forEach((el) => {
@@ -1560,11 +1584,21 @@ async function loadEliminados() {
 
 function volverInicio() {
   const roleSelector = $('#role-selector');
+  const businessSelector = $('#business-selector');
   const home = $('#home-dashboard');
   const appShell = document.querySelectorAll('.app-shell');
   const modulos = document.querySelectorAll('[data-modulo]');
   if (!home) return;
+  if (!activeBusiness) {
+    businessSelector?.classList.remove('hidden');
+    roleSelector?.classList.add('hidden');
+    home.classList.add('hidden');
+    appShell.forEach((el) => el.classList.add('hidden'));
+    modulos.forEach((el) => el.classList.add('hidden'));
+    return;
+  }
   if (!activeRole) {
+    businessSelector?.classList.add('hidden');
     roleSelector?.classList.remove('hidden');
     home.classList.add('hidden');
     appShell.forEach((el) => el.classList.add('hidden'));
@@ -1584,10 +1618,15 @@ document.querySelectorAll('[data-abrir-modulo]').forEach((btn) => {
 document.querySelectorAll('[data-select-role]').forEach((btn) => {
   btn.addEventListener('click', () => seleccionarRol(btn.dataset.selectRole, btn.dataset.roleName || btn.dataset.selectRole));
 });
+document.querySelectorAll('[data-select-business]').forEach((btn) => {
+  btn.addEventListener('click', () => seleccionarBusiness(btn.dataset.selectBusiness));
+});
 $('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
 const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
 const savedRoleName = localStorage.getItem(ROLE_NAME_STORAGE_KEY);
+const savedBusiness = localStorage.getItem(BUSINESS_STORAGE_KEY);
+if (savedBusiness && BUSINESS_MODULES[savedBusiness]) activeBusiness = savedBusiness;
 if (savedRole && ROLE_MODULES[savedRole]) {
   activeRole = savedRole;
   activeRoleName = savedRoleName || savedRole;

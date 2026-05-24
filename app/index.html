@@ -13,7 +13,15 @@
       <p class="app-header-signature">www.hubya.tech</p>
     </header>
     <div id="msg" class="msg msg-info">Bienvenido al sistema.</div>
-    <section id="role-selector" class="dashboard-home">
+    <section id="business-selector" class="dashboard-home">
+      <h2>Elegí acceso de entrada</h2>
+      <p class="dashboard-subtitle">Primero elegí la identidad comercial a la que querés entrar.</p>
+      <div class="dashboard-grid role-grid">
+        <article class="dashboard-card"><h3>Agroquímica San Bernardo</h3><p>ERP administrativo completo.</p><button data-select-business="AGROQUIMICA">Entrar a Agroquímica San Bernardo</button></article>
+        <article class="dashboard-card"><h3>SemillasYa</h3><p>Operación comercial de precampaña.</p><button data-select-business="SEMILLASYA">Entrar a SemillasYa</button></article>
+      </div>
+    </section>
+    <section id="role-selector" class="dashboard-home hidden">
       <h2>Seleccioná rol / operador</h2>
       <p class="dashboard-subtitle">Primero elegí quién ingresa al sistema.</p>
       <div class="dashboard-grid role-grid">
@@ -32,14 +40,14 @@
       <h2>Seleccioná un módulo</h2>
       <p class="dashboard-subtitle">Sistema privado ERP. Ingresá al área administrativa que necesitás.</p>
       <div class="dashboard-grid">
-        <article class="dashboard-card" data-module-card="clientes"><h3>Clientes</h3><p>Alta, edición y consulta de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="productos"><h3>Productos y precios</h3><p>Gestión de productos, costos y precios.</p><button data-abrir-modulo="productos">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="categorias"><h3>Categorías</h3><p>ABM de categorías comerciales.</p><button data-abrir-modulo="categorias">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="presupuestos"><h3>Presupuestos Mostrador</h3><p>Cotizaciones para ventas de mostrador.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="productos-precampania"><h3>Productos Precampaña</h3><p>ABM de productos para campañas estacionales.</p><button data-abrir-modulo="productos-precampania">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="clientes-semillasya"><h3>Clientes SemillasYa</h3><p>Clientes web de precampaña y sus solicitudes.</p><button data-abrir-modulo="clientes-semillasya">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="presupuestos-semillasya"><h3>Presupuestos SemillasYa</h3><p>Cotizaciones web recibidas y seguimiento comercial.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="operaciones-semillasya"><h3>Operaciones SemillasYa</h3><p>Panel territorial y logístico de solicitudes SemillasYa.</p><button data-abrir-modulo="operaciones-semillasya">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="clientes" data-business-card="AGROQUIMICA"><h3>Clientes</h3><p>Alta, edición y consulta de clientes.</p><button data-abrir-modulo="clientes">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="productos" data-business-card="AGROQUIMICA"><h3>Productos y precios</h3><p>Gestión de productos, costos y precios.</p><button data-abrir-modulo="productos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="categorias" data-business-card="AGROQUIMICA"><h3>Categorías</h3><p>ABM de categorías comerciales.</p><button data-abrir-modulo="categorias">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="presupuestos" data-business-card="AGROQUIMICA"><h3>Presupuestos Mostrador</h3><p>Cotizaciones para ventas de mostrador.</p><button data-abrir-modulo="presupuestos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="productos-precampania" data-business-card="SEMILLASYA"><h3>Productos Precampaña</h3><p>ABM de productos para campañas estacionales.</p><button data-abrir-modulo="productos-precampania">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="clientes-semillasya" data-business-card="SEMILLASYA"><h3>Clientes SemillasYa</h3><p>Clientes web de precampaña y sus solicitudes.</p><button data-abrir-modulo="clientes-semillasya">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="presupuestos-semillasya" data-business-card="SEMILLASYA"><h3>Presupuestos SemillasYa</h3><p>Cotizaciones web recibidas y seguimiento comercial.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="operaciones-semillasya" data-business-card="SEMILLASYA"><h3>Operaciones SemillasYa</h3><p>Panel territorial y logístico de solicitudes SemillasYa.</p><button data-abrir-modulo="operaciones-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="pedidos"><h3>Pedidos</h3><p>Gestión de pedidos y solicitudes a proveedores.</p><button data-abrir-modulo="pedidos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas"><h3>Ventas / Mostrador</h3><p>Flujo de venta, cobro y facturación interna.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja"><h3>Caja</h3><p>Cobros, cierres y movimientos de caja.</p><button data-abrir-modulo="caja">Entrar</button></article>

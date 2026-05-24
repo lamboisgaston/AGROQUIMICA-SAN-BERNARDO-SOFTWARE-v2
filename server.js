@@ -1654,9 +1654,11 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   if (!p) return res.status(404).send('No encontrado');
   const moneda = formatMoney;
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
+  const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
   const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
   const rows = p.items.map((i) => {
-    const nombreProducto = i.producto?.nombre || i.descripcion || i.observaciones || 'Producto SemillasYa sin catálogo Mostrador';
+    const nombrePrecampania = [i.descripcion, i.observaciones].filter(Boolean).join(' · ');
+    const nombreProducto = esPresupuestoSemillasYa ? (nombrePrecampania || i.producto?.nombre || 'Producto') : (i.producto?.nombre || i.descripcion || i.observaciones || 'Producto');
     return `<tr><td>${escapeHtml(nombreProducto)}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`;
   }).join('');
   res.type('html').send(`<!doctype html>
@@ -1682,9 +1684,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   <div class="wrap">
     <div class="head">
       <div>
-        <h1>Agroquímica y Fumigaciones San Bernardo</h1>
-        <div class="institutional-signature">www.hubya.tech</div>
-        <div>Dirección: Chile 1455</div>
+        ${esPresupuestoSemillasYa ? '<h1>www.semillasya.com</h1><div class="institutional-signature">Argentina</div><div>Cotización de semillas</div>' : '<h1>Agroquímica y Fumigaciones San Bernardo</h1><div class="institutional-signature">www.hubya.tech</div><div>Dirección: Chile 1455</div>'}
       </div>
       <div>
         <strong>Presupuesto #${p.id}</strong><br/>
@@ -1766,6 +1766,7 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   if (!p) return res.status(404).send('No encontrado');
 
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
+  const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
   const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
   const descuento = Number(p.descuentoValor || 0);
   const redondeo = Number(p.ajusteRedondeo || 0);
@@ -1794,12 +1795,17 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   const drawPageHeader = () => {
     const { left, right, width, top } = getBounds();
     doc.rect(left, top, width, 84).fill('#f6f6f6');
-    doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica San Bernardo', left + 12, top + 12, { width: width * 0.55 });
-    doc.fontSize(11).text('Ingeniería Lambois', left + 12, top + 32, { width: width * 0.55 });
-    const esPre = p.tipoOperacion === 'PRECAMPAÑA' || p.origen === 'SEMILLASYA';
-    doc.fillColor('#334155').font('Helvetica').fontSize(11).text(esPre ? 'SemillasYa' : 'Agroquímica San Bernardo', left + 12, top + 46, { width: width * 0.55 });
-    doc.fontSize(9).text('Plataformas HUBYA', left + 12, top + 60, { width: width * 0.55 });
-    doc.text('www.hubya.tech', left + 12, top + 72, { width: width * 0.55 });
+    if (esPresupuestoSemillasYa) {
+      doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('www.semillasya.com', left + 12, top + 12, { width: width * 0.55 });
+      doc.fillColor('#334155').font('Helvetica').fontSize(11).text('Argentina', left + 12, top + 34, { width: width * 0.55 });
+      doc.fillColor('#111').font('Helvetica').fontSize(11).text('Cotización de semillas', left + 12, top + 52, { width: width * 0.55 });
+    } else {
+      doc.fillColor('#111').font('Helvetica-Bold').fontSize(16).text('Agroquímica San Bernardo', left + 12, top + 12, { width: width * 0.55 });
+      doc.fontSize(11).text('Ingeniería Lambois', left + 12, top + 32, { width: width * 0.55 });
+      doc.fillColor('#334155').font('Helvetica').fontSize(11).text('Agroquímica San Bernardo', left + 12, top + 46, { width: width * 0.55 });
+      doc.fontSize(9).text('Plataformas HUBYA', left + 12, top + 60, { width: width * 0.55 });
+      doc.text('www.hubya.tech', left + 12, top + 72, { width: width * 0.55 });
+    }
     doc.fillColor('#111');
     doc.font('Helvetica').fontSize(11).text(`Presupuesto #${p.id}`, right - 170, top + 12, { width: 160, align: 'right' });
     doc.text(`Fecha: ${fecha}`, right - 170, top + 28, { width: 160, align: 'right' });
@@ -1852,7 +1858,8 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   doc.font('Helvetica').fontSize(10);
 
   p.items.forEach((item, index) => {
-    const nombreProducto = item.producto?.nombre || 'Producto';
+    const nombrePrecampania = [item.descripcion, item.observaciones].filter(Boolean).join(' · ');
+    const nombreProducto = esPresupuestoSemillasYa ? (nombrePrecampania || item.producto?.nombre || 'Producto') : (item.producto?.nombre || 'Producto');
     const productoHeight = doc.heightOfString(nombreProducto, { width: colWidths.producto - 10, align: 'left' });
     const rowHeight = Math.max(22, Math.ceil(productoHeight) + 10);
 
@@ -1905,7 +1912,10 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     y += blockHeight + 8;
   });
 
-  doc.fontSize(9).fillColor('#555').text('Documento comercial emitido por Agroquímica San Bernardo - Ingeniería Lambois.', left, doc.page.height - 40, { width: right - left, align: 'center' });
+  const leyenda = esPresupuestoSemillasYa
+    ? 'Documento comercial SemillasYa.'
+    : 'Documento comercial emitido por Agroquímica San Bernardo - Ingeniería Lambois.';
+  doc.fontSize(9).fillColor('#555').text(leyenda, left, doc.page.height - 40, { width: right - left, align: 'center' });
 
   doc.end();
 }));
