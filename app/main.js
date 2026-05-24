@@ -1186,7 +1186,10 @@ const HOME_MODULES_BASE = [
   'estado-sistema',
   'productos-precampania',
   'clientes-semillasya',
-  'operaciones-semillasya'
+  'operaciones-semillasya',
+  'territorios-semillasya',
+  'usuarios',
+  'configuracion'
 ];
 const ROLE_MODULES = {
   ADMINISTRADOR_GENERAL: [...HOME_MODULES_BASE],
@@ -1198,8 +1201,8 @@ let activeRole = null;
 let activeRoleName = '';
 let activeBusiness = null;
 const BUSINESS_MODULES = {
-  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema'],
-  SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya']
+  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema', 'usuarios', 'configuracion'],
+  SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya', 'territorios-semillasya']
 };
 
 function renderUsuarioActivo() {
@@ -1298,8 +1301,8 @@ async function abrirModulo(modulo) {
   if (modulo === 'productos-precampania') {
     await loadProductosPrecampania();
   }
-  if (modulo === 'presupuestos' || modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya') {
-    const esSemillasYa = modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya';
+  if (modulo === 'presupuestos' || modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya' || modulo === 'territorios-semillasya') {
+    const esSemillasYa = modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya' || modulo === 'territorios-semillasya';
     presupuestoModuloActivo = esSemillasYa ? 'SEMILLASYA' : 'MOSTRADOR';
     presupuestoTipoOperacion = esSemillasYa ? 'PRECAMPAÑA' : 'MOSTRADOR';
     const tituloModulo = $('#pres-titulo-modulo');
@@ -1310,8 +1313,8 @@ async function abrirModulo(modulo) {
     $('#panel-territorial-semillasya')?.classList.toggle('hidden', !esSemillasYa);
     $('#pres-guardar')?.classList.toggle('hidden', esSemillasYa);
     if (esSemillasYa) {
-      tituloModulo.textContent = '11) Operaciones territoriales SemillasYa';
-      if (tituloListado) tituloListado.textContent = 'Solicitudes y cotizaciones SemillasYa';
+      tituloModulo.textContent = modulo === 'territorios-semillasya' ? '11) Territorios SemillasYa' : '11) Operaciones territoriales SemillasYa';
+      if (tituloListado) tituloListado.textContent = modulo === 'territorios-semillasya' ? 'Territorios y solicitudes SemillasYa' : 'Solicitudes y cotizaciones SemillasYa';
       solicitudesTerritoriales = await api('/api/presupuestos/semillasya');
       provinciaTerritorialActiva = '';
       solicitudTerritorialActivaId = null;
@@ -1458,7 +1461,7 @@ function renderProductosPrecampania() {
     }).join('');
     return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   });
-  $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos precampaña.</div>';
+  $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos SemillasYa.</div>';
 }
 
 async function loadProductosPrecampania() {
@@ -1711,7 +1714,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     payload.nombre = `${p.nombre || 'Producto'} (Copia)`;
     await api('/api/productos-precampania', { method: 'POST', body: JSON.stringify(payload) });
     await loadProductosPrecampania();
-    setMsg('Producto precampaña duplicado', 'info');
+    setMsg('Producto SemillasYa duplicado', 'info');
     return;
   }
   const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
@@ -1746,7 +1749,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   const id = Number(eliminar.dataset.preEliminar);
   await api(`/api/productos-precampania/${id}`, { method: 'DELETE' });
   await loadProductosPrecampania();
-  setMsg('Producto precampaña desactivado', 'info');
+  setMsg('Producto SemillasYa desactivado', 'info');
 });
 $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   calcularPreviewPrecampania();
@@ -1772,10 +1775,10 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   if (!String(payload.presentacionEnvase || '').trim()) return setMsg('Presentación obligatoria', 'warning');
   if (id) {
     await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-    setMsg('Producto precampaña actualizado', 'info');
+    setMsg('Producto SemillasYa actualizado', 'info');
   } else {
     await api('/api/productos-precampania', { method: 'POST', body: JSON.stringify(payload) });
-    setMsg('Producto precampaña creado', 'info');
+    setMsg('Producto SemillasYa creado', 'info');
   }
   resetFormularioPrecampania();
   await loadProductosPrecampania();

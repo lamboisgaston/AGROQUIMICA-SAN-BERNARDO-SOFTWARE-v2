@@ -278,7 +278,19 @@
     function renderCatalogoCultivo() {
       $('pantallaProductos').classList.remove('hidden');
       $('cultivoElegidoTitulo').textContent = state.cultivoSeleccionado;
-      const list = state.productos.filter((p) => cultivoProducto(p) === state.cultivoSeleccionado);
+      const list = state.productos
+        .filter((p) => cultivoProducto(p) === state.cultivoSeleccionado)
+        .sort((a, b) => {
+          const cultivoA = String(cultivoProducto(a) || '');
+          const cultivoB = String(cultivoProducto(b) || '');
+          const semA = String(marcaProducto(a) || '');
+          const semB = String(marcaProducto(b) || '');
+          const varA = String(a.nombre || '');
+          const varB = String(b.nombre || '');
+          const preA = String(presentacionProducto(a) || '');
+          const preB = String(presentacionProducto(b) || '');
+          return cultivoA.localeCompare(cultivoB, 'es') || semA.localeCompare(semB, 'es') || varA.localeCompare(varB, 'es') || preA.localeCompare(preB, 'es');
+        });
       $('catalog').innerHTML = list.map((p) => `
         <article class="product">
           <strong>${p.nombre || 'Producto sin nombre'}</strong>
