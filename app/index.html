@@ -68,6 +68,9 @@
       <p class="helper-text">Flujo de carga comercial: Cultivo → Semillero → Variedad/Producto → Presentación → Costo base → Flete % → Margen % → Precio final automático.</p>
       <div class="action-row">
         <button id="btn-precampania-nuevo">Nuevo producto SemillasYa</button>
+        <button id="btn-precampania-publicar-todos">Publicar todos en SemillasYa</button>
+        <button id="btn-precampania-descripcion-tecnica">Agregar descripción técnica</button>
+        <button id="btn-precampania-foto">Agregar foto</button>
       </div>
       <div class="filters">
         <select id="pre-filtro-visible">
@@ -103,6 +106,12 @@
       <label>8. Precio final calculado automáticamente <input id="pre-precio-final" type="number" step="0.01" readonly /></label>
       <label>Categoría (opcional) <input id="pre-categoria" /></label>
       <label>Descripción (opcional) <input id="pre-descripcion" /></label>
+      <label>Descripción técnica <textarea id="pre-descripcion-tecnica"></textarea></label>
+      <label>Recomendaciones de uso <textarea id="pre-recomendaciones-uso"></textarea></label>
+      <label>Época de siembra <input id="pre-epoca-siembra" /></label>
+      <label>Dosis orientativa <input id="pre-dosis-orientativa" /></label>
+      <label>Observaciones comerciales <textarea id="pre-observaciones-comerciales"></textarea></label>
+      <label>Imagen URL <input id="pre-imagen-url" placeholder="https://..." /></label>
       <div id="pre-resumen-calculo" class="item" style="margin: .35rem 0 .8rem;">
         <strong>Vista previa de precio</strong><br/>
         Costo base: <span id="pre-calc-base">$0.00</span> · Flete aplicado: <span id="pre-calc-flete">$0.00</span><br/>

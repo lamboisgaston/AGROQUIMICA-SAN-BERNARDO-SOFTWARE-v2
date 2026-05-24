@@ -753,6 +753,12 @@ function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1
     cultivo: String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro',
     presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
     descripcion: String(payload.descripcion || '').trim(),
+    descripcionTecnica: String(payload.descripcionTecnica || '').trim(),
+    recomendacionesUso: String(payload.recomendacionesUso || '').trim(),
+    epocaSiembra: String(payload.epocaSiembra || '').trim(),
+    dosisOrientativa: String(payload.dosisOrientativa || '').trim(),
+    observacionesComerciales: String(payload.observacionesComerciales || '').trim(),
+    imagenUrl: String(payload.imagenUrl || '').trim(),
     precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
     monedaCompra,
     costoCompra: Number(payload.costoCompra || 0),
@@ -2044,6 +2050,14 @@ app.patch('/api/productos-precampania/:id/publicacion', asyncHandler(async (req,
   res.json(actualizado);
 }));
 
+app.post('/api/productos-precampania/publicar-todos', asyncHandler(async (_req, res) => {
+  const actualizado = await prisma.productoPrecampania.updateMany({
+    where: { activo: true },
+    data: { visibleEnSemillasYa: true, publicadoWeb: true }
+  });
+  res.json({ ok: true, totalActualizados: actualizado.count });
+}));
+
 
 app.post('/api/productos-precampania/:id/duplicar-mostrador', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
@@ -2075,7 +2089,7 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true }
   });
   res.json(productos);
 }));
@@ -2084,7 +2098,7 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true }
   });
   const productos = productosRaw.map((p) => ({ ...p, cultivo: String(p.cultivo || p.categoria || '').trim() || 'Otro' }));
   const cultivos = [...new Set(productos.map((p) => p.cultivo).filter(Boolean))];
