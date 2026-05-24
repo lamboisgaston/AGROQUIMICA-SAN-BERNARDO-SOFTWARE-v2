@@ -1956,6 +1956,31 @@ app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
   res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, cultivos: CULTIVOS_PRECAMPAÑA, productos });
 }));
 
+app.get('/api/productos-precampania/debug', asyncHandler(async (_req, res) => {
+  const [totalPrecampania, totalVisibles, totalOcultos, ultimos20, porCultivoRaw, porSemilleroRaw] = await Promise.all([
+    prisma.productoPrecampania.count({ where: { activo: true } }),
+    prisma.productoPrecampania.count({ where: { activo: true, visibleEnSemillasYa: true } }),
+    prisma.productoPrecampania.count({ where: { activo: true, visibleEnSemillasYa: false } }),
+    prisma.productoPrecampania.findMany({
+      where: { activo: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { id: true, nombre: true, categoria: true, cultivo: true, semilleroLaboratorio: true, visibleEnSemillasYa: true, createdAt: true }
+    }),
+    prisma.productoPrecampania.groupBy({ by: ['cultivo'], where: { activo: true }, _count: { _all: true } }),
+    prisma.productoPrecampania.groupBy({ by: ['semilleroLaboratorio'], where: { activo: true }, _count: { _all: true } })
+  ]);
+
+  res.json({
+    totalProductosPrecampania: totalPrecampania,
+    totalVisibles: totalVisibles,
+    totalOcultos: totalOcultos,
+    ultimos20Productos: ultimos20,
+    totalPorCultivo: porCultivoRaw.map((item) => ({ cultivo: item.cultivo || 'Otro', cantidad: item._count._all })),
+    totalPorSemillero: porSemilleroRaw.map((item) => ({ semillero: item.semilleroLaboratorio || 'SIN_SEMILLERO', cantidad: item._count._all }))
+  });
+}));
+
 app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
   const payload = req.body || {};
   const semillero = String(payload.semilleroLaboratorio || '').trim();
