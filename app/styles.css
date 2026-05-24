@@ -61,8 +61,39 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .pre-table th { color: #334155; background: #f8fafc; }
 .pre-actions { min-width: 290px; }
 .pre-actions button { margin: 0 4px 4px 0; }
-.switch-inline { display: inline-flex; align-items: center; gap: .35rem; margin: 0 4px 4px 0; font-size: .85rem; }
-.switch-inline input { width: 18px; height: 18px; cursor: pointer; }
+.pre-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  margin: 0 4px 4px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  padding: 4px 8px 4px 6px;
+  min-width: 122px;
+}
+.pre-toggle-track {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: #94a3b8;
+  position: relative;
+  transition: background-color .18s ease;
+}
+.pre-toggle-thumb {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .25);
+  transition: left .18s ease;
+}
+.pre-toggle.is-on .pre-toggle-track { background: #16a34a; }
+.pre-toggle.is-on .pre-toggle-thumb { left: 21px; }
+.pre-toggle-label { font-size: 12px; font-weight: 700; color: #0f172a; }
 .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
 .pill.ok { background: #dcfce7; color: #166534; }
 .pill.off { background: #fee2e2; color: #991b1b; }
