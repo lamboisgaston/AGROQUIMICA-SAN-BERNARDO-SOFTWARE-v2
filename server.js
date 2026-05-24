@@ -207,8 +207,19 @@ const usuarios = [
 const registrosEliminados = [];
 const PASSWORD_ELIMINACION = '12345';
 
+function obtenerHostname(req) {
+  const hostHeader = String(req.headers.host || '').trim().toLowerCase();
+  return hostHeader.split(':')[0];
+}
+
+function esDominioSemillasYa(hostname = '') {
+  return hostname.includes('semillasya.com');
+}
+
 app.get('/', (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
+  const hostname = obtenerHostname(req);
+  const archivoInicio = esDominioSemillasYa(hostname) ? 'semillasya.html' : 'index.html';
+  res.sendFile(require('path').join(__dirname, 'app', archivoInicio));
 });
 
 app.post('/login', (req, res) => {
