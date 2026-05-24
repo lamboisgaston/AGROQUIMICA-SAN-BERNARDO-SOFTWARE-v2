@@ -115,11 +115,10 @@ async function main() {
     }
   }
 
-  let totalImportados = 0;
+  let totalCreados = 0;
+  let totalActualizados = 0;
   const porCultivo = {};
-  const porSemillero = {};
-  const sinPrecio = [];
-  const sinSemillero = [];
+  const porLaboratorio = {};
 
   for (const p of productoMap.values()) {
     const cultivo = detectarCultivo(p.categoria, p.nombre, p.descripcion);
@@ -127,48 +126,47 @@ async function main() {
     const presentacionEnvase = detectarPresentacion(p.nombre, p.descripcion);
     const descripcion = `${p.descripcion}\nOrigen: ${ORIGEN}`.trim();
 
+    const data = {
+      nombre: p.nombre,
+      semilleroLaboratorio,
+      categoria: p.categoria,
+      cultivo,
+      presentacionEnvase,
+      descripcion,
+      precioInternoManual: null,
+      costoCompra: 0,
+      precioVentaFinal: 0,
+      visibleEnSemillasYa: false,
+      activo: true,
+      publicadoWeb: false,
+      estado: 'CONSULTAR'
+    };
+
     const existente = await prisma.productoPrecampania.findFirst({
       where: { nombre: p.nombre, cultivo, semilleroLaboratorio, categoria: p.categoria }
     });
 
-    if (!existente) {
-      await prisma.productoPrecampania.create({
-        data: {
-          nombre: p.nombre,
-          semilleroLaboratorio,
-          categoria: p.categoria,
-          cultivo,
-          presentacionEnvase,
-          descripcion,
-          precioInternoManual: null,
-          costoCompra: 0,
-          precioVentaFinal: 0,
-          visibleEnSemillasYa: false,
-          activo: true,
-          publicadoWeb: false,
-          estado: 'CONSULTAR'
-        }
+    if (existente) {
+      await prisma.productoPrecampania.update({
+        where: { id: existente.id },
+        data
       });
-      totalImportados += 1;
+      totalActualizados += 1;
+    } else {
+      await prisma.productoPrecampania.create({ data });
+      totalCreados += 1;
     }
 
     porCultivo[cultivo] = (porCultivo[cultivo] || 0) + 1;
-    porSemillero[semilleroLaboratorio] = (porSemillero[semilleroLaboratorio] || 0) + 1;
-    sinPrecio.push(p.nombre);
-    if (semilleroLaboratorio === 'SIN_DETECTAR') sinSemillero.push(p.nombre);
+    porLaboratorio[semilleroLaboratorio] = (porLaboratorio[semilleroLaboratorio] || 0) + 1;
   }
 
-  const resumen = {
-    totalImportados,
-    totalDetectados: productoMap.size,
-    totalPorCultivo: porCultivo,
-    totalPorSemilleroLaboratorio: porSemillero,
-    productosSinPrecio: sinPrecio,
-    productosSinSemilleroDetectado: sinSemillero
-  };
-
   console.log('Importación ARG-AGRO PRECAMPAÑA finalizada.');
-  console.log(JSON.stringify(resumen, null, 2));
+  console.log(`total encontrados: ${productoMap.size}`);
+  console.log(`total creados: ${totalCreados}`);
+  console.log(`total actualizados: ${totalActualizados}`);
+  console.log(`total por cultivo: ${JSON.stringify(porCultivo)}`);
+  console.log(`total por laboratorio: ${JSON.stringify(porLaboratorio)}`);
 }
 
 main().catch((error) => {
