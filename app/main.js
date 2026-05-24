@@ -1353,46 +1353,55 @@ function calcularPreviewPrecampania() {
 }
 
 function renderSemillerosPrecampania() {
+  const semillerosDisponibles = Array.from(new Set([
+    ...precampaniaSemilleros,
+    ...precampaniaProductos.map((p) => String(p.semilleroLaboratorio || '').trim()).filter(Boolean)
+  ])).sort((a, b) => a.localeCompare(b, 'es'));
+  const cultivosDisponibles = Array.from(new Set([
+    ...precampaniaCultivos,
+    ...precampaniaProductos.map((p) => String(p.cultivo || p.categoria || 'Otro').trim() || 'Otro')
+  ])).sort((a, b) => a.localeCompare(b, 'es'));
+
   const selCultivoForm = $('#pre-cultivo');
   const selCultivoFiltro = $('#pre-filtro-cultivo');
   if (selCultivoForm) {
-    selCultivoForm.innerHTML = `<option value="">Seleccionar cultivo</option>${precampaniaCultivos.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
+    selCultivoForm.innerHTML = `<option value="">Seleccionar cultivo</option>${cultivosDisponibles.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
     if (precampaniaContextoCarga.cultivo) selCultivoForm.value = precampaniaContextoCarga.cultivo;
   }
   if (selCultivoFiltro) {
-    selCultivoFiltro.innerHTML = `<option value="TODOS">Todos los cultivos</option>${precampaniaCultivos.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
+    selCultivoFiltro.innerHTML = `<option value="TODOS">Todos los cultivos</option>${cultivosDisponibles.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
   }
   const selForm = $('#pre-semillero');
   const selFiltro = $('#pre-filtro-semillero');
   if (selForm) {
-    selForm.innerHTML = `<option value="">Seleccionar semillero</option>${precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('')}`;
+    selForm.innerHTML = `<option value="">Seleccionar semillero</option>${semillerosDisponibles.map((s) => `<option value="${s}">${s}</option>`).join('')}`;
     if (precampaniaContextoCarga.semillero) selForm.value = precampaniaContextoCarga.semillero;
   }
   if (selFiltro) {
-    selFiltro.innerHTML = `<option value="TODOS">Todos los semilleros</option>${precampaniaSemilleros.map((s) => `<option value="${s}">${s}</option>`).join('')}`;
+    selFiltro.innerHTML = `<option value="TODOS">Todos los semilleros</option>${semillerosDisponibles.map((s) => `<option value="${s}">${s}</option>`).join('')}`;
   }
 }
 
 function renderProductosPrecampania() {
   const q = ($('#pre-buscar')?.value || '').trim().toLowerCase();
+  const visibilidadFiltro = $('#pre-filtro-visible')?.value || 'TODOS';
   const semilleroFiltro = $('#pre-filtro-semillero')?.value || 'TODOS';
   const cultivoFiltro = $('#pre-filtro-cultivo')?.value || 'TODOS';
   const categoriaFiltro = ($('#pre-filtro-categoria')?.value || '').trim().toLowerCase();
   const lista = precampaniaProductos.filter((p) => {
     const matchQ = !q || [p.nombre, p.semilleroLaboratorio, p.cultivo, p.categoria, p.presentacionEnvase].some((v) => String(v || '').toLowerCase().includes(q));
+    const matchVisible = visibilidadFiltro === 'TODOS'
+      || (visibilidadFiltro === 'VISIBLES' && p.visibleEnSemillasYa)
+      || (visibilidadFiltro === 'OCULTOS' && !p.visibleEnSemillasYa);
     const matchSem = semilleroFiltro === 'TODOS' || p.semilleroLaboratorio === semilleroFiltro;
     const matchCultivo = cultivoFiltro === 'TODOS' || (p.cultivo || 'Otro') === cultivoFiltro;
     const matchCat = !categoriaFiltro || String(p.categoria || '').toLowerCase().includes(categoriaFiltro);
-    return matchQ && matchSem && matchCultivo && matchCat;
-  });
-  const agrupado = new Map();
-  lista.forEach((p) => {
-    const key = p.cultivo || 'Sin cultivo';
-    if (!agrupado.has(key)) agrupado.set(key, []);
-    agrupado.get(key).push(p);
+    return matchQ && matchVisible && matchSem && matchCultivo && matchCat;
   });
   $('#pre-lista').innerHTML = lista.length
-    ? Array.from(agrupado.entries()).map(([cultivo, items]) => `<div class="item"><strong>${cultivo.toUpperCase()}</strong></div>${items.map((p) => `<div class="item">- <strong>${p.nombre}</strong> | ${p.semilleroLaboratorio} | ${p.presentacionEnvase || '-'} | Precio ERP: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'} <button data-pre-editar="${p.id}">Editar</button> <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></div>`).join('')}`).join('')
+    ? lista
+      .map((p) => `<div class="item"><strong>${p.nombre}</strong> | Cultivo: ${p.cultivo || 'Otro'} | Semillero: ${p.semilleroLaboratorio || '-'} | Presentación: ${p.presentacionEnvase || '-'} | Precio interno: ${money(p.precioVentaFinal || 0)} | Visible en SemillasYa: ${p.visibleEnSemillasYa ? 'Sí' : 'No'} <button data-pre-editar="${p.id}">Editar</button> <button data-pre-toggle-visible="${p.id}">${p.visibleEnSemillasYa ? 'Ocultar' : 'Mostrar'} en SemillasYa</button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></div>`)
+      .join('')
     : '<div class="item">Sin productos precampaña.</div>';
 }
 
@@ -1587,6 +1596,7 @@ $('#lista-comercial-select')?.addEventListener('change', async () => {
 $('#pre-buscar')?.addEventListener('input', renderProductosPrecampania);
 $('#pre-filtro-semillero')?.addEventListener('change', renderProductosPrecampania);
 $('#pre-filtro-cultivo')?.addEventListener('change', renderProductosPrecampania);
+$('#pre-filtro-visible')?.addEventListener('change', renderProductosPrecampania);
 $('#pre-filtro-categoria')?.addEventListener('input', renderProductosPrecampania);
 $('#btn-precampania-nuevo')?.addEventListener('click', resetFormularioPrecampania);
 $('#pre-cultivo')?.addEventListener('change', (e) => { precampaniaContextoCarga.cultivo = e.target.value; });
