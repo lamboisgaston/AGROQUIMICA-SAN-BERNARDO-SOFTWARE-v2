@@ -1691,7 +1691,9 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     precampaniaProductos[idx] = { ...p, visibleEnSemillasYa: nextVisible };
     renderProductosPrecampania();
     try {
-      await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, visibleEnSemillasYa: nextVisible }) });
+      const actualizado = await api(`/api/productos-precampania/${id}/publicacion`, { method: 'PATCH', body: JSON.stringify({ visibleEnSemillasYa: nextVisible }) });
+      precampaniaProductos[idx] = { ...p, ...actualizado };
+      renderProductosPrecampania();
       setMsg(`Producto ${nextVisible ? 'publicado' : 'oculto'} en SemillasYa`, 'info');
     } catch (error) {
       precampaniaProductos[idx] = { ...p, visibleEnSemillasYa: prevVisible };
