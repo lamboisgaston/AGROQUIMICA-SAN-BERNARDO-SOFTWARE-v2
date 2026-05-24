@@ -59,7 +59,7 @@ function detectarCultivo(categoria, nombre, descripcion) {
   const t = `${categoria} ${nombre} ${descripcion}`.toLowerCase();
   const rules = [
     ['soja', 'Soja'], ['maiz', 'Maíz'], ['maíz', 'Maíz'], ['trigo', 'Trigo'], ['girasol', 'Girasol'],
-    ['sorgo', 'Sorgo'], ['alfalfa', 'Alfalfa'], ['avena', 'Avena'], ['cebada', 'Cebada'], ['pasto', 'Pasturas'],
+    ['sorgo', 'Sorgo'], ['alfalfa', 'Alfalfa'], ['avena', 'Avena'], ['cebada', 'Cebada'], ['pasto', 'Pasturas']
   ];
   for (const [k, v] of rules) if (t.includes(k)) return v;
   return categoria || 'Otro';
@@ -67,13 +67,13 @@ function detectarCultivo(categoria, nombre, descripcion) {
 
 function detectarSemillero(nombre, descripcion) {
   const texto = `${nombre} ${descripcion}`;
-  const marcas = ['Bayer', 'Syngenta', 'BASF', 'Nidera', 'DonMario', 'DK', 'Neogen', 'Stine', 'Macro Seed', 'Pioneer', 'Advanta'];
+  const marcas = ['Bayer', 'Syngenta', 'BASF', 'Nidera', 'DonMario', 'DK', 'Neogen', 'Stine', 'Macro Seed', 'Pioneer', 'Advanta', 'ARG-AGRO'];
   for (const m of marcas) {
     const re = new RegExp(`\\b${m.replace(/\s+/g, '\\s+')}\\b`, 'i');
     if (re.test(texto)) return m;
   }
   const prefijo = (nombre.match(/^([A-Z][A-Za-z0-9\-]{2,})\s+/) || [])[1];
-  return prefijo || 'SIN_DETECTAR';
+  return prefijo || 'ARG-AGRO';
 }
 
 function detectarPresentacion(nombre, descripcion) {
@@ -95,30 +95,58 @@ function parseProductosDesdePagina(html, categoria) {
   return items;
 }
 
-async function main() {
-  const home = await fetchText(BASE_URL);
-  const categorias = extractLinksByPattern(home, /(categoria|cultivo|product|catalogo|shop)/i);
-  if (!categorias.length) throw new Error('No se detectaron categorías/cultivos en ARG-AGRO.');
+function getFallbackProductos() {
+  return [
+    { nombre: 'Semilla Alfalfa ARG-AGRO', descripcion: 'Estructura base manual por fallback de scraping', categoria: 'Pasturas' },
+    { nombre: 'Semilla Maíz ARG-AGRO', descripcion: 'Estructura base manual por fallback de scraping', categoria: 'Cultivos Extensivos' },
+    { nombre: 'Semilla Sorgo ARG-AGRO', descripcion: 'Estructura base manual por fallback de scraping', categoria: 'Cultivos Extensivos' }
+  ];
+}
 
+async function getProductosArgAgro() {
   const productoMap = new Map();
-  for (const c of categorias) {
-    try {
-      const html = await fetchText(c);
-      const categoriaTexto = stripHtml((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '') || 'Sin categoría';
-      const productos = parseProductosDesdePagina(html, categoriaTexto);
-      for (const p of productos) {
-        const key = `${p.nombre.toLowerCase()}|${categoriaTexto.toLowerCase()}`;
-        if (!productoMap.has(key)) productoMap.set(key, p);
+  try {
+    console.log(`[ARG-AGRO] Intentando scrapear ${BASE_URL} ...`);
+    const home = await fetchText(BASE_URL);
+    const categorias = extractLinksByPattern(home, /(categoria|cultivo|product|catalogo|shop)/i);
+    if (!categorias.length) throw new Error('No se detectaron categorías/cultivos en ARG-AGRO.');
+
+    for (const c of categorias) {
+      try {
+        const html = await fetchText(c);
+        const categoriaTexto = stripHtml((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '') || 'Sin categoría';
+        const productos = parseProductosDesdePagina(html, categoriaTexto);
+        for (const p of productos) {
+          const key = `${p.nombre.toLowerCase()}|${categoriaTexto.toLowerCase()}`;
+          if (!productoMap.has(key)) productoMap.set(key, p);
+        }
+      } catch (e) {
+        console.warn(`[ARG-AGRO] No se pudo leer categoría ${c}: ${e.message}`);
       }
-    } catch (e) {
-      console.warn(`No se pudo leer categoría ${c}: ${e.message}`);
     }
+
+    if (!productoMap.size) throw new Error('No se detectaron productos parseables en el sitio.');
+    console.log(`[ARG-AGRO] Scraping exitoso. Productos detectados: ${productoMap.size}`);
+  } catch (e) {
+    console.warn(`[ARG-AGRO] Fallback manual activado: ${e.message}`);
+    const fallback = getFallbackProductos();
+    for (const p of fallback) {
+      const key = `${p.nombre.toLowerCase()}|${p.categoria.toLowerCase()}`;
+      productoMap.set(key, p);
+    }
+    console.warn(`[ARG-AGRO] Se cargaron ${fallback.length} productos base manuales.`);
   }
+
+  return productoMap;
+}
+
+async function main() {
+  const productoMap = await getProductosArgAgro();
 
   let totalCreados = 0;
   let totalActualizados = 0;
   const porCultivo = {};
-  const porLaboratorio = {};
+  const porSemillero = {};
 
   for (const p of productoMap.values()) {
     const cultivo = detectarCultivo(p.categoria, p.nombre, p.descripcion);
@@ -147,10 +175,7 @@ async function main() {
     });
 
     if (existente) {
-      await prisma.productoPrecampania.update({
-        where: { id: existente.id },
-        data
-      });
+      await prisma.productoPrecampania.update({ where: { id: existente.id }, data });
       totalActualizados += 1;
     } else {
       await prisma.productoPrecampania.create({ data });
@@ -158,7 +183,7 @@ async function main() {
     }
 
     porCultivo[cultivo] = (porCultivo[cultivo] || 0) + 1;
-    porLaboratorio[semilleroLaboratorio] = (porLaboratorio[semilleroLaboratorio] || 0) + 1;
+    porSemillero[semilleroLaboratorio] = (porSemillero[semilleroLaboratorio] || 0) + 1;
   }
 
   console.log('Importación ARG-AGRO PRECAMPAÑA finalizada.');
@@ -166,7 +191,7 @@ async function main() {
   console.log(`total creados: ${totalCreados}`);
   console.log(`total actualizados: ${totalActualizados}`);
   console.log(`total por cultivo: ${JSON.stringify(porCultivo)}`);
-  console.log(`total por laboratorio: ${JSON.stringify(porLaboratorio)}`);
+  console.log(`total por semillero: ${JSON.stringify(porSemillero)}`);
 }
 
 main().catch((error) => {
