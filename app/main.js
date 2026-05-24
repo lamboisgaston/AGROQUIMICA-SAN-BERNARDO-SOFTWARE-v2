@@ -1428,8 +1428,8 @@ function renderProductosPrecampania() {
         <td>${p.presentacionEnvase || '-'}</td>
         <td>${money(precioUsd)}</td>
         <td>${money(precioFinalPesos)}</td>
-        <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'ON' : 'OFF'}</span></td>
-        <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <label class="switch-inline" title="Publicar en SemillasYa"><input type="checkbox" data-pre-toggle-visible="${p.id}" ${p.visibleEnSemillasYa ? 'checked' : ''}><span>${p.visibleEnSemillasYa ? 'ON' : 'OFF'}</span></label> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
+        <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'Publicado' : 'Oculto'}</span></td>
+        <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}" title="Publicar en SemillasYa"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span><span class="pre-toggle-label">${p.visibleEnSemillasYa ? 'Publicado' : 'Oculto'}</span></button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
       </tr>`;
     }).join('');
     return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
@@ -1675,7 +1675,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     setMsg('Producto precampaña duplicado', 'info');
     return;
   }
-  const toggleVisible = e.target.closest('input[data-pre-toggle-visible]');
+  const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
   const duplicarPre = e.target.closest('[data-pre-duplicar-mostrador]');
   if (duplicarPre) {
     await api(`/api/productos-precampania/${Number(duplicarPre.dataset.preDuplicarMostrador)}/duplicar-mostrador`, { method: 'POST', body: '{}' });
@@ -1683,11 +1683,21 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   }
   if (toggleVisible) {
     const id = Number(toggleVisible.dataset.preToggleVisible);
-    const p = precampaniaProductos.find((x) => x.id === id);
+    const idx = precampaniaProductos.findIndex((x) => x.id === id);
+    const p = idx >= 0 ? precampaniaProductos[idx] : null;
     if (!p) return;
-    await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, visibleEnSemillasYa: toggleVisible.checked }) });
-    await loadProductosPrecampania();
-    setMsg('Visibilidad en SemillasYa actualizada', 'info');
+    const nextVisible = !Boolean(p.visibleEnSemillasYa);
+    const prevVisible = Boolean(p.visibleEnSemillasYa);
+    precampaniaProductos[idx] = { ...p, visibleEnSemillasYa: nextVisible };
+    renderProductosPrecampania();
+    try {
+      await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, visibleEnSemillasYa: nextVisible }) });
+      setMsg(`Producto ${nextVisible ? 'publicado' : 'oculto'} en SemillasYa`, 'info');
+    } catch (error) {
+      precampaniaProductos[idx] = { ...p, visibleEnSemillasYa: prevVisible };
+      renderProductosPrecampania();
+      setMsg(`No se pudo actualizar publicación en SemillasYa: ${error.message || error}`, 'error');
+    }
     return;
   }
   const eliminar = e.target.closest('button[data-pre-eliminar]');
