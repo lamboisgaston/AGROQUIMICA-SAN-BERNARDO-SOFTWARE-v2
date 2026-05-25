@@ -1732,11 +1732,10 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const moneda = formatMoney;
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
-  const FACTOR_IVA_SEMILLASYA = 1.21;
   const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
   const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
-    ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / FACTOR_IVA_SEMILLASYA), 0)
+    ? p.items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)
     : Number(p.subtotal || 0);
   const ivaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa * ALICUOTA_IVA_SEMILLASYA : 0;
   const totalFinalConIvaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa + ivaSemillasYa : Number(p.total || 0);
@@ -1748,8 +1747,8 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
     const detalleSemillasYa = esPresupuestoSemillasYa
       ? `<div style="font-size:11px;color:#4b5563;margin-top:2px;">${escapeHtml([i.cultivo, i.semillero, i.presentacion].filter(Boolean).join(' · ') || '-')}</div>`
       : '';
-    const precioUnitarioMostrado = esPresupuestoSemillasYa ? (Number(i.precioUnitario || 0) / FACTOR_IVA_SEMILLASYA) : Number(i.precioUnitario || 0);
-    const subtotalMostrado = esPresupuestoSemillasYa ? (Number(i.subtotal || 0) / FACTOR_IVA_SEMILLASYA) : Number(i.subtotal || 0);
+    const precioUnitarioMostrado = Number(i.precioUnitario || 0);
+    const subtotalMostrado = Number(i.subtotal || 0);
     return `<tr><td>${escapeHtml(nombreProducto)}${detalleSemillasYa}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(precioUnitarioMostrado)}</td><td style="text-align:right">${moneda(subtotalMostrado)}</td></tr>`;
   }).join('');
   res.type('html').send(`<!doctype html>
@@ -1862,13 +1861,12 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
-  const FACTOR_IVA_SEMILLASYA = 1.21;
   const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
   const descuento = Number(p.descuentoValor || 0);
   const redondeo = Number(p.ajusteRedondeo || 0);
   const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
-    ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / FACTOR_IVA_SEMILLASYA), 0)
+    ? p.items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)
     : Number(p.subtotal || 0);
   const ivaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa * ALICUOTA_IVA_SEMILLASYA : 0;
   const totalFinalConIvaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa + ivaSemillasYa : Number(p.total || 0);
@@ -1976,8 +1974,8 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     doc.fillColor('#111')
       .text(nombreConDetalle, colX.producto, y + 5, { width: colWidths.producto - 10, lineBreak: true })
       .text(String(item.cantidad), colX.cantidad, y + 5, { width: colWidths.cantidad, align: 'center' })
-      .text(formatMoney(esPresupuestoSemillasYa ? (Number(item.precioUnitario || 0) / FACTOR_IVA_SEMILLASYA) : item.precioUnitario), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
-      .text(formatMoney(esPresupuestoSemillasYa ? (Number(item.subtotal || 0) / FACTOR_IVA_SEMILLASYA) : item.subtotal), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
+      .text(formatMoney(Number(item.precioUnitario || 0)), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
+      .text(formatMoney(Number(item.subtotal || 0)), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
 
     y += rowHeight;
   });
@@ -3222,6 +3220,7 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
   const cantidades = itemsEntrada.map((it) => parsePositiveInt(it.cantidad)).filter(Boolean);
   if (cantidades.length !== itemsEntrada.length) return res.status(400).json({ ok: false, error: 'cantidad inválida en items' });
 
+  const tipoCambioActual = await obtenerTipoCambioActual();
   const productosLista = await prisma.productoPrecampania.findMany({
     where: { id: { in: ids }, activo: true, visibleEnSemillasYa: true }
   });
@@ -3255,7 +3254,10 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
       const item = itemsEntrada[i];
       const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
       const cantidad = parsePositiveInt(item.cantidad);
-      const precioUnitario = Number(productoLista.precioVentaFinal || productoLista.precioInternoManual || 0);
+      const precioListaUsd = Number(productoLista.precioUsd || ((String(productoLista.monedaCompra || 'ARS').toUpperCase() === 'USD') ? productoLista.costoCompra : 0) || 0);
+      const porcentajeFlete = Number(productoLista.porcentajeFlete || 0);
+      const porcentajeMargen = Number(productoLista.porcentajeMargen || 0);
+      const precioUnitario = Number((precioListaUsd * Number(tipoCambioActual || 1) * (1 + (porcentajeFlete / 100)) * (1 + (porcentajeMargen / 100))).toFixed(2));
       const observacionItem = String(item.observaciones || '').trim() || null;
 
       itemsCalculados.push({
