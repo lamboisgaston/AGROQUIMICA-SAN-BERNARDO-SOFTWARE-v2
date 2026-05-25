@@ -28,7 +28,7 @@
         radial-gradient(circle at 5% 20%, rgba(18, 105, 68, .08), transparent 30%),
         var(--bg);
       min-height: 100vh;
-      padding-bottom: 260px;
+      padding-bottom: 1.5rem;
     }
 
     .container { width: min(1080px, calc(100% - 2rem)); margin-inline: auto; }
@@ -97,38 +97,20 @@
     .flow-panel h2 { margin: 0 0 .35rem; color: var(--green-900); font-size: clamp(1.25rem, 2.6vw, 1.7rem); }
     .flow-panel p { margin: 0 0 1.1rem; color: var(--muted); }
 
-    .cards { display: grid; gap: .75rem; }
-    .cultivos-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-    .productos-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-
-    .cultivo-card {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 1rem;
-      background: #fff;
-      cursor: pointer;
-      transition: .18s ease;
-      min-height: 110px;
-      display: grid;
-      align-content: space-between;
-    }
-    .cultivo-card:hover, .cultivo-card.active {
-      border-color: var(--green-500);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 22px rgba(18, 105, 68, .14);
-    }
-    .cultivo-card strong { font-size: 1.05rem; color: var(--green-900); }
+    .cards { display: grid; gap: .6rem; }
+    .productos-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 
     .product {
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: .9rem;
+      border-radius: 12px;
+      padding: .55rem;
       background: #fff;
       display: grid;
-      gap: .45rem;
+      gap: .25rem;
     }
-    .product strong { color: var(--green-900); }
-    .meta { color: var(--muted); font-size: .88rem; }
+    .product strong { color: var(--green-900); font-size: .88rem; line-height: 1.2; }
+    .meta { color: var(--muted); font-size: .78rem; line-height: 1.2; }
+    .product .btn { padding: .45rem .7rem; font-size: .86rem; }
 
     .assistant-card {
       padding: 1rem;
@@ -138,21 +120,13 @@
     .assistant-card h3 { margin: 0 0 .25rem; color: var(--green-900); }
     .assistant-card p { margin: 0 0 .65rem; color: var(--muted); }
 
-    .quote-dock {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 30;
-      background: rgba(244, 248, 244, 0.95);
-      backdrop-filter: blur(8px);
-      border-top: 1px solid var(--line);
-      padding: .8rem 0 1rem;
-    }
+    .catalog-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; align-items: start; }
+    .main-column { min-width: 0; }
+    .quote-dock { position: sticky; top: 1rem; }
     .quote-panel {
       border-radius: 16px;
       padding: .85rem;
-      max-height: 220px;
+      max-height: calc(100vh - 2rem);
       overflow: auto;
     }
     .quote-header { display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
@@ -166,9 +140,11 @@
     .qty { width: 80px; }
     .small { color: var(--muted); font-size: .84rem; }
 
-    @media (max-width: 760px) {
-      body { padding-bottom: 300px; }
-      .quote-panel { max-height: 270px; }
+    @media (max-width: 920px) {
+      body { padding-bottom: 1rem; }
+      .catalog-layout { grid-template-columns: 1fr; }
+      .quote-dock { position: static; margin-top: 1rem; }
+      .quote-panel { max-height: 340px; }
     }
   </style>
 </head>
@@ -216,48 +192,58 @@
         <button class="btn btn-outline" id="cambiarProvincia">Cambiar datos</button>
       </div>
 
-      <section class="panel flow-panel">
-        <h2>¿Qué cultivo necesitás cotizar?</h2>
-        <p>Elegí un cultivo. Después agregá productos y seguí avanzando por cultivos sin perder tu solicitud.</p>
-        <div class="cards cultivos-grid" id="cultivosCatalog"></div>
-      </section>
+      <div class="catalog-layout">
+        <div class="main-column">
+          <section class="panel flow-panel">
+            <h2>Buscá el cultivo que necesitás cotizar</h2>
+            <p>Seleccioná un cultivo para ver sus productos. Tu carrito se mantiene aunque cambies de cultivo.</p>
+            <div class="row" style="margin-bottom:0;">
+              <label for="cultivoSearch">Cultivo</label>
+              <input id="cultivoSearch" list="cultivosList" placeholder="Escribí para buscar (ej: Tomate)" autocomplete="off" />
+              <datalist id="cultivosList"></datalist>
+            </div>
+          </section>
 
-      <section class="panel flow-panel hidden" id="pantallaProductos">
-        <div class="quote-header" style="margin-bottom:.8rem;">
-          <h2 id="cultivoElegidoTitulo" style="margin:0;"></h2>
-          <button class="btn btn-outline" id="volverCultivos">Volver a cultivos</button>
+          <section class="panel flow-panel hidden" id="pantallaProductos">
+            <div class="quote-header" style="margin-bottom:.8rem;">
+              <h2 id="cultivoElegidoTitulo" style="margin:0;"></h2>
+            </div>
+            <div class="cards productos-grid" id="catalog"></div>
+          </section>
+
+          <section class="panel assistant-card">
+            <h3>Ing. Alejandro</h3>
+            <p>Asistente comercial de SemillasYa. Te ayuda a orientar la cotización.</p>
+            <a id="btnWhatsIng" class="btn btn-wa" href="#" target="_blank" rel="noopener">Hablar por WhatsApp con Ing. Alejandro</a>
+          </section>
         </div>
-        <div class="cards productos-grid" id="catalog"></div>
-      </section>
 
-      <section class="panel assistant-card">
-        <h3>Ing. Alejandro</h3>
-        <p>Asistente comercial de SemillasYa. Te ayuda a orientar la cotización.</p>
-        <a id="btnWhatsIng" class="btn btn-wa" href="#" target="_blank" rel="noopener">Hablar por WhatsApp con Ing. Alejandro</a>
-      </section>
+        <aside class="quote-dock">
+          <section class="panel quote-panel">
+            <div class="quote-header">
+              <h2 style="margin:0; font-size:1.1rem; color:var(--green-900);">Pedido de cotización</h2>
+              <span class="small" id="cartCounter">0 productos</span>
+            </div>
+            <div id="cart"></div>
+            <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
+            <div style="margin-top:.6rem;">
+              <label for="obs">Observaciones</label>
+              <textarea id="obs" rows="2"></textarea>
+            </div>
+            <button class="btn btn-primary" style="margin-top:.6rem; width:100%;" id="enviar">Enviar solicitud</button>
+          </section>
+        </aside>
+      </div>
     </section>
   </main>
 
-  <aside class="quote-dock">
-    <div class="container">
-      <section class="panel quote-panel">
-        <div class="quote-header">
-          <h2 style="margin:0; font-size:1.1rem; color:var(--green-900);">Pedido de cotización</h2>
-          <span class="small" id="cartCounter">0 productos</span>
-        </div>
-        <div id="cart"></div>
-        <p class="small" id="cartEmpty">Todavía no agregaste productos.</p>
-        <div style="margin-top:.6rem;">
-          <label for="obs">Observaciones</label>
-          <textarea id="obs" rows="2"></textarea>
-        </div>
-        <button class="btn btn-primary" style="margin-top:.6rem; width:100%;" id="enviar">Enviar solicitud</button>
-      </section>
-    </div>
-  </aside>
-
   <script>
-    const CULTIVOS_PRIORITARIOS = ['Cebolla', 'Alfalfa', 'Bermuda', 'Rye Grass', 'Lechuga', 'Tomate', 'Zapallo', 'Cesped', 'Otros'];
+    const CULTIVOS_VALIDOS = [
+      'Acelga', 'Achicoria', 'Albahaca', 'Apio', 'Arveja', 'Cebolla', 'Lechuga', 'Maíz',
+      'Melón', 'Pepino', 'Perejil', 'Pimiento', 'Poroto', 'Puerro', 'Rabanito', 'Remolacha',
+      'Repollo', 'Sandía', 'Tomate', 'Zanahoria', 'Zapallito', 'Zapallo', 'Césped', 'Alfalfa',
+      'Sorgo', 'Otro'
+    ];
 
     const state = {
       productos: [],
@@ -274,35 +260,38 @@
     const presentacionProducto = (p) => p.presentacionEnvase || 'Sin presentación';
 
     function normalizarCultivo(c) {
-      const s = String(c || '').trim();
-      if (!s) return 'Otros';
-      if (s.toLowerCase() === 'césped') return 'Cesped';
-      return s;
+      const s = String(c || '').trim().toLowerCase();
+      if (!s) return '';
+      const mapa = {
+        cesped: 'Césped',
+        'césped': 'Césped',
+        maiz: 'Maíz',
+        'maíz': 'Maíz',
+        melon: 'Melón',
+        'melón': 'Melón',
+        sandia: 'Sandía',
+        'sandía': 'Sandía',
+        otro: 'Otro',
+        otros: 'Otro'
+      };
+      return mapa[s] || s.charAt(0).toUpperCase() + s.slice(1);
     }
 
     function renderCultivos() {
-      const base = state.cultivosDisponibles.length
-        ? state.cultivosDisponibles.map(normalizarCultivo)
-        : [...new Set(state.productos.map((p) => normalizarCultivo(cultivoProducto(p))))];
+      const disponibles = new Set(
+        (state.cultivosDisponibles.length ? state.cultivosDisponibles : state.productos.map((p) => cultivoProducto(p)))
+          .map(normalizarCultivo)
+          .filter((c) => CULTIVOS_VALIDOS.includes(c))
+      );
+      if (state.productos.some((p) => !disponibles.has(normalizarCultivo(cultivoProducto(p))))) disponibles.add('Otro');
+      const list = CULTIVOS_VALIDOS.filter((c) => disponibles.has(c));
 
-      const unicos = [...new Set(base)];
-      const finalList = CULTIVOS_PRIORITARIOS.filter((c) => unicos.includes(c))
-        .concat(unicos.filter((c) => !CULTIVOS_PRIORITARIOS.includes(c)));
-
-      $('cultivosCatalog').innerHTML = finalList.map((c) => `
-        <article class="cultivo-card ${state.cultivoSeleccionado === c ? 'active' : ''}" data-cultivo="${c}">
-          <strong>${c}</strong>
-          <span class="small">Ver productos</span>
-        </article>
-      `).join('');
-
-      document.querySelectorAll('[data-cultivo]').forEach((card) => {
-        card.onclick = () => {
-          state.cultivoSeleccionado = card.dataset.cultivo;
-          renderCultivos();
-          renderCatalogoCultivo();
-        };
-      });
+      $('cultivosList').innerHTML = list.map((c) => `<option value="${c}"></option>`).join('');
+      if (!state.cultivoSeleccionado || !list.includes(state.cultivoSeleccionado)) {
+        state.cultivoSeleccionado = '';
+        $('cultivoSearch').value = '';
+        $('pantallaProductos').classList.add('hidden');
+      }
     }
 
     function agregarCarrito(producto) {
@@ -317,7 +306,11 @@
       $('cultivoElegidoTitulo').textContent = state.cultivoSeleccionado;
 
       const list = state.productos
-        .filter((p) => normalizarCultivo(cultivoProducto(p)) === state.cultivoSeleccionado)
+        .filter((p) => {
+          const cultivo = normalizarCultivo(cultivoProducto(p));
+          if (state.cultivoSeleccionado === 'Otro') return !CULTIVOS_VALIDOS.includes(cultivo) || cultivo === 'Otro';
+          return cultivo === state.cultivoSeleccionado;
+        })
         .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
 
       $('catalog').innerHTML = list.map((p) => `
@@ -470,14 +463,21 @@
 
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
-    $('volverCultivos').addEventListener('click', () => {
-      $('pantallaProductos').classList.add('hidden');
-      state.cultivoSeleccionado = '';
-      renderCultivos();
-    });
     $('cambiarProvincia').addEventListener('click', () => {
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');
+    });
+    $('cultivoSearch').addEventListener('change', () => {
+      const cultivo = normalizarCultivo($('cultivoSearch').value);
+      if (!CULTIVOS_VALIDOS.includes(cultivo)) {
+        $('cultivoSearch').value = '';
+        state.cultivoSeleccionado = '';
+        $('pantallaProductos').classList.add('hidden');
+        return;
+      }
+      state.cultivoSeleccionado = cultivo;
+      $('cultivoSearch').value = cultivo;
+      renderCatalogoCultivo();
     });
 
     configurarBotonWhatsApp();
@@ -489,7 +489,11 @@
       $('provinciaSelect').value = state.cliente.provincia;
       $('ciudadIngreso').value = state.cliente.ciudad;
       mostrarCatalogoConUbicacion();
-      cargarProductos().catch(() => { $('cultivosCatalog').innerHTML = '<p class="small">No se pudo cargar el catálogo.</p>'; });
+      cargarProductos().catch(() => {
+        $('pantallaProductos').classList.remove('hidden');
+        $('cultivoElegidoTitulo').textContent = 'Catálogo';
+        $('catalog').innerHTML = '<p class="small">No se pudo cargar el catálogo.</p>';
+      });
     }
   </script>
 </body>
