@@ -1732,7 +1732,14 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const moneda = formatMoney;
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
+  const FACTOR_IVA_SEMILLASYA = 1.21;
+  const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
+  const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
+    ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / FACTOR_IVA_SEMILLASYA), 0)
+    : Number(p.subtotal || 0);
+  const ivaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa * ALICUOTA_IVA_SEMILLASYA : 0;
+  const totalFinalConIvaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa + ivaSemillasYa : Number(p.total || 0);
   const rows = p.items.map((i) => {
     const nombreRealSemillasYa = String(i.nombreProducto || '').trim();
     const nombreProducto = esPresupuestoSemillasYa
@@ -1741,7 +1748,9 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
     const detalleSemillasYa = esPresupuestoSemillasYa
       ? `<div style="font-size:11px;color:#4b5563;margin-top:2px;">${escapeHtml([i.cultivo, i.semillero, i.presentacion].filter(Boolean).join(' · ') || '-')}</div>`
       : '';
-    return `<tr><td>${escapeHtml(nombreProducto)}${detalleSemillasYa}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`;
+    const precioUnitarioMostrado = esPresupuestoSemillasYa ? (Number(i.precioUnitario || 0) / FACTOR_IVA_SEMILLASYA) : Number(i.precioUnitario || 0);
+    const subtotalMostrado = esPresupuestoSemillasYa ? (Number(i.subtotal || 0) / FACTOR_IVA_SEMILLASYA) : Number(i.subtotal || 0);
+    return `<tr><td>${escapeHtml(nombreProducto)}${detalleSemillasYa}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(precioUnitarioMostrado)}</td><td style="text-align:right">${moneda(subtotalMostrado)}</td></tr>`;
   }).join('');
   res.type('html').send(`<!doctype html>
 <html lang="es">
@@ -1784,9 +1793,13 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
       <tbody>${rows}</tbody>
     </table>
     <div class="tot">
-      Subtotal: <strong>${moneda(p.subtotal)}</strong><br/>
+      ${esPresupuestoSemillasYa
+        ? `Subtotal sin IVA: <strong>${moneda(subtotalSinIvaSemillasYa)}</strong><br/>
+      IVA 21%: <strong>${moneda(ivaSemillasYa)}</strong><br/>
+      Total final con IVA: <strong>${moneda(totalFinalConIvaSemillasYa)}</strong>`
+        : `Subtotal: <strong>${moneda(p.subtotal)}</strong><br/>
       Descuento: <strong>${moneda(p.descuentoValor || 0)}</strong><br/>
-      Total final: <strong>${moneda(p.total)}</strong>
+      Total final: <strong>${moneda(p.total)}</strong>`}
     </div>
     <div class="box"><strong>Observaciones:</strong> ${escapeHtml(p.observaciones || '-')}</div>
     <div class="box"><strong>Validez del presupuesto:</strong> ${escapeHtml(p.validez || '-')}</div>
@@ -1849,9 +1862,16 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 
   const fecha = new Date(p.createdAt).toLocaleDateString('es-AR');
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
+  const FACTOR_IVA_SEMILLASYA = 1.21;
+  const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
   const descuento = Number(p.descuentoValor || 0);
   const redondeo = Number(p.ajusteRedondeo || 0);
+  const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
+    ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / FACTOR_IVA_SEMILLASYA), 0)
+    : Number(p.subtotal || 0);
+  const ivaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa * ALICUOTA_IVA_SEMILLASYA : 0;
+  const totalFinalConIvaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa + ivaSemillasYa : Number(p.total || 0);
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="presupuesto-${p.id}.pdf"`);
@@ -1956,8 +1976,8 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     doc.fillColor('#111')
       .text(nombreConDetalle, colX.producto, y + 5, { width: colWidths.producto - 10, lineBreak: true })
       .text(String(item.cantidad), colX.cantidad, y + 5, { width: colWidths.cantidad, align: 'center' })
-      .text(formatMoney(item.precioUnitario), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
-      .text(formatMoney(item.subtotal), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
+      .text(formatMoney(esPresupuestoSemillasYa ? (Number(item.precioUnitario || 0) / FACTOR_IVA_SEMILLASYA) : item.precioUnitario), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
+      .text(formatMoney(esPresupuestoSemillasYa ? (Number(item.subtotal || 0) / FACTOR_IVA_SEMILLASYA) : item.subtotal), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
 
     y += rowHeight;
   });
@@ -1969,14 +1989,23 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   const totalsWidth = Math.min(260, tableWidth);
   const totalsX = right - totalsWidth;
   drawBox(y, 86);
-  doc.font('Helvetica').fontSize(10)
-    .text('Subtotal:', totalsX, y + 10, { width: 120, align: 'right' })
-    .text(formatMoney(p.subtotal), totalsX + 124, y + 10, { width: totalsWidth - 124 - 8, align: 'right' })
-    .text('Descuento:', totalsX, y + 28, { width: 120, align: 'right' })
-    .text(formatMoney(descuento), totalsX + 124, y + 28, { width: totalsWidth - 124 - 8, align: 'right' })
-    .text('Redondeo:', totalsX, y + 46, { width: 120, align: 'right' })
-    .text(formatMoney(redondeo), totalsX + 124, y + 46, { width: totalsWidth - 124 - 8, align: 'right' });
-  doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL: ${formatMoney(p.total)}`, totalsX, y + 64, { width: totalsWidth - 8, align: 'right' });
+  if (esPresupuestoSemillasYa) {
+    doc.font('Helvetica').fontSize(10)
+      .text('Subtotal sin IVA:', totalsX, y + 10, { width: 120, align: 'right' })
+      .text(formatMoney(subtotalSinIvaSemillasYa), totalsX + 124, y + 10, { width: totalsWidth - 124 - 8, align: 'right' })
+      .text('IVA 21%:', totalsX, y + 28, { width: 120, align: 'right' })
+      .text(formatMoney(ivaSemillasYa), totalsX + 124, y + 28, { width: totalsWidth - 124 - 8, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL FINAL CON IVA: ${formatMoney(totalFinalConIvaSemillasYa)}`, totalsX, y + 52, { width: totalsWidth - 8, align: 'right' });
+  } else {
+    doc.font('Helvetica').fontSize(10)
+      .text('Subtotal:', totalsX, y + 10, { width: 120, align: 'right' })
+      .text(formatMoney(p.subtotal), totalsX + 124, y + 10, { width: totalsWidth - 124 - 8, align: 'right' })
+      .text('Descuento:', totalsX, y + 28, { width: 120, align: 'right' })
+      .text(formatMoney(descuento), totalsX + 124, y + 28, { width: totalsWidth - 124 - 8, align: 'right' })
+      .text('Redondeo:', totalsX, y + 46, { width: 120, align: 'right' })
+      .text(formatMoney(redondeo), totalsX + 124, y + 46, { width: totalsWidth - 124 - 8, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL: ${formatMoney(p.total)}`, totalsX, y + 64, { width: totalsWidth - 8, align: 'right' });
+  }
 
   y += 102;
   const bloques = [
