@@ -5,6 +5,7 @@ const PDFDocument = require('pdfkit');
 const app = express();
 const prisma = new PrismaClient();
 const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
 
 app.use(express.json());
@@ -2178,41 +2179,71 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
 
 app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
   const mensaje = normalizarTexto(req.body?.mensaje);
-  const state = req.body?.state && typeof req.body.state === 'object' ? req.body.state : {};
-  const agregarProductoIds = Array.isArray(req.body?.agregarProductoIds) ? req.body.agregarProductoIds : [];
+  const historial = Array.isArray(req.body?.historial) ? req.body.historial.slice(-20) : [];
+  const cliente = normalizarTexto(req.body?.cliente);
+  const provincia = normalizarTexto(req.body?.provincia);
+  const ciudad = normalizarTexto(req.body?.ciudad);
+  const pedidoActual = Array.isArray(req.body?.pedidoActual) ? req.body.pedidoActual : [];
 
-  const where = { activo: true, visibleEnSemillasYa: true, publicadoWeb: true };
-  if (normalizarTexto(state.cultivo)) where.cultivo = { contains: normalizarTexto(state.cultivo), mode: 'insensitive' };
-
-  const sugeridos = await prisma.productoPrecampania.findMany({
-    where,
-    select: { id: true, nombre: true, cultivo: true, presentacionEnvase: true },
+  const productosPublicos = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
+    select: { id: true, nombre: true, cultivo: true, presentacionEnvase: true, descripcion: true, recomendacionesUso: true },
     orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }],
-    take: 8
+    take: 40
   });
 
-  const payload = construirRespuestaIngLambois(state, mensaje, sugeridos);
+  const contextoPublico = productosPublicos.map((p) => ({
+    id: p.id, nombre: p.nombre, cultivo: p.cultivo, presentacion: p.presentacionEnvase, descripcion: p.descripcion, recomendacionesUso: p.recomendacionesUso
+  }));
 
-  if (agregarProductoIds.length) {
-    const idsAgregar = agregarProductoIds.map((id) => parsePositiveInt(id)).filter(Boolean);
-    const mapaActual = new Map(payload.state.productos.map((p) => [p.productoPrecampaniaId, p]));
-    for (const prod of sugeridos) {
-      if (idsAgregar.includes(prod.id)) {
-        mapaActual.set(prod.id, {
-          productoPrecampaniaId: prod.id,
-          nombre: prod.nombre,
-          cultivo: prod.cultivo,
-          presentacion: prod.presentacionEnvase
-        });
-      }
-    }
-    payload.state.productos = Array.from(mapaActual.values());
-    payload.sugerencias = payload.state.productos;
-    payload.puedePrepararSolicitud = Boolean(payload.state.cultivo && payload.state.provincia && payload.state.ciudad && payload.state.cantidadSuperficie && payload.state.productos.length);
-    payload.estadoSugeridoSolicitud = payload.puedePrepararSolicitud ? 'PENDIENTE_AUDITORIA_IA' : null;
+  const reglas = 'No confirmar venta. No prometer stock. No cerrar precio final. Siempre aclarar que la cotización queda sujeta a revisión comercial. Pedir cantidad/superficie cuando falte.';
+
+  let respuesta = '';
+  if (OPENAI_API_KEY) {
+    const prompt = {
+      rol: CHAT_INTERNO_ING_LAMBOIS,
+      reglas,
+      cliente: { nombre: cliente, provincia, ciudad },
+      mensaje,
+      historial,
+      pedidoActual,
+      productosPublicos: contextoPublico
+    };
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: 'Sos Ing. Lambois de SemillasYa. Solo usar productos públicos provistos. Nunca divulgar costos internos, márgenes ni datos de caja/ERP.' },
+          { role: 'user', content: JSON.stringify(prompt) }
+        ]
+      })
+    });
+    const data = await r.json().catch(() => ({}));
+    respuesta = data?.choices?.[0]?.message?.content || '';
   }
 
-  res.json(payload);
+  if (!respuesta) {
+    const sugeridos = productosPublicos.filter((p) => (mensaje + ' ' + (p.cultivo || '')).toLowerCase().includes((p.cultivo || '').toLowerCase())).slice(0, 4);
+    const nombres = sugeridos.map((p) => p.nombre).filter(Boolean);
+    respuesta = nombres.length
+      ? `Te recomiendo para ese cultivo: ${nombres.join(', ')}. Indicame cantidad/superficie y si querés agrego al pedido. Cotización sujeta a revisión comercial.`
+      : 'Contame cultivo y cantidad/superficie para sugerirte productos publicados de SemillasYa. La cotización queda sujeta a revisión comercial.';
+  }
+
+  res.json({
+    ok: true,
+    respuesta,
+    historial: [...historial, { tipo: 'user', texto: mensaje }, { tipo: 'bot', texto: respuesta }].slice(-30),
+    productosSugeridos: productosPublicos.slice(0, 6).map((p) => ({ productoPrecampaniaId: p.id, nombre: p.nombre })),
+    reglas: {
+      noConfirmarVenta: true,
+      noPrometerStock: true,
+      noPrometerPrecioFinal: true
+    }
+  });
 }));
 
 app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
