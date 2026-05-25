@@ -1502,8 +1502,15 @@ app.get('/api/presupuestos/mostrador', asyncHandler(async (req, res) => {
 
 app.get('/api/presupuestos/semillasya', asyncHandler(async (req, res) => {
   const tipoOperacion = String(req.query?.tipoOperacion || '').toUpperCase();
-  const where = { origen: 'SEMILLASYA' };
-  if (tipoOperacion) where.tipoOperacion = tipoOperacion;
+  const origenesSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB'];
+  const tiposOperacionSemillasYa = ['SEMILLASYA', 'PRECAMPAÑA', 'PRECAMPANIA'];
+  const where = {
+    OR: [
+      { origen: { in: origenesSemillasYa } },
+      { tipoOperacion: { in: tiposOperacionSemillasYa } }
+    ]
+  };
+  if (tipoOperacion) where.AND = [{ tipoOperacion }];
   const presupuestos = await prisma.presupuesto.findMany({
     where,
     include: { persona: true, items: { include: { producto: true } } },
@@ -3169,8 +3176,8 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
   const provinciaLimpia = String(provincia || '').trim();
   const ciudadLimpia = String(ciudad || localidad || '').trim();
   const observacionesLimpias = String(observaciones || '').trim();
-  const origenLimpio = String(origen || 'SEMILLASYA_WEB').trim() || 'SEMILLASYA_WEB';
-  const estadoSolicitadoLimpio = String(estadoSolicitado || '').trim() || 'PENDIENTE_AUDITORIA';
+  const origenLimpio = String(origen || 'SEMILLASYA_WEB').trim().toUpperCase() || 'SEMILLASYA_WEB';
+  const estadoSolicitadoLimpio = String(estadoSolicitado || '').trim().toUpperCase() || 'BORRADOR';
   const chatData = (chat && typeof chat === 'object') ? chat : {};
   const itemsEntrada = Array.isArray(items) ? items : [];
 
@@ -3245,7 +3252,7 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
         subtotal,
         total: subtotal,
         origen: origenLimpio,
-        tipoOperacion: 'PRECAMPAÑA',
+        tipoOperacion: 'SEMILLASYA',
         observaciones: [
           `Solicitud originada en ${origenLimpio}`,
           `Estado solicitado: ${estadoSolicitadoLimpio}`,
@@ -3305,6 +3312,69 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor' });
   }
 });
+
+
+app.get('/api/semillasya/solicitudes/debug', asyncHandler(async (_req, res) => {
+  const whereSemillasYa = {
+    OR: [
+      { origen: { in: ['SEMILLASYA', 'SEMILLASYA_WEB'] } },
+      { tipoOperacion: { in: ['SEMILLASYA', 'PRECAMPAÑA', 'PRECAMPANIA'] } }
+    ]
+  };
+
+  const [total, ultimasSolicitudes] = await Promise.all([
+    prisma.presupuesto.count({ where: whereSemillasYa }),
+    prisma.presupuesto.findMany({
+      where: whereSemillasYa,
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        persona: true,
+        items: {
+          include: {
+            producto: true,
+            productoPrecampania: true
+          }
+        }
+      }
+    })
+  ]);
+
+  res.json({
+    ok: true,
+    totalSolicitudesSemillasYa: total,
+    ultimas10Solicitudes: ultimasSolicitudes.map((s) => ({
+      id: s.id,
+      createdAt: s.createdAt,
+      estado: s.estado,
+      origen: s.origen,
+      tipoOperacion: s.tipoOperacion,
+      provincia: extraerDatoUbicacion(s.observaciones, 'Provincia'),
+      ciudad: extraerDatoUbicacion(s.observaciones, 'Ciudad/Localidad'),
+      cliente: s.persona ? {
+        id: s.persona.id,
+        nombre: s.persona.nombre,
+        telefono: s.persona.telefono
+      } : null,
+      items: (s.items || []).map((it) => ({
+        id: it.id,
+        productoId: it.productoId,
+        productoPrecampaniaId: it.productoPrecampaniaId,
+        nombreProducto: it.nombreProducto || it.producto?.nombre || it.productoPrecampania?.nombre || null,
+        cantidad: it.cantidad,
+        precioUnitario: it.precioUnitario,
+        subtotal: it.subtotal
+      }))
+    }))
+  });
+}));
+
+function extraerDatoUbicacion(observaciones, campo) {
+  const texto = String(observaciones || '');
+  const regex = new RegExp(`${campo}:\\s*([^|]+)`, 'i');
+  const match = texto.match(regex);
+  return match ? String(match[1] || '').trim() : null;
+}
 
 app.get('/semillasya', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
