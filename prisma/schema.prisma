@@ -236,6 +236,7 @@ enum EstadoPresupuesto {
   ACEPTADO
   RECHAZADO
   VENCIDO
+  PENDIENTE_AUDITORIA_IA
 }
 
 model Venta {
