@@ -119,6 +119,13 @@
     }
     .assistant-card h3 { margin: 0 0 .25rem; color: var(--green-900); }
     .assistant-card p { margin: 0 0 .65rem; color: var(--muted); }
+    .chat-box { border: 1px solid var(--line); border-radius: 14px; background: #f8fcf9; padding: .7rem; margin-bottom: .7rem; max-height: 340px; overflow: auto; display: grid; gap: .5rem; }
+    .chat-msg { max-width: 88%; padding: .55rem .65rem; border-radius: 12px; font-size: .92rem; line-height: 1.3; }
+    .chat-bot { background: #e8f5ec; border: 1px solid #cce8d5; justify-self: start; }
+    .chat-user { background: #fff; border: 1px solid #d6e3dc; justify-self: end; }
+    .chat-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .4rem; }
+    .chat-actions .btn { padding: .45rem .75rem; font-size: .85rem; }
+    .assistant-meta { font-size: .82rem; color: var(--muted); margin-top: .35rem; }
 
     .catalog-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; align-items: start; }
     .main-column { min-width: 0; }
@@ -228,8 +235,14 @@
 
           <section class="panel assistant-card">
             <h3>Ing. Alejandro</h3>
-            <p>Asistente comercial de SemillasYa. Te ayuda a orientar la cotización.</p>
-            <a id="btnWhatsIng" class="btn btn-wa" href="#" target="_blank" rel="noopener">Hablar por WhatsApp con Ing. Alejandro</a>
+            <p>Asistente IA comercial de SemillasYa</p>
+            <div id="chatBox" class="chat-box"></div>
+            <div class="chat-actions">
+              <button class="btn btn-outline" id="chatSugerir">Sugerir productos</button>
+              <button class="btn btn-outline" id="chatPreparar">Preparar solicitud</button>
+            </div>
+            <p class="assistant-meta">También podés continuar por WhatsApp si preferís.</p>
+            <a id="btnWhatsIng" class="btn btn-wa" href="#" target="_blank" rel="noopener">Continuar por WhatsApp</a>
           </section>
         </div>
 
@@ -267,7 +280,8 @@
       catalogoCargado: false,
       cultivoSeleccionado: '',
       cultivosDisponibles: [],
-      cultivosFiltrados: []
+      cultivosFiltrados: [],
+      chat: { paso: 0, superficie: '', semillero: '', solicitudSugerida: '', listo: false, historial: [] }
     };
     const SEMILLEROS_CARROUSEL = ['CAPS', 'Guasch', 'Picasso', 'Florensa', 'Garden', 'Gasty', 'Chuchuy'];
 
@@ -333,6 +347,61 @@
       if (idx >= 0) state.carrito[idx].cantidad += 1;
       else state.carrito.push({ id: producto.id, producto, cantidad: 1 });
       renderCarrito();
+      if (state.chat.paso >= 4) {
+        addBotMsg(`Perfecto, sumé "${producto.nombre}" al pedido. Podés ajustar cantidades en el panel de cotización.`);
+      }
+    }
+    function addChatMsg(texto, tipo = 'bot') {
+      state.chat.historial.push({ texto, tipo });
+      const box = $('chatBox');
+      box.innerHTML = state.chat.historial.map((m) => `<div class="chat-msg ${m.tipo === 'bot' ? 'chat-bot' : 'chat-user'}">${m.texto}</div>`).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+    const addBotMsg = (t) => addChatMsg(t, 'bot');
+    const addUserMsg = (t) => addChatMsg(t, 'user');
+    function avanzarChat() {
+      if (state.chat.paso === 0) {
+        addBotMsg('Hola, soy el Ing. Alejandro. Te ayudo a armar tu pedido de cotización.');
+        addBotMsg('¿Qué cultivo querés cotizar? Podés buscarlo arriba en el selector de cultivo.');
+        state.chat.paso = 1;
+        return;
+      }
+      if (state.chat.paso === 1 && state.cultivoSeleccionado) {
+        addUserMsg(`Quiero cotizar ${state.cultivoSeleccionado}.`);
+        addBotMsg('Excelente. ¿En qué provincia y ciudad estás?');
+        if (state.cliente?.provincia && state.cliente?.ciudad) {
+          addUserMsg(`${state.cliente.provincia}, ${state.cliente.ciudad}.`);
+          addBotMsg('Perfecto. ¿Qué superficie o cantidad aproximada necesitás?');
+          state.chat.paso = 2;
+        }
+        return;
+      }
+      if (state.chat.paso === 2 && state.chat.superficie) {
+        addUserMsg(state.chat.superficie);
+        addBotMsg('Gracias. ¿Tenés preferencia por algún semillero?');
+        state.chat.paso = 3;
+        return;
+      }
+      if (state.chat.paso === 3 && state.chat.semillero) {
+        addUserMsg(state.chat.semillero);
+        addBotMsg('¿Querés que arme una solicitud sugerida?');
+        state.chat.paso = 4;
+      }
+    }
+    function sugerirProductosChat() {
+      if (!state.cultivoSeleccionado) return addBotMsg('Primero seleccioná el cultivo para poder sugerirte productos.');
+      const sugeridos = state.productos
+        .filter((p) => normalizarCultivo(cultivoProducto(p)) === state.cultivoSeleccionado)
+        .slice(0, 3);
+      if (!sugeridos.length) return addBotMsg('No encontré sugerencias para ese cultivo en este momento.');
+      addBotMsg(`Te sugiero estos productos para ${state.cultivoSeleccionado}: ${sugeridos.map((p) => p.nombre).join(', ')}.`);
+      addBotMsg('Podés agregarlos con el botón "Agregar" en cada producto.');
+    }
+    function prepararSolicitudChat() {
+      if (!state.carrito.length) return addBotMsg('Para preparar la solicitud primero agregá al menos un producto.');
+      addBotMsg('Te armé una solicitud de cotización. Podés revisarla y enviarla.');
+      state.chat.listo = true;
+      state.chat.solicitudSugerida = 'SI';
     }
 
     function renderCatalogoCultivo() {
@@ -457,6 +526,15 @@
         ciudad: state.cliente.ciudad,
         localidad: state.cliente.ciudad,
         observaciones: $('obs').value.trim(),
+        origen: 'SEMILLASYA_IA',
+        estadoSolicitado: 'PENDIENTE_AUDITORIA',
+        chat: {
+          cultivo: state.cultivoSeleccionado || null,
+          superficie: state.chat.superficie || null,
+          semilleroPreferido: state.chat.semillero || null,
+          solicitudSugerida: state.chat.solicitudSugerida || 'NO',
+          historial: state.chat.historial
+        },
         items: state.carrito.map((it) => ({
           productoPrecampaniaId: Number(it.producto.id),
           cantidad: Math.max(1, Number(it.cantidad || 1))
@@ -472,6 +550,7 @@
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'No se pudo registrar la solicitud');
 
       state.carrito = [];
+      state.chat.listo = false;
       renderCarrito();
       $('obs').value = '';
       alert('Recibimos tu solicitud. Disponibilidad y entrega sujetas a confirmación.');
@@ -511,7 +590,10 @@
     });
     $('cultivoDropdown').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-cultivo]');
-      if (b) seleccionarCultivo(b.dataset.cultivo);
+      if (b) {
+        seleccionarCultivo(b.dataset.cultivo);
+        avanzarChat();
+      }
     });
     $('cultivoClear').addEventListener('click', () => {
       $('cultivoSearch').value = '';
@@ -520,10 +602,13 @@
       $('pantallaProductos').classList.add('hidden');
       renderDropdownCultivos(state.cultivosFiltrados);
     });
+    $('chatSugerir').addEventListener('click', sugerirProductosChat);
+    $('chatPreparar').addEventListener('click', prepararSolicitudChat);
 
     configurarBotonWhatsApp();
     renderSemillerosTrack();
     renderCarrito();
+    avanzarChat();
     cargarClientePersistido();
     if (state.cliente?.personaId) {
       $('nombreIngreso').value = state.cliente.nombre;
@@ -531,12 +616,25 @@
       $('provinciaSelect').value = state.cliente.provincia;
       $('ciudadIngreso').value = state.cliente.ciudad;
       mostrarCatalogoConUbicacion();
+      addBotMsg(`Ya tengo tus datos de ubicación: ${state.cliente.provincia}, ${state.cliente.ciudad}.`);
       cargarProductos().catch(() => {
         $('pantallaProductos').classList.remove('hidden');
         $('cultivoElegidoTitulo').textContent = 'Catálogo';
         $('catalog').innerHTML = '<p class="small">No se pudo cargar el catálogo.</p>';
       });
     }
+    setTimeout(() => {
+      const sup = prompt('Ing. Alejandro: ¿Qué superficie o cantidad aproximada necesitás? (opcional)');
+      if (sup) {
+        state.chat.superficie = sup.trim();
+        avanzarChat();
+      }
+      const sem = prompt('Ing. Alejandro: ¿Tenés preferencia por algún semillero? (opcional)');
+      if (sem) {
+        state.chat.semillero = sem.trim();
+        avanzarChat();
+      }
+    }, 400);
   </script>
 </body>
 </html>

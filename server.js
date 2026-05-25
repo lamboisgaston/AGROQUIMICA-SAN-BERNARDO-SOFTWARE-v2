@@ -2940,7 +2940,7 @@ app.use((err, req, res, next) => {
 
 app.post('/api/semillasya/solicitud', async (req, res) => {
   try {
-  const { personaId, nombre, telefono, pais, provincia, ciudad, localidad, observaciones, items } = req.body || {};
+  const { personaId, nombre, telefono, pais, provincia, ciudad, localidad, observaciones, items, origen, estadoSolicitado, chat } = req.body || {};
 
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
@@ -2948,6 +2948,9 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
   const provinciaLimpia = String(provincia || '').trim();
   const ciudadLimpia = String(ciudad || localidad || '').trim();
   const observacionesLimpias = String(observaciones || '').trim();
+  const origenLimpio = String(origen || 'SEMILLASYA_WEB').trim() || 'SEMILLASYA_WEB';
+  const estadoSolicitadoLimpio = String(estadoSolicitado || '').trim() || 'PENDIENTE_AUDITORIA';
+  const chatData = (chat && typeof chat === 'object') ? chat : {};
   const itemsEntrada = Array.isArray(items) ? items : [];
 
   if (!nombreLimpio) return res.status(400).json({ ok: false, error: 'nombre es obligatorio' });
@@ -2981,7 +2984,8 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
       paisLimpio ? `País: ${paisLimpio}` : null,
       provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
       ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
-      'Origen: SEMILLASYA_WEB',
+      `Origen: ${origenLimpio}`,
+      `Estado solicitado: ${estadoSolicitadoLimpio}`,
       observacionesLimpias ? `Obs: ${observacionesLimpias}` : null
     ].filter(Boolean).join(' | ');
 
@@ -3016,16 +3020,24 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
       data: {
         personaId: persona.id,
         tipoDestinatario: TipoDestinatarioPresupuesto.EXISTENTE,
-        estado: enumValuesSafe(EstadoPresupuesto).includes('WEB_SOLICITADO') ? 'WEB_SOLICITADO' : EstadoPresupuesto.BORRADOR,
+        estado: EstadoPresupuesto.BORRADOR,
         subtotal,
         total: subtotal,
-        origen: 'SEMILLASYA',
+        origen: origenLimpio,
         tipoOperacion: 'PRECAMPAÑA',
         observaciones: [
-          'Solicitud originada en SEMILLASYA_WEB',
+          `Solicitud originada en ${origenLimpio}`,
+          `Estado solicitado: ${estadoSolicitadoLimpio}`,
           paisLimpio ? `País: ${paisLimpio}` : null,
           provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
           ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
+          chatData?.cultivo ? `Cultivo chat: ${chatData.cultivo}` : null,
+          chatData?.superficie ? `Superficie/Cantidad chat: ${chatData.superficie}` : null,
+          chatData?.semilleroPreferido ? `Semillero preferido chat: ${chatData.semilleroPreferido}` : null,
+          chatData?.solicitudSugerida ? `Solicitud sugerida chat: ${chatData.solicitudSugerida}` : null,
+          Array.isArray(chatData?.historial) && chatData.historial.length
+            ? `Chat: ${chatData.historial.map((h) => `${h.tipo || 'bot'}: ${String(h.texto || '').slice(0, 120)}`).join(' || ')}`
+            : null,
           observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
         ].filter(Boolean).join(' | ')
       }
