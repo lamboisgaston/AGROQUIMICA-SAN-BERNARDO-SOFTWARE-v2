@@ -139,6 +139,17 @@
     .cart-row { display: flex; justify-content: space-between; align-items: center; gap: .45rem; }
     .qty { width: 80px; }
     .small { color: var(--muted); font-size: .84rem; }
+    .semilleros-strip { overflow: hidden; padding: .55rem .2rem; margin-bottom: .7rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .semilleros-track { display: flex; gap: .7rem; width: max-content; animation: semillerosScroll 28s linear infinite; }
+    .semillero-chip { width: 5cm; max-width: 140px; height: 5cm; max-height: 74px; border-radius: 12px; border: 1px solid #d9e2ef; background: linear-gradient(145deg,#f8fbff,#eef4ff); display:flex; align-items:center; justify-content:center; color:#17325b; font-weight:700; letter-spacing:.06em; font-size:1.1rem; }
+    .cultivo-select-pro { position: relative; }
+    .cultivo-select-pro input { font-size: 1.05rem; padding: .8rem .9rem; }
+    .cultivo-clear { position:absolute; right:.45rem; top:2.2rem; width:30px; height:30px; border:none; border-radius:50%; background:#edf2fa; color:#35507a; cursor:pointer; }
+    .cultivo-dropdown { margin-top:.4rem; border:1px solid var(--line); border-radius:12px; max-height:220px; overflow:auto; background:#fff; box-shadow:0 10px 26px rgba(16,40,90,.08); }
+    .cultivo-option { width:100%; border:none; background:transparent; text-align:left; padding:.55rem .7rem; cursor:pointer; font-size:.95rem; color:#14223b; }
+    .cultivo-option:hover { background:#eef4ff; }
+    .hidden-soft { display:none; }
+    @keyframes semillerosScroll { from { transform: translateX(-50%); } to { transform: translateX(0); } }
 
     @media (max-width: 920px) {
       body { padding-bottom: 1rem; }
@@ -195,12 +206,16 @@
       <div class="catalog-layout">
         <div class="main-column">
           <section class="panel flow-panel">
+            <div class="semilleros-strip">
+              <div class="semilleros-track" id="semillerosTrack"></div>
+            </div>
             <h2>Buscá el cultivo que necesitás cotizar</h2>
             <p>Seleccioná un cultivo para ver sus productos. Tu carrito se mantiene aunque cambies de cultivo.</p>
-            <div class="row" style="margin-bottom:0;">
+            <div class="row cultivo-select-pro" style="margin-bottom:0;">
               <label for="cultivoSearch">Cultivo</label>
-              <input id="cultivoSearch" list="cultivosList" placeholder="Escribí para buscar (ej: Tomate)" autocomplete="off" />
-              <datalist id="cultivosList"></datalist>
+              <input id="cultivoSearch" placeholder="Buscar cultivo…" autocomplete="off" />
+              <button id="cultivoClear" class="cultivo-clear hidden-soft" type="button" aria-label="Limpiar cultivo">×</button>
+              <div id="cultivoDropdown" class="cultivo-dropdown hidden-soft"></div>
             </div>
           </section>
 
@@ -251,8 +266,10 @@
       cliente: null,
       catalogoCargado: false,
       cultivoSeleccionado: '',
-      cultivosDisponibles: []
+      cultivosDisponibles: [],
+      cultivosFiltrados: []
     };
+    const SEMILLEROS_CARROUSEL = ['CAPS', 'Guasch', 'Picasso', 'Florensa', 'Garden', 'Gasty', 'Chuchuy'];
 
     const $ = (id) => document.getElementById(id);
     const cultivoProducto = (p) => p.cultivo || 'Otros';
@@ -286,12 +303,29 @@
       if (state.productos.some((p) => !disponibles.has(normalizarCultivo(cultivoProducto(p))))) disponibles.add('Otro');
       const list = CULTIVOS_VALIDOS.filter((c) => disponibles.has(c));
 
-      $('cultivosList').innerHTML = list.map((c) => `<option value="${c}"></option>`).join('');
+      state.cultivosFiltrados = list;
+      renderDropdownCultivos(list);
       if (!state.cultivoSeleccionado || !list.includes(state.cultivoSeleccionado)) {
         state.cultivoSeleccionado = '';
         $('cultivoSearch').value = '';
         $('pantallaProductos').classList.add('hidden');
       }
+    }
+    function renderSemillerosTrack() {
+      const base = SEMILLEROS_CARROUSEL.map((s) => `<article class="semillero-chip">${s.slice(0, 1)}</article>`).join('');
+      $('semillerosTrack').innerHTML = `${base}${base}`;
+    }
+    function renderDropdownCultivos(list) {
+      const dd = $('cultivoDropdown');
+      dd.innerHTML = list.map((c) => `<button type="button" class="cultivo-option" data-cultivo="${c}">${c}</button>`).join('');
+    }
+    function seleccionarCultivo(cultivo) {
+      if (!CULTIVOS_VALIDOS.includes(cultivo)) return;
+      state.cultivoSeleccionado = cultivo;
+      $('cultivoSearch').value = cultivo;
+      $('cultivoDropdown').classList.add('hidden-soft');
+      $('cultivoClear').classList.remove('hidden-soft');
+      renderCatalogoCultivo();
     }
 
     function agregarCarrito(producto) {
@@ -467,20 +501,28 @@
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');
     });
-    $('cultivoSearch').addEventListener('change', () => {
-      const cultivo = normalizarCultivo($('cultivoSearch').value);
-      if (!CULTIVOS_VALIDOS.includes(cultivo)) {
-        $('cultivoSearch').value = '';
-        state.cultivoSeleccionado = '';
-        $('pantallaProductos').classList.add('hidden');
-        return;
-      }
-      state.cultivoSeleccionado = cultivo;
-      $('cultivoSearch').value = cultivo;
-      renderCatalogoCultivo();
+    $('cultivoSearch').addEventListener('focus', () => $('cultivoDropdown').classList.remove('hidden-soft'));
+    $('cultivoSearch').addEventListener('input', () => {
+      const q = $('cultivoSearch').value.trim().toLowerCase();
+      const filtrados = state.cultivosFiltrados.filter((c) => c.toLowerCase().includes(q));
+      renderDropdownCultivos(filtrados);
+      $('cultivoDropdown').classList.toggle('hidden-soft', filtrados.length === 0);
+      $('cultivoClear').classList.toggle('hidden-soft', !$('cultivoSearch').value.trim() && !state.cultivoSeleccionado);
+    });
+    $('cultivoDropdown').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-cultivo]');
+      if (b) seleccionarCultivo(b.dataset.cultivo);
+    });
+    $('cultivoClear').addEventListener('click', () => {
+      $('cultivoSearch').value = '';
+      state.cultivoSeleccionado = '';
+      $('cultivoClear').classList.add('hidden-soft');
+      $('pantallaProductos').classList.add('hidden');
+      renderDropdownCultivos(state.cultivosFiltrados);
     });
 
     configurarBotonWhatsApp();
+    renderSemillerosTrack();
     renderCarrito();
     cargarClientePersistido();
     if (state.cliente?.personaId) {
