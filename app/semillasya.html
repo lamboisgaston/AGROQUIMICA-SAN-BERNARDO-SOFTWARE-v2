@@ -286,7 +286,22 @@
       cultivoSeleccionado: '',
       cultivosDisponibles: [],
       cultivosFiltrados: [],
-      chat: { cultivoDeseado: '', productoDeseado: '', solicitudSugerida: '', listo: false, historial: [] }
+      chat: {
+        cultivoDeseado: '',
+        productoDeseado: '',
+        solicitudSugerida: '',
+        listo: false,
+        historial: [],
+        estadoChat: {
+          cultivo: '',
+          uso: '',
+          provincia: '',
+          ciudad: '',
+          cantidad: '',
+          productoElegido: '',
+          etapaConversacion: 'inicio'
+        }
+      }
     };
     const SEMILLEROS_CARROUSEL = ['CAPS', 'Guasch', 'Picasso', 'Florensa', 'Garden', 'Gasty', 'Chuchuy'];
 
@@ -364,6 +379,7 @@
       const payload = {
         mensaje: texto,
         historial: state.chat.historial.slice(-14),
+        estadoChat: state.chat.estadoChat,
         cliente: state.cliente?.nombre || null,
         provincia: state.cliente?.provincia || null,
         ciudad: state.cliente?.ciudad || null,
@@ -373,6 +389,9 @@
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || 'No se pudo procesar el chat');
       state.chat.historial = Array.isArray(data.historial) ? data.historial : state.chat.historial;
+      if (data?.estadoChat && typeof data.estadoChat === 'object') {
+        state.chat.estadoChat = { ...state.chat.estadoChat, ...data.estadoChat };
+      }
       if (Array.isArray(data.productosSugeridos) && data.productosSugeridos.length) {
         const chipsAgregar = data.productosSugeridos.slice(0, 3).map((p) => `Agregar este producto: ${p.nombre}`);
         addBotMsg(data.respuesta, chipsAgregar);
