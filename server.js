@@ -2200,9 +2200,7 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
     .replace(/\s+/g, ' ')
     .trim();
   const mensajeN = normalizar(mensaje);
-  const esCantidad = /\b(\d+[.,]?\d*|\d+\s*(kg|kilos?|ha|hectareas?|m2|mts2|bolsa|bolsas|lata|latas))\b/i.test(mensajeN);
-  const opcionesUso = ['Producción comercial', 'Huerta', 'Césped / cobertura', 'Forraje', 'No estoy seguro'];
-  const etapasValidas = ['inicio', 'esperandoCultivo', 'esperandoUso', 'esperandoCantidad', 'mostrandoProductos', 'confirmandoPedido'];
+  const etapasValidas = ['inicio', 'esperandoCultivo', 'mostrandoProductos', 'postAgregar'];
   const BLOQUEOS_PRODUCTO_IA = [
     'bienvenido',
     'envios',
@@ -2236,30 +2234,35 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
     return cN && (mensajeN.includes(cN) || cN.split(' ').some((t) => t.length > 3 && mensajeN.includes(t)));
   });
 
-  const usoDetectado = ['produccion comercial', 'huerta', 'cesped', 'cobertura', 'forraje', 'no estoy seguro'].find((k) => mensajeN.includes(k)) || '';
   const elegirEtapa = (valor) => (etapasValidas.includes(valor) ? valor : 'inicio');
   const estadoChat = {
     cultivo: normalizarTexto(estadoRecibido.cultivo),
-    uso: normalizarTexto(estadoRecibido.uso),
+    uso: '',
     provincia: normalizarTexto(estadoRecibido.provincia || provincia),
     ciudad: normalizarTexto(estadoRecibido.ciudad || ciudad),
-    cantidad: normalizarTexto(estadoRecibido.cantidad),
+    cantidad: '',
     productoElegido: normalizarTexto(estadoRecibido.productoElegido),
     etapaConversacion: elegirEtapa(estadoRecibido.etapaConversacion)
   };
 
   let respuesta = '';
   let productosSugeridos = [];
+  let opcionesRapidas = [];
+  let agregarProducto = null;
   if (!estadoChat.cultivo && cultivoDetectado) estadoChat.cultivo = cultivoDetectado;
-  if (!estadoChat.uso && usoDetectado) estadoChat.uso = usoDetectado;
-  if (!estadoChat.cantidad && esCantidad) estadoChat.cantidad = mensaje;
   if (!estadoChat.productoElegido && pedidoActual.length) estadoChat.productoElegido = String(pedidoActual[0]?.nombre || '');
+  const mensajeAgregar = mensajeN.match(/^agregar este producto:\s*(.+)$/i);
+  const mensajeVerOtroCultivo = ['ver otro cultivo', 'otro cultivo'].includes(mensajeN);
+  const mensajeFinalizar = ['finalizar solicitud', 'finalizar'].includes(mensajeN);
+  const mensajeAgregarMasMismoCultivo = estadoChat.cultivo && mensajeN === `agregar mas ${normalizar(estadoChat.cultivo)}`;
 
-  if (estadoChat.productoElegido && !estadoChat.cantidad) estadoChat.etapaConversacion = 'esperandoCantidad';
-  else if (estadoChat.productoElegido && estadoChat.cantidad) estadoChat.etapaConversacion = 'confirmandoPedido';
-  else if (!estadoChat.cultivo) estadoChat.etapaConversacion = 'esperandoCultivo';
-  else if (!estadoChat.uso) estadoChat.etapaConversacion = 'esperandoUso';
-  else if (!estadoChat.cantidad) estadoChat.etapaConversacion = 'esperandoCantidad';
+  if (mensajeFinalizar) estadoChat.etapaConversacion = 'postAgregar';
+  else if (mensajeVerOtroCultivo) {
+    estadoChat.cultivo = '';
+    estadoChat.etapaConversacion = 'esperandoCultivo';
+  } else if (mensajeAgregarMasMismoCultivo) {
+    estadoChat.etapaConversacion = 'mostrandoProductos';
+  } else if (!estadoChat.cultivo) estadoChat.etapaConversacion = 'esperandoCultivo';
   else estadoChat.etapaConversacion = 'mostrandoProductos';
 
   if (['hola', 'buenas', 'buen dia', 'buen día'].includes(mensajeN) && !estadoChat.cultivo) {
@@ -2269,7 +2272,7 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
   const sugerirPorCultivo = () => {
     const contextoCultivo = productosPublicos
       .filter((p) => !estadoChat.cultivo || normalizar(p.cultivo).includes(normalizar(estadoChat.cultivo)))
-      .slice(0, 8);
+      .slice(0, 12);
     const sugeridos = contextoCultivo.slice(0, 3);
     productosSugeridos = sugeridos.map((p) => ({ productoPrecampaniaId: p.id, nombre: p.nombre }));
     return sugeridos;
@@ -2281,23 +2284,34 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
       respuesta = '¿Qué cultivo querés cotizar?';
       estadoChat.etapaConversacion = 'esperandoCultivo';
       break;
-    case 'esperandoUso':
-      respuesta = '¿Es para producción comercial, huerta o forraje?';
-      break;
-    case 'esperandoCantidad':
-      respuesta = '¿Qué cantidad aproximada necesitás?';
-      break;
     case 'mostrandoProductos': {
+      if (mensajeAgregar) {
+        const nombreSolicitado = normalizar(mensajeAgregar[1]);
+        const producto = productosPublicos.find((p) => normalizar(p.nombre) === nombreSolicitado);
+        if (producto) {
+          agregarProducto = { productoPrecampaniaId: producto.id, nombre: producto.nombre };
+          estadoChat.productoElegido = producto.nombre;
+          estadoChat.etapaConversacion = 'postAgregar';
+          opcionesRapidas = ['Ver otro cultivo', 'Finalizar solicitud', `Agregar más ${estadoChat.cultivo}`];
+          respuesta = '¿Querés ver otro cultivo para seguir armando la cotización?';
+          break;
+        }
+      }
       const sugeridos = sugerirPorCultivo();
       if (!sugeridos.length) respuesta = 'No tengo productos válidos cargados para ese cultivo todavía.';
       else {
-        const detalle = sugeridos.map((p, i) => `${i + 1}. ${p.nombre} — ${p.presentacionEnvase || 'Presentación a confirmar'}.`).join('\n');
-        respuesta = `Te sugiero estas opciones:\n${detalle}\n\nSi querés, elegí una opción para agregar este producto.`;
+        const detalle = sugeridos.map((p, i) => `${i + 1}. ${p.nombre} — ${p.semilleroLaboratorio || 'Semillero a confirmar'} — ${p.presentacionEnvase || 'Presentación a confirmar'}`).join('\n');
+        respuesta = `Perfecto. Para ${estadoChat.cultivo} tengo estas opciones disponibles:\n\n${detalle}\n\n¿Cuál querés agregar a tu pedido de cotización?`;
       }
       break;
     }
-    case 'confirmandoPedido':
-      respuesta = 'Perfecto. Ya tengo cultivo, producto y cantidad. ¿Confirmamos el pedido para cotización?';
+    case 'postAgregar':
+      if (mensajeFinalizar) {
+        respuesta = 'Perfecto. Cuando quieras, enviá la solicitud y el equipo comercial la toma para cotizar.';
+      } else {
+        opcionesRapidas = ['Ver otro cultivo', 'Finalizar solicitud', `Agregar más ${estadoChat.cultivo}`];
+        respuesta = '¿Querés ver otro cultivo para seguir armando la cotización?';
+      }
       break;
     default:
       respuesta = '¿Qué cultivo querés cotizar?';
@@ -2310,7 +2324,8 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
     estadoChat,
     historial: [...historial, { tipo: 'user', texto: mensaje }, { tipo: 'bot', texto: respuesta }].slice(-30),
     productosSugeridos,
-    opcionesRapidas: estadoChat.etapaConversacion === 'esperandoUso' ? opcionesUso : [],
+    agregarProducto,
+    opcionesRapidas,
     reglas: {
       noConfirmarVenta: true,
       noPrometerStock: true,
