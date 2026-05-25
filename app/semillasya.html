@@ -573,8 +573,8 @@
         ciudad: state.cliente.ciudad,
         localidad: state.cliente.ciudad,
         observaciones: $('obs').value.trim(),
-        origen: 'SEMILLASYA_IA',
-        estadoSolicitado: 'PENDIENTE_AUDITORIA',
+        origen: 'SEMILLASYA_WEB',
+        estadoSolicitado: 'BORRADOR',
         chat: {
           cultivo: state.cultivoSeleccionado || null,
           cultivoDeseado: state.chat.cultivoDeseado || null,
@@ -600,7 +600,7 @@
       state.chat.listo = false;
       renderCarrito();
       $('obs').value = '';
-      alert('Recibimos tu solicitud. Disponibilidad y entrega sujetas a confirmación.');
+      alert('Solicitud recibida. La revisaremos y te responderemos.');
     }
 
     async function cargarProductos() {
