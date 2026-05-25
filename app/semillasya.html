@@ -118,7 +118,7 @@
     }
     .assistant-card h3 { margin: 0 0 .25rem; color: var(--green-900); }
     .assistant-card p { margin: 0 0 .65rem; color: var(--muted); }
-    .chat-box { border: 1px solid var(--line); border-radius: 14px; background: #f8fcf9; padding: .7rem; margin-bottom: .7rem; max-height: 340px; overflow: auto; display: grid; gap: .5rem; }
+    .chat-box { border: 1px solid var(--line); border-radius: 14px; background: #f8fcf9; padding: .7rem; margin-bottom: .7rem; max-height: 260px; overflow: auto; display: grid; gap: .5rem; }
     .chat-msg { max-width: 88%; padding: .55rem .65rem; border-radius: 12px; font-size: .92rem; line-height: 1.3; }
     .chat-bot { background: #e8f5ec; border: 1px solid #cce8d5; justify-self: start; }
     .chat-user { background: #fff; border: 1px solid #d6e3dc; justify-self: end; }
@@ -126,7 +126,12 @@
     .chat-input-row input { flex: 1; }
     .chat-chip-wrap { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.35rem; }
     .chat-chip { border:1px solid #bfd7c8; border-radius:999px; padding:.2rem .6rem; background:#fff; cursor:pointer; font-size:.8rem; }
-    .assistant-meta { font-size: .82rem; color: var(--muted); margin-top: .35rem; }
+    
+    .assistant-card-head { display:flex; justify-content:space-between; align-items:center; gap:.8rem; margin-bottom:.45rem; }
+    .assistant-body { display:block; }
+    body.chat-open { padding-bottom: 430px; }
+    .chat-msg small { display:block; margin-top:.2rem; opacity:.7; }
+.assistant-meta { font-size: .82rem; color: var(--muted); margin-top: .35rem; }
 
     .catalog-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; align-items: start; }
     .main-column { min-width: 0; }
@@ -229,14 +234,20 @@
           </section>
 
           <section class="panel assistant-card">
-            <h3>Ing. Lambois</h3>
-            <p>Asistente IA de SemillasYa</p>
-            <div id="chatBox" class="chat-box"></div>
-            <div class="chat-input-row">
-              <input id="chatInput" placeholder="Escribí tu mensaje..." />
-              <button class="btn btn-primary" id="chatSend" type="button">Enviar</button>
+            <div class="assistant-card-head">
+              <div>
+                <h3 style="margin:0;">Ing. Lambois</h3>
+                <p style="margin:.2rem 0 0;" class="small">Asistente IA de SemillasYa</p>
+              </div>
             </div>
-            <p class="assistant-meta">Te guío paso a paso para armar tu pedido sin salir de esta página.</p>
+            <div class="assistant-body">
+              <div id="chatBox" class="chat-box"></div>
+              <div class="chat-input-row">
+                <input id="chatInput" placeholder="Escribí tu mensaje..." />
+                <button class="btn btn-primary" id="chatSend" type="button">Enviar</button>
+              </div>
+              <p class="assistant-meta">La cotización final siempre queda sujeta a revisión comercial.</p>
+            </div>
           </section>
         </div>
 
@@ -275,7 +286,7 @@
       cultivoSeleccionado: '',
       cultivosDisponibles: [],
       cultivosFiltrados: [],
-      chat: { paso: 0, cultivoDeseado: '', productoDeseado: '', accionPendiente: '', solicitudSugerida: '', listo: false, historial: [] }
+      chat: { cultivoDeseado: '', productoDeseado: '', solicitudSugerida: '', listo: false, historial: [] }
     };
     const SEMILLEROS_CARROUSEL = ['CAPS', 'Guasch', 'Picasso', 'Florensa', 'Garden', 'Gasty', 'Chuchuy'];
 
@@ -332,10 +343,7 @@
       if (idx >= 0) state.carrito[idx].cantidad += 1;
       else state.carrito.push({ id: producto.id, producto, cantidad: 1 });
       renderCarrito();
-      if (state.chat.paso >= 2) {
-        addBotMsg(`Perfecto, sumé "${producto.nombre}" al pedido. Podés ajustar cantidades en el panel de cotización.`);
-        addBotMsg('Si querés, agregamos otro producto o dejamos una observación para tu solicitud.');
-      }
+      addBotMsg(`Perfecto, sumé "${producto.nombre}" al pedido. Podés ajustar cantidades en el panel de cotización.`);
     }
     function addChatMsg(texto, tipo = 'bot', chips = []) {
       state.chat.historial.push({ texto, tipo, chips });
@@ -348,48 +356,37 @@
       `).join('');
       box.scrollTop = box.scrollHeight;
     }
-    const addBotMsg = (t) => addChatMsg(t, 'bot');
+    const addBotMsg = (t, chips = []) => addChatMsg(t, 'bot', chips);
     const addUserMsg = (t) => addChatMsg(t, 'user');
 
-    function avanzarChat() {
-      if (state.chat.paso === 0) {
-        addBotMsg('Hola, soy el Ing. Lambois. Te ayudo a armar tu pedido de cotización. ¿Qué cultivo querés cotizar?', 'bot', ['lechuga', 'cebolla', 'no sé', 'quiero alfalfa']);
-        state.chat.paso = 1;
-        return;
+    async function enviarMensajeChat(texto) {
+      addUserMsg(texto);
+      const payload = {
+        mensaje: texto,
+        historial: state.chat.historial.slice(-14),
+        cliente: state.cliente?.nombre || null,
+        provincia: state.cliente?.provincia || null,
+        ciudad: state.cliente?.ciudad || null,
+        pedidoActual: state.carrito.map((it) => ({ productoPrecampaniaId: it.id, nombre: it.producto.nombre, cantidad: it.cantidad }))
+      };
+      const r = await fetch('/api/ia/ing-lambois/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || 'No se pudo procesar el chat');
+      state.chat.historial = Array.isArray(data.historial) ? data.historial : state.chat.historial;
+      if (Array.isArray(data.productosSugeridos) && data.productosSugeridos.length) {
+        addBotMsg(data.respuesta, data.productosSugeridos.slice(0, 6).map((p) => p.nombre));
+      } else {
+        addBotMsg(data.respuesta || 'Decime el cultivo que te interesa.');
+      }
+      if (data.agregarProducto) {
+        const encontrado = state.productos.find((p) => Number(p.id) === Number(data.agregarProducto.productoPrecampaniaId));
+        if (encontrado) agregarCarrito(encontrado);
       }
     }
 
     function manejarOpcionRapida(opcion) {
-      addUserMsg(opcion);
-      const op = (opcion || '').toLowerCase();
-      const cultivoDetectado = CULTIVOS_VALIDOS.find((c) => op.includes(c.toLowerCase()));
-      if (cultivoDetectado) {
-        state.chat.cultivoDeseado = cultivoDetectado;
-        seleccionarCultivo(cultivoDetectado);
-        const productosCultivo = state.productos
-          .filter((p) => normalizarCultivo(cultivoProducto(p)) === cultivoDetectado)
-          .slice(0, 6);
-        addBotMsg('Perfecto, detecté el cultivo. Estos productos están disponibles:', 'bot', productosCultivo.map((p) => p.nombre));
-        state.chat.paso = 2;
-        return;
-      }
-      if (state.chat.paso === 2) {
-        const prod = state.productos.find((p) => (p.nombre || '').toLowerCase() === op);
-        if (prod) {
-          agregarCarrito(prod);
-          addBotMsg(`Perfecto, agregué ${prod.nombre} a tu pedido. ¿Cuántas unidades querés cotizar?`);
-          return;
-        }
-      }
-      if (op.includes('no sé')) {
-        addBotMsg('No hay problema. Empecemos por cultivo.', 'bot', ['lechuga', 'cebolla', 'quiero alfalfa']);
-      } else if (/^\d+$/.test(op) && state.carrito.length) {
-        state.carrito[state.carrito.length - 1].cantidad = Math.max(1, Number(op));
-        renderCarrito();
-        addBotMsg(`Listo, actualicé la cantidad a ${op}. ¿Querés sumar otro producto?`);
-      } else {
-        addBotMsg('Decime el cultivo que querés cotizar.', 'bot', ['lechuga', 'cebolla', 'no sé', 'quiero alfalfa']);
-      }
+      $('chatInput').value = opcion;
+      $('chatSend').click();
     }
     function renderCatalogoCultivo() {
       $('pantallaProductos').classList.remove('hidden');
@@ -568,7 +565,7 @@
       const text = $('chatInput').value.trim();
       if (!text) return;
       $('chatInput').value = '';
-      manejarOpcionRapida(text);
+      enviarMensajeChat(text).catch((e) => addBotMsg(e.message || 'Error en el chat.'));
     });
     $('chatInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') $('chatSend').click();
@@ -576,7 +573,8 @@
 
     renderSemillerosTrack();
     renderCarrito();
-    avanzarChat();
+    addBotMsg('Hola, soy el Ing. Lambois. Decime cultivo o necesidad y te sugiero productos publicados de SemillasYa.', ['Lechuga','Cebolla','Alfalfa','No sé el cultivo']);
+    document.body.classList.add('chat-open');
     cargarClientePersistido();
     if (state.cliente?.personaId) {
       $('nombreIngreso').value = state.cliente.nombre;
