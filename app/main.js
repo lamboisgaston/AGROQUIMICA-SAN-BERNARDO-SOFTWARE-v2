@@ -153,7 +153,7 @@ function renderProductoCard(p, opciones = {}) {
   const metaHtml = esPrecampania
     ? `
       <div class="producto-meta">Categoría: <strong>${p.categoria || '-'}</strong> · Envase: <strong>${p.envase || '-'}</strong></div>
-      <div class="producto-meta">Precio USD: <strong>${money(p.precioUsd || 0)}</strong> · Precio final: <strong>${money(p.precioFinal || 0)}</strong></div>
+      <div class="producto-meta">Precio final: <strong>${money(p.precioFinal || 0)}</strong></div>
       <div class="producto-meta">Estado: <strong>${p.estado || '-'}</strong> · Margen: <strong>${Number(p.margenPorcentaje || 0).toFixed(2)}%</strong></div>
       ${p.gananciaEstimada != null ? `<div class="producto-meta">Ganancia estimada: <strong>${money(p.gananciaEstimada)}</strong></div>` : ''}
     `
@@ -1450,23 +1450,22 @@ function renderProductosPrecampania() {
 
   const bloques = Object.entries(porCultivo).map(([cultivo, productos]) => {
     const rows = productos.map((p) => {
-      const precioUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
+      const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
       const margenFactor = 1 + (Number(p.porcentajeMargen || 0) / 100);
       const fleteFactor = 1 + (Number(p.porcentajeFlete || 0) / 100);
-      const precioFinalPesos = precioUsd * Number(tipoCambioActual || 1) * margenFactor * fleteFactor;
+      const precioFinalPesos = precioListaUsd * Number(tipoCambioActual || 1) * margenFactor * fleteFactor;
       return `<tr>
         <td>${cultivo}</td>
         <td>${p.semilleroLaboratorio || '-'}</td>
         <td>${p.nombre || '-'}</td>
         <td>${p.presentacionEnvase || '-'}</td>
         <td>${p.imagenUrl ? `<img src="${p.imagenUrl}" alt="${p.nombre || 'Producto'}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />` : '-'}</td>
-        <td>${money(precioUsd)}</td>
         <td>${money(precioFinalPesos)}</td>
         <td><span class="pill ${p.visibleEnSemillasYa ? 'ok' : 'off'}">${p.visibleEnSemillasYa ? 'ON' : 'OFF'}</span></td>
         <td class="pre-actions"><button data-pre-editar="${p.id}">Editar</button> <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}" title="Publicar en SemillasYa"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span><span class="pre-toggle-label">${p.visibleEnSemillasYa ? 'ON' : 'OFF'}</span></button> <button data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button> <button data-pre-eliminar="${p.id}">Desactivar</button></td>
       </tr>`;
     }).join('');
-    return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Foto</th><th>Precio USD</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+    return `<section class="pre-cultivo-group"><h3>${cultivo} <small>(${productos.length})</small></h3><div class="pre-table-wrap"><table class="pre-table"><thead><tr><th>Cultivo</th><th>Laboratorio</th><th>Nombre</th><th>Presentación</th><th>Foto</th><th>Precio final pesos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   });
   $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos SemillasYa.</div>';
 }
