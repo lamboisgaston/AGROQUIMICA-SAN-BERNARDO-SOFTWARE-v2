@@ -122,8 +122,10 @@
     .chat-msg { max-width: 88%; padding: .55rem .65rem; border-radius: 12px; font-size: .92rem; line-height: 1.3; }
     .chat-bot { background: #e8f5ec; border: 1px solid #cce8d5; justify-self: start; }
     .chat-user { background: #fff; border: 1px solid #d6e3dc; justify-self: end; }
-    .chat-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .4rem; }
-    .chat-actions .btn { padding: .45rem .75rem; font-size: .85rem; }
+    .chat-input-row { display:flex; gap:.45rem; margin-top:.4rem; }
+    .chat-input-row input { flex: 1; }
+    .chat-chip-wrap { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.35rem; }
+    .chat-chip { border:1px solid #bfd7c8; border-radius:999px; padding:.2rem .6rem; background:#fff; cursor:pointer; font-size:.8rem; }
     .assistant-meta { font-size: .82rem; color: var(--muted); margin-top: .35rem; }
 
     .catalog-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; align-items: start; }
@@ -216,13 +218,7 @@
               <div class="semilleros-track" id="semillerosTrack"></div>
             </div>
             <h2>Buscá el cultivo que necesitás cotizar</h2>
-            <p>Seleccioná un cultivo para ver sus productos. Tu carrito se mantiene aunque cambies de cultivo.</p>
-            <div class="row cultivo-select-pro" style="margin-bottom:0;">
-              <label for="cultivoSearch">Cultivo</label>
-              <input id="cultivoSearch" placeholder="Buscar cultivo…" autocomplete="off" />
-              <button id="cultivoClear" class="cultivo-clear hidden-soft" type="button" aria-label="Limpiar cultivo">×</button>
-              <div id="cultivoDropdown" class="cultivo-dropdown hidden-soft"></div>
-            </div>
+            <p>La interacción principal sucede dentro del chat.</p>
           </section>
 
           <section class="panel flow-panel hidden" id="pantallaProductos">
@@ -236,7 +232,10 @@
             <h3>Ing. Lambois</h3>
             <p>Asistente IA de SemillasYa</p>
             <div id="chatBox" class="chat-box"></div>
-            <div class="chat-actions" id="chatQuickActions"></div>
+            <div class="chat-input-row">
+              <input id="chatInput" placeholder="Escribí tu mensaje..." />
+              <button class="btn btn-primary" id="chatSend" type="button">Enviar</button>
+            </div>
             <p class="assistant-meta">Te guío paso a paso para armar tu pedido sin salir de esta página.</p>
           </section>
         </div>
@@ -313,10 +312,8 @@
       const list = CULTIVOS_VALIDOS.filter((c) => disponibles.has(c));
 
       state.cultivosFiltrados = list;
-      renderDropdownCultivos(list);
       if (!state.cultivoSeleccionado || !list.includes(state.cultivoSeleccionado)) {
         state.cultivoSeleccionado = '';
-        $('cultivoSearch').value = '';
         $('pantallaProductos').classList.add('hidden');
       }
     }
@@ -324,16 +321,9 @@
       const base = SEMILLEROS_CARROUSEL.map((s) => `<article class="semillero-chip">${s.slice(0, 1)}</article>`).join('');
       $('semillerosTrack').innerHTML = `${base}${base}`;
     }
-    function renderDropdownCultivos(list) {
-      const dd = $('cultivoDropdown');
-      dd.innerHTML = list.map((c) => `<button type="button" class="cultivo-option" data-cultivo="${c}">${c}</button>`).join('');
-    }
     function seleccionarCultivo(cultivo) {
       if (!CULTIVOS_VALIDOS.includes(cultivo)) return;
       state.cultivoSeleccionado = cultivo;
-      $('cultivoSearch').value = cultivo;
-      $('cultivoDropdown').classList.add('hidden-soft');
-      $('cultivoClear').classList.remove('hidden-soft');
       renderCatalogoCultivo();
     }
 
@@ -347,72 +337,59 @@
         addBotMsg('Si querés, agregamos otro producto o dejamos una observación para tu solicitud.');
       }
     }
-    function addChatMsg(texto, tipo = 'bot') {
-      state.chat.historial.push({ texto, tipo });
+    function addChatMsg(texto, tipo = 'bot', chips = []) {
+      state.chat.historial.push({ texto, tipo, chips });
       const box = $('chatBox');
-      box.innerHTML = state.chat.historial.map((m) => `<div class="chat-msg ${m.tipo === 'bot' ? 'chat-bot' : 'chat-user'}">${m.texto}</div>`).join('');
+      box.innerHTML = state.chat.historial.map((m) => `
+        <div class="chat-msg ${m.tipo === 'bot' ? 'chat-bot' : 'chat-user'}">
+          <div>${m.texto}</div>
+          ${m.chips?.length ? `<div class="chat-chip-wrap">${m.chips.map((op) => `<button class="chat-chip" type="button" data-chat-op="${op}">${op}</button>`).join('')}</div>` : ''}
+        </div>
+      `).join('');
       box.scrollTop = box.scrollHeight;
     }
     const addBotMsg = (t) => addChatMsg(t, 'bot');
     const addUserMsg = (t) => addChatMsg(t, 'user');
 
-    function renderChatQuickActions(opciones = []) {
-      $('chatQuickActions').innerHTML = opciones.map((op) => `<button class="btn btn-outline" type="button" data-chat-op="${op}">${op}</button>`).join('');
-    }
-
     function avanzarChat() {
       if (state.chat.paso === 0) {
-        addBotMsg('Hola, soy el Ing. Lambois. Te ayudo a armar tu pedido de cotización.');
-        addBotMsg('Elegí una opción para empezar:');
-        renderChatQuickActions([
-          'Quiero cotizar cebolla',
-          'Quiero cotizar alfalfa',
-          'Quiero cotizar césped',
-          'No sé qué variedad elegir',
-          'Ya sé qué producto quiero'
-        ]);
+        addBotMsg('Hola, soy el Ing. Lambois. Te ayudo a armar tu pedido de cotización. ¿Qué cultivo querés cotizar?', 'bot', ['lechuga', 'cebolla', 'no sé', 'quiero alfalfa']);
         state.chat.paso = 1;
         return;
-      }
-      if (state.chat.paso === 2) {
-        addBotMsg('Ahora elegí el producto del catálogo y presioná "Agregar" para sumarlo al pedido.');
-        renderChatQuickActions(['Agregar a pedido', 'Cambiar cantidad', 'Dejar observación']);
       }
     }
 
     function manejarOpcionRapida(opcion) {
       addUserMsg(opcion);
       const op = (opcion || '').toLowerCase();
-      if (op.includes('cebolla')) {
-        state.chat.cultivoDeseado = 'Cebolla';
-        seleccionarCultivo('Cebolla');
-        addBotMsg('Perfecto. Ya te mostré productos de cebolla. ¿Querés que te sugiera por variedad o agregás directamente?');
+      const cultivoDetectado = CULTIVOS_VALIDOS.find((c) => op.includes(c.toLowerCase()));
+      if (cultivoDetectado) {
+        state.chat.cultivoDeseado = cultivoDetectado;
+        seleccionarCultivo(cultivoDetectado);
+        const productosCultivo = state.productos
+          .filter((p) => normalizarCultivo(cultivoProducto(p)) === cultivoDetectado)
+          .slice(0, 6);
+        addBotMsg('Perfecto, detecté el cultivo. Estos productos están disponibles:', 'bot', productosCultivo.map((p) => p.nombre));
         state.chat.paso = 2;
-      } else if (op.includes('alfalfa')) {
-        state.chat.cultivoDeseado = 'Alfalfa';
-        seleccionarCultivo('Alfalfa');
-        addBotMsg('Excelente, cargué Alfalfa. Elegí un producto y lo agregamos al pedido.');
-        state.chat.paso = 2;
-      } else if (op.includes('césped')) {
-        state.chat.cultivoDeseado = 'Césped';
-        seleccionarCultivo('Césped');
-        addBotMsg('Listo, te abrí Césped. Decime si buscás cobertura rápida o bajo mantenimiento.');
-        state.chat.paso = 2;
-      } else if (op.includes('no sé qué variedad')) {
-        addBotMsg('No hay problema. Primero elegimos cultivo y luego te sugiero variedad según tu objetivo.');
-        addBotMsg('Seleccioná un cultivo en el buscador y seguimos.');
-        state.chat.paso = 1;
-      } else if (op.includes('ya sé qué producto')) {
-        addBotMsg('Perfecto. Buscalo por cultivo, agregalo al pedido y te ayudo a ajustar cantidad u observaciones.');
-        state.chat.paso = 2;
-      } else if (op.includes('agregar a pedido')) {
-        addBotMsg('Elegí un producto del listado y tocá "Agregar". El pedido queda visible a la derecha.');
-      } else if (op.includes('cambiar cantidad')) {
-        addBotMsg('Podés cambiar la cantidad en el pedido de cotización, en cada producto agregado.');
-      } else if (op.includes('dejar observación')) {
-        addBotMsg('Usá el campo "Observaciones" del pedido para indicar variedad, zona o fechas de entrega.');
+        return;
       }
-      avanzarChat();
+      if (state.chat.paso === 2) {
+        const prod = state.productos.find((p) => (p.nombre || '').toLowerCase() === op);
+        if (prod) {
+          agregarCarrito(prod);
+          addBotMsg(`Perfecto, agregué ${prod.nombre} a tu pedido. ¿Cuántas unidades querés cotizar?`);
+          return;
+        }
+      }
+      if (op.includes('no sé')) {
+        addBotMsg('No hay problema. Empecemos por cultivo.', 'bot', ['lechuga', 'cebolla', 'quiero alfalfa']);
+      } else if (/^\d+$/.test(op) && state.carrito.length) {
+        state.carrito[state.carrito.length - 1].cantidad = Math.max(1, Number(op));
+        renderCarrito();
+        addBotMsg(`Listo, actualicé la cantidad a ${op}. ¿Querés sumar otro producto?`);
+      } else {
+        addBotMsg('Decime el cultivo que querés cotizar.', 'bot', ['lechuga', 'cebolla', 'no sé', 'quiero alfalfa']);
+      }
     }
     function renderCatalogoCultivo() {
       $('pantallaProductos').classList.remove('hidden');
@@ -583,31 +560,18 @@
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');
     });
-    $('cultivoSearch').addEventListener('focus', () => $('cultivoDropdown').classList.remove('hidden-soft'));
-    $('cultivoSearch').addEventListener('input', () => {
-      const q = $('cultivoSearch').value.trim().toLowerCase();
-      const filtrados = state.cultivosFiltrados.filter((c) => c.toLowerCase().includes(q));
-      renderDropdownCultivos(filtrados);
-      $('cultivoDropdown').classList.toggle('hidden-soft', filtrados.length === 0);
-      $('cultivoClear').classList.toggle('hidden-soft', !$('cultivoSearch').value.trim() && !state.cultivoSeleccionado);
-    });
-    $('cultivoDropdown').addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-cultivo]');
-      if (b) {
-        seleccionarCultivo(b.dataset.cultivo);
-        avanzarChat();
-      }
-    });
-    $('cultivoClear').addEventListener('click', () => {
-      $('cultivoSearch').value = '';
-      state.cultivoSeleccionado = '';
-      $('cultivoClear').classList.add('hidden-soft');
-      $('pantallaProductos').classList.add('hidden');
-      renderDropdownCultivos(state.cultivosFiltrados);
-    });
-    $('chatQuickActions').addEventListener('click', (e) => {
+    $('chatBox').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-chat-op]');
       if (b) manejarOpcionRapida(b.dataset.chatOp);
+    });
+    $('chatSend').addEventListener('click', () => {
+      const text = $('chatInput').value.trim();
+      if (!text) return;
+      $('chatInput').value = '';
+      manejarOpcionRapida(text);
+    });
+    $('chatInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('chatSend').click();
     });
 
     renderSemillerosTrack();
