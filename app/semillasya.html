@@ -129,7 +129,9 @@
     
     .assistant-card-head { display:flex; justify-content:space-between; align-items:center; gap:.8rem; margin-bottom:.45rem; }
     .assistant-body { display:block; }
-    body.chat-open { padding-bottom: 430px; }
+    .chat-fab { position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 30; border: 0; border-radius: 999px; background: var(--green-700); color:#fff; padding:.72rem .95rem; font-weight:700; box-shadow: var(--shadow); cursor:pointer; }
+    .assistant-floating { position: fixed; right: 1.1rem; bottom: 4.8rem; width: min(420px, calc(100vw - 1.6rem)); z-index: 31; margin: 0; }
+    .assistant-floating.hidden { display:none !important; }
     .chat-msg small { display:block; margin-top:.2rem; opacity:.7; }
 .assistant-meta { font-size: .82rem; color: var(--muted); margin-top: .35rem; }
 
@@ -169,6 +171,8 @@
       .catalog-layout { grid-template-columns: 1fr; }
       .quote-dock { position: static; margin-top: 1rem; }
       .quote-panel { max-height: 340px; }
+      .assistant-floating { right: .6rem; bottom: 4.4rem; width: calc(100vw - 1.2rem); }
+      .chat-fab { right: .6rem; bottom: .6rem; }
     }
   </style>
 </head>
@@ -223,7 +227,18 @@
               <div class="semilleros-track" id="semillerosTrack"></div>
             </div>
             <h2>Buscá el cultivo que necesitás cotizar</h2>
-            <p>La interacción principal sucede dentro del chat.</p>
+            <p>Seleccioná cultivo, agregá productos y enviá tu solicitud. El chat del Ing. Lambois es una ayuda opcional.</p>
+          </section>
+
+
+
+          <section class="panel flow-panel" id="selectorCultivoPanel">
+            <label for="cultivoInput">Cultivo</label>
+            <div class="cultivo-select-pro">
+              <input id="cultivoInput" placeholder="Ej: Lechuga, Cebolla, Alfalfa" autocomplete="off" />
+              <button id="cultivoClear" class="cultivo-clear hidden-soft" type="button" aria-label="Limpiar cultivo">×</button>
+            </div>
+            <div id="cultivoDropdown" class="cultivo-dropdown hidden-soft"></div>
           </section>
 
           <section class="panel flow-panel hidden" id="pantallaProductos">
@@ -233,22 +248,6 @@
             <div class="cards productos-grid" id="catalog"></div>
           </section>
 
-          <section class="panel assistant-card">
-            <div class="assistant-card-head">
-              <div>
-                <h3 style="margin:0;">Ing. Lambois</h3>
-                <p style="margin:.2rem 0 0;" class="small">Asistente IA de SemillasYa</p>
-              </div>
-            </div>
-            <div class="assistant-body">
-              <div id="chatBox" class="chat-box"></div>
-              <div class="chat-input-row">
-                <input id="chatInput" placeholder="Escribí tu mensaje..." />
-                <button class="btn btn-primary" id="chatSend" type="button">Enviar</button>
-              </div>
-              <p class="assistant-meta">La cotización final siempre queda sujeta a revisión comercial.</p>
-            </div>
-          </section>
         </div>
 
         <aside class="quote-dock">
@@ -269,6 +268,25 @@
       </div>
     </section>
   </main>
+  <button class="chat-fab" id="chatToggleBtn" type="button" aria-label="Abrir chat">💬 Ing. Lambois</button>
+  <section class="panel assistant-card assistant-floating hidden" id="assistantFloating">
+    <div class="assistant-card-head">
+      <div>
+        <h3 style="margin:0;">Ing. Lambois</h3>
+        <p style="margin:.2rem 0 0;" class="small">Asistente IA de SemillasYa</p>
+      </div>
+      <button class="btn btn-outline" id="chatCloseBtn" type="button">Cerrar</button>
+    </div>
+    <div class="assistant-body">
+      <div id="chatBox" class="chat-box"></div>
+      <div class="chat-input-row">
+        <input id="chatInput" placeholder="Escribí tu mensaje..." />
+        <button class="btn btn-primary" id="chatSend" type="button">Enviar</button>
+      </div>
+      <p class="assistant-meta">La cotización final siempre queda sujeta a revisión comercial.</p>
+    </div>
+  </section>
+
 
   <script>
     const CULTIVOS_VALIDOS = [
@@ -341,15 +359,38 @@
       if (!state.cultivoSeleccionado || !list.includes(state.cultivoSeleccionado)) {
         state.cultivoSeleccionado = '';
         $('pantallaProductos').classList.add('hidden');
+        $('cultivoInput').value = '';
+        $('cultivoClear').classList.add('hidden-soft');
       }
+      renderCultivoDropdown(list);
     }
     function renderSemillerosTrack() {
       const base = SEMILLEROS_CARROUSEL.map((s) => `<article class="semillero-chip">${s.slice(0, 1)}</article>`).join('');
       $('semillerosTrack').innerHTML = `${base}${base}`;
     }
+    function filtrarCultivos(q) {
+      const texto = normalizarCultivo(q || '');
+      if (!texto) return state.cultivosFiltrados;
+      return state.cultivosFiltrados.filter((c) => c.toLowerCase().includes(texto.toLowerCase()));
+    }
+
+    function renderCultivoDropdown(opciones = state.cultivosFiltrados) {
+      const dd = $('cultivoDropdown');
+      if (!opciones.length) {
+        dd.innerHTML = '<p class="small" style="padding:.6rem; margin:0;">No hay cultivos disponibles.</p>';
+        dd.classList.remove('hidden-soft');
+        return;
+      }
+      dd.innerHTML = opciones.map((c) => `<button type="button" class="cultivo-option" data-cultivo-opcion="${c}">${c}</button>`).join('');
+      dd.classList.remove('hidden-soft');
+    }
+
     function seleccionarCultivo(cultivo) {
       if (!CULTIVOS_VALIDOS.includes(cultivo)) return;
       state.cultivoSeleccionado = cultivo;
+      $('cultivoInput').value = cultivo;
+      $('cultivoClear').classList.remove('hidden-soft');
+      $('cultivoDropdown').classList.add('hidden-soft');
       renderCatalogoCultivo();
     }
 
@@ -579,6 +620,27 @@
       $('catalogoWrap').classList.add('hidden');
       $('ubicacionGate').classList.remove('hidden');
     });
+    $('cultivoInput').addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      $('cultivoClear').classList.toggle('hidden-soft', !val);
+      renderCultivoDropdown(filtrarCultivos(val));
+    });
+    $('cultivoInput').addEventListener('focus', () => renderCultivoDropdown(filtrarCultivos($('cultivoInput').value)));
+    $('cultivoClear').addEventListener('click', () => {
+      $('cultivoInput').value = '';
+      $('cultivoClear').classList.add('hidden-soft');
+      state.cultivoSeleccionado = '';
+      $('pantallaProductos').classList.add('hidden');
+      renderCultivoDropdown(state.cultivosFiltrados);
+    });
+    $('cultivoDropdown').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-cultivo-opcion]');
+      if (btn) seleccionarCultivo(btn.dataset.cultivoOpcion);
+    });
+    $('chatToggleBtn').addEventListener('click', () => {
+      $('assistantFloating').classList.toggle('hidden');
+    });
+    $('chatCloseBtn').addEventListener('click', () => { $('assistantFloating').classList.add('hidden'); });
     $('chatBox').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-chat-op]');
       if (b) manejarOpcionRapida(b.dataset.chatOp);
@@ -596,7 +658,6 @@
     renderSemillerosTrack();
     renderCarrito();
     addBotMsg('Hola, soy el Ing. Lambois. Decime cultivo o necesidad y te sugiero productos publicados de SemillasYa.', ['Lechuga','Cebolla','Alfalfa','No sé el cultivo']);
-    document.body.classList.add('chat-open');
     cargarClientePersistido();
     if (state.cliente?.personaId) {
       $('nombreIngreso').value = state.cliente.nombre;
