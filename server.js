@@ -1663,9 +1663,14 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
   const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
   const rows = p.items.map((i) => {
-    const nombrePrecampania = [i.descripcion, i.observaciones].filter(Boolean).join(' · ');
-    const nombreProducto = esPresupuestoSemillasYa ? (nombrePrecampania || i.producto?.nombre || 'Producto') : (i.producto?.nombre || i.descripcion || i.observaciones || 'Producto');
-    return `<tr><td>${escapeHtml(nombreProducto)}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`;
+    const nombreRealSemillasYa = String(i.nombreProducto || '').trim();
+    const nombreProducto = esPresupuestoSemillasYa
+      ? (nombreRealSemillasYa || i.producto?.nombre || 'Producto')
+      : (i.producto?.nombre || i.descripcion || i.observaciones || 'Producto');
+    const detalleSemillasYa = esPresupuestoSemillasYa
+      ? `<div style="font-size:11px;color:#4b5563;margin-top:2px;">${escapeHtml([i.cultivo, i.semillero, i.presentacion].filter(Boolean).join(' · ') || '-')}</div>`
+      : '';
+    return `<tr><td>${escapeHtml(nombreProducto)}${detalleSemillasYa}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(i.precioUnitario)}</td><td style="text-align:right">${moneda(i.subtotal)}</td></tr>`;
   }).join('');
   res.type('html').send(`<!doctype html>
 <html lang="es">
@@ -1864,9 +1869,11 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   doc.font('Helvetica').fontSize(10);
 
   p.items.forEach((item, index) => {
-    const nombrePrecampania = [item.descripcion, item.observaciones].filter(Boolean).join(' · ');
-    const nombreProducto = esPresupuestoSemillasYa ? (nombrePrecampania || item.producto?.nombre || 'Producto') : (item.producto?.nombre || 'Producto');
-    const productoHeight = doc.heightOfString(nombreProducto, { width: colWidths.producto - 10, align: 'left' });
+    const nombreRealSemillasYa = String(item.nombreProducto || '').trim();
+    const nombreProducto = esPresupuestoSemillasYa ? (nombreRealSemillasYa || item.producto?.nombre || 'Producto') : (item.producto?.nombre || 'Producto');
+    const detalleSemillasYa = esPresupuestoSemillasYa ? [item.cultivo, item.semillero, item.presentacion].filter(Boolean).join(' · ') : '';
+    const nombreConDetalle = detalleSemillasYa ? `${nombreProducto}\n${detalleSemillasYa}` : nombreProducto;
+    const productoHeight = doc.heightOfString(nombreConDetalle, { width: colWidths.producto - 10, align: 'left' });
     const rowHeight = Math.max(22, Math.ceil(productoHeight) + 10);
 
     y = ensureSpace(y, rowHeight + 2, drawItemsHeader);
@@ -1876,7 +1883,7 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     }
 
     doc.fillColor('#111')
-      .text(nombreProducto, colX.producto, y + 5, { width: colWidths.producto - 10, lineBreak: true })
+      .text(nombreConDetalle, colX.producto, y + 5, { width: colWidths.producto - 10, lineBreak: true })
       .text(String(item.cantidad), colX.cantidad, y + 5, { width: colWidths.cantidad, align: 'center' })
       .text(formatMoney(item.precioUnitario), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
       .text(formatMoney(item.subtotal), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
