@@ -55,6 +55,69 @@ function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, pais, pr
   ].join(' | ');
 }
 
+const CHAT_INTERNO_ING_LAMBOIS = {
+  nombre: 'Ing. Lambois',
+  rol: 'Asistente IA comercial de SemillasYa',
+  objetivo: 'Ayudar a armar solicitudes de cotización',
+  estadoObjetivo: 'PENDIENTE_AUDITORIA_IA'
+};
+
+function normalizarTexto(valor) {
+  return String(valor || '').trim();
+}
+
+function construirRespuestaIngLambois(state = {}, userText = '', productosSugeridos = []) {
+  const texto = normalizarTexto(userText);
+  const nuevoEstado = {
+    cultivo: normalizarTexto(state.cultivo),
+    provincia: normalizarTexto(state.provincia),
+    ciudad: normalizarTexto(state.ciudad),
+    cantidadSuperficie: normalizarTexto(state.cantidadSuperficie),
+    productos: Array.isArray(state.productos) ? state.productos : []
+  };
+
+  if (!nuevoEstado.cultivo && texto) nuevoEstado.cultivo = texto;
+  else if ((!nuevoEstado.provincia || !nuevoEstado.ciudad) && texto.includes(',')) {
+    const [provincia, ciudad] = texto.split(',').map((x) => normalizarTexto(x));
+    nuevoEstado.provincia = nuevoEstado.provincia || provincia;
+    nuevoEstado.ciudad = nuevoEstado.ciudad || ciudad;
+  } else if (!nuevoEstado.cantidadSuperficie && texto) nuevoEstado.cantidadSuperficie = texto;
+
+  const faltantes = [];
+  if (!nuevoEstado.cultivo) faltantes.push('cultivo');
+  if (!nuevoEstado.provincia || !nuevoEstado.ciudad) faltantes.push('provincia/ciudad');
+  if (!nuevoEstado.cantidadSuperficie) faltantes.push('cantidad/superficie');
+
+  const productos = productosSugeridos.map((p) => ({
+    productoPrecampaniaId: p.id,
+    nombre: p.nombre,
+    cultivo: p.cultivo,
+    presentacion: p.presentacionEnvase
+  }));
+  if (!nuevoEstado.productos.length && productos.length) nuevoEstado.productos = productos.slice(0, 3);
+
+  const listoParaAuditoria = faltantes.length === 0 && nuevoEstado.productos.length > 0;
+  const respuesta = listoParaAuditoria
+    ? 'Perfecto. Preparé una solicitud en estado PENDIENTE_AUDITORIA_IA para revisión comercial. No confirmo venta, stock ni precio final.'
+    : `Para ayudarte con la solicitud necesito: ${faltantes.join(', ')}.`;
+
+  return {
+    agente: CHAT_INTERNO_ING_LAMBOIS,
+    reglas: {
+      noConfirmarVenta: true,
+      noPrometerStock: true,
+      noPrometerPrecioFinal: true,
+      noEnviarPresupuestoSinAuditoria: true
+    },
+    state: nuevoEstado,
+    sugerencias: nuevoEstado.productos,
+    puedeAgregarProductos: true,
+    puedePrepararSolicitud: listoParaAuditoria,
+    estadoSugeridoSolicitud: listoParaAuditoria ? 'PENDIENTE_AUDITORIA_IA' : null,
+    respuesta
+  };
+}
+
 function formatMoney(value) {
   return '$' + Number(value || 0).toFixed(2);
 }
@@ -2111,6 +2174,45 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const cultivos = [...new Set(productos.map((p) => p.cultivo).filter(Boolean))];
   const semilleros = [...new Set(productos.map((p) => p.semilleroLaboratorio).filter(Boolean))];
   res.json({ cultivos, semilleros, productos });
+}));
+
+app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
+  const mensaje = normalizarTexto(req.body?.mensaje);
+  const state = req.body?.state && typeof req.body.state === 'object' ? req.body.state : {};
+  const agregarProductoIds = Array.isArray(req.body?.agregarProductoIds) ? req.body.agregarProductoIds : [];
+
+  const where = { activo: true, visibleEnSemillasYa: true, publicadoWeb: true };
+  if (normalizarTexto(state.cultivo)) where.cultivo = { contains: normalizarTexto(state.cultivo), mode: 'insensitive' };
+
+  const sugeridos = await prisma.productoPrecampania.findMany({
+    where,
+    select: { id: true, nombre: true, cultivo: true, presentacionEnvase: true },
+    orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }],
+    take: 8
+  });
+
+  const payload = construirRespuestaIngLambois(state, mensaje, sugeridos);
+
+  if (agregarProductoIds.length) {
+    const idsAgregar = agregarProductoIds.map((id) => parsePositiveInt(id)).filter(Boolean);
+    const mapaActual = new Map(payload.state.productos.map((p) => [p.productoPrecampaniaId, p]));
+    for (const prod of sugeridos) {
+      if (idsAgregar.includes(prod.id)) {
+        mapaActual.set(prod.id, {
+          productoPrecampaniaId: prod.id,
+          nombre: prod.nombre,
+          cultivo: prod.cultivo,
+          presentacion: prod.presentacionEnvase
+        });
+      }
+    }
+    payload.state.productos = Array.from(mapaActual.values());
+    payload.sugerencias = payload.state.productos;
+    payload.puedePrepararSolicitud = Boolean(payload.state.cultivo && payload.state.provincia && payload.state.ciudad && payload.state.cantidadSuperficie && payload.state.productos.length);
+    payload.estadoSugeridoSolicitud = payload.puedePrepararSolicitud ? 'PENDIENTE_AUDITORIA_IA' : null;
+  }
+
+  res.json(payload);
 }));
 
 app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
