@@ -2187,57 +2187,64 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
 
   const productosPublicos = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
-    select: { id: true, nombre: true, cultivo: true, presentacionEnvase: true, descripcion: true, recomendacionesUso: true },
+    select: { id: true, nombre: true, cultivo: true, semilleroLaboratorio: true, presentacionEnvase: true, descripcion: true, recomendacionesUso: true },
     orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }],
     take: 40
   });
 
-  const contextoPublico = productosPublicos.map((p) => ({
-    id: p.id, nombre: p.nombre, cultivo: p.cultivo, presentacion: p.presentacionEnvase, descripcion: p.descripcion, recomendacionesUso: p.recomendacionesUso
-  }));
+  const normalizar = (txt) => String(txt || '').toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const mensajeN = normalizar(mensaje);
+  const esCantidad = /\b(\d+[.,]?\d*|\d+\s*(kg|kilos?|ha|hectareas?|m2|mts2|bolsa|bolsas|lata|latas))\b/i.test(mensajeN);
+  const opcionesUso = ['Producción comercial', 'Huerta', 'Césped / cobertura', 'Forraje', 'No estoy seguro'];
 
-  const reglas = 'No confirmar venta. No prometer stock. No cerrar precio final. Siempre aclarar que la cotización queda sujeta a revisión comercial. Pedir cantidad/superficie cuando falte.';
+  const cultivosDisponibles = [...new Set(productosPublicos.map((p) => String(p.cultivo || '').trim()).filter(Boolean))];
+  const cultivoDetectado = cultivosDisponibles.find((c) => {
+    const cN = normalizar(c);
+    return cN && (mensajeN.includes(cN) || cN.split(' ').some((t) => t.length > 3 && mensajeN.includes(t)));
+  });
+
+  const historialBot = historial.filter((h) => h?.tipo === 'bot').map((h) => String(h.texto || '').toLowerCase());
+  const yaPreguntoUso = historialBot.some((t) => t.includes('zona o uso'));
+  const yaPreguntoCantidad = historialBot.some((t) => t.includes('cantidad aproximada querés cotizar'));
+  const cantidadYaInformada = historial.some((h) => h?.tipo === 'user' && /\b(\d+[.,]?\d*|\d+\s*(kg|kilos?|ha|hectareas?|m2|mts2|bolsa|bolsas|lata|latas))\b/i.test(String(h.texto || '').toLowerCase()));
+  const usoDetectado = ['produccion comercial', 'huerta', 'cesped', 'cobertura', 'forraje', 'no estoy seguro'].some((k) => mensajeN.includes(k));
 
   let respuesta = '';
-  if (OPENAI_API_KEY) {
-    const prompt = {
-      rol: CHAT_INTERNO_ING_LAMBOIS,
-      reglas,
-      cliente: { nombre: cliente, provincia, ciudad },
-      mensaje,
-      historial,
-      pedidoActual,
-      productosPublicos: contextoPublico
-    };
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        temperature: 0.3,
-        messages: [
-          { role: 'system', content: 'Sos Ing. Lambois de SemillasYa. Solo usar productos públicos provistos. Nunca divulgar costos internos, márgenes ni datos de caja/ERP.' },
-          { role: 'user', content: JSON.stringify(prompt) }
-        ]
-      })
-    });
-    const data = await r.json().catch(() => ({}));
-    respuesta = data?.choices?.[0]?.message?.content || '';
-  }
+  let productosSugeridos = [];
 
-  if (!respuesta) {
-    const sugeridos = productosPublicos.filter((p) => (mensaje + ' ' + (p.cultivo || '')).toLowerCase().includes((p.cultivo || '').toLowerCase())).slice(0, 4);
-    const nombres = sugeridos.map((p) => p.nombre).filter(Boolean);
-    respuesta = nombres.length
-      ? `Te recomiendo para ese cultivo: ${nombres.join(', ')}. Indicame cantidad/superficie y si querés agrego al pedido. Cotización sujeta a revisión comercial.`
-      : 'Contame cultivo y cantidad/superficie para sugerirte productos publicados de SemillasYa. La cotización queda sujeta a revisión comercial.';
+  if (cultivoDetectado && !yaPreguntoUso) {
+    respuesta = 'Perfecto. ¿Para qué zona o uso lo necesitás?';
+  } else if ((cultivoDetectado || yaPreguntoUso) && !usoDetectado && !yaPreguntoCantidad) {
+    respuesta = 'Perfecto. ¿Para qué zona o uso lo necesitás?';
+  } else if ((cultivoDetectado || yaPreguntoUso) && (usoDetectado || yaPreguntoUso) && !cantidadYaInformada && !esCantidad) {
+    respuesta = '¿Qué cantidad aproximada querés cotizar?';
+  } else if ((cultivoDetectado || yaPreguntoUso) && (cantidadYaInformada || esCantidad)) {
+    const baseCultivo = cultivoDetectado || cultivosDisponibles.find((c) => historial.some((h) => String(h?.texto || '').toLowerCase().includes(String(c || '').toLowerCase()))) || '';
+    const sugeridos = productosPublicos
+      .filter((p) => !baseCultivo || normalizar(p.cultivo).includes(normalizar(baseCultivo)))
+      .slice(0, 3);
+    productosSugeridos = sugeridos.map((p) => ({ productoPrecampaniaId: p.id, nombre: p.nombre }));
+    if (!sugeridos.length) {
+      respuesta = 'No encontré opciones publicadas para ese cultivo ahora. ¿Querés que probemos con otro cultivo o que lo revise comercial?';
+    } else {
+      const detalle = sugeridos.map((p, i) => `${i + 1}. ${p.nombre} — ${p.presentacionEnvase || 'Presentación a confirmar'}.\nVariedad: ${p.nombre}.\nPresentación: ${p.presentacionEnvase || 'A confirmar'}.\nSemillero: ${p.semilleroLaboratorio || 'A confirmar'}.\n¿Por qué podría servir?: ${p.recomendacionesUso || 'Puede adaptarse al cultivo indicado según disponibilidad.'}`).join('\n\n');
+      respuesta = `Te sugiero estas opciones:\n${detalle}\n\nSi querés, elegí una opción para agregar este producto.\nCotización sujeta a revisión comercial.`;
+    }
+  } else {
+    respuesta = 'No llegué a entenderte del todo. Decime el cultivo y te ayudo paso a paso.';
   }
 
   res.json({
     ok: true,
     respuesta,
     historial: [...historial, { tipo: 'user', texto: mensaje }, { tipo: 'bot', texto: respuesta }].slice(-30),
-    productosSugeridos: productosPublicos.slice(0, 6).map((p) => ({ productoPrecampaniaId: p.id, nombre: p.nombre })),
+    productosSugeridos,
+    opcionesRapidas: respuesta.includes('zona o uso') ? opcionesUso : [],
     reglas: {
       noConfirmarVenta: true,
       noPrometerStock: true,

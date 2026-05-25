@@ -374,7 +374,10 @@
       if (!r.ok) throw new Error(data?.error || 'No se pudo procesar el chat');
       state.chat.historial = Array.isArray(data.historial) ? data.historial : state.chat.historial;
       if (Array.isArray(data.productosSugeridos) && data.productosSugeridos.length) {
-        addBotMsg(data.respuesta, data.productosSugeridos.slice(0, 6).map((p) => p.nombre));
+        const chipsAgregar = data.productosSugeridos.slice(0, 3).map((p) => `Agregar este producto: ${p.nombre}`);
+        addBotMsg(data.respuesta, chipsAgregar);
+      } else if (Array.isArray(data.opcionesRapidas) && data.opcionesRapidas.length) {
+        addBotMsg(data.respuesta, data.opcionesRapidas);
       } else {
         addBotMsg(data.respuesta || 'Decime el cultivo que te interesa.');
       }
