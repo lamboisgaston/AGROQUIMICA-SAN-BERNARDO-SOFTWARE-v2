@@ -2185,11 +2185,11 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
   const ciudad = normalizarTexto(req.body?.ciudad);
   const pedidoActual = Array.isArray(req.body?.pedidoActual) ? req.body.pedidoActual : [];
 
-  const productosPublicos = await prisma.productoPrecampania.findMany({
+  const productosPublicosRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
     select: { id: true, nombre: true, cultivo: true, semilleroLaboratorio: true, presentacionEnvase: true, descripcion: true, recomendacionesUso: true },
     orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }],
-    take: 40
+    take: 200
   });
 
   const normalizar = (txt) => String(txt || '').toLowerCase()
@@ -2201,6 +2201,32 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
   const mensajeN = normalizar(mensaje);
   const esCantidad = /\b(\d+[.,]?\d*|\d+\s*(kg|kilos?|ha|hectareas?|m2|mts2|bolsa|bolsas|lata|latas))\b/i.test(mensajeN);
   const opcionesUso = ['Producción comercial', 'Huerta', 'Césped / cobertura', 'Forraje', 'No estoy seguro'];
+  const BLOQUEOS_PRODUCTO_IA = [
+    'bienvenido',
+    'envios',
+    'telefonos',
+    'marcas distribuidas',
+    'productos en ofertas',
+    'arg agro',
+    'no especificada',
+    'contacto',
+    'pagina',
+    'web'
+  ];
+  const contieneBloqueado = (valor) => {
+    const texto = normalizar(valor);
+    return texto && BLOQUEOS_PRODUCTO_IA.some((b) => texto.includes(b));
+  };
+  const esProductoValidoIA = (p) => {
+    const nombre = normalizarTexto(p?.nombre);
+    const cultivo = normalizarTexto(p?.cultivo);
+    const semillero = normalizarTexto(p?.semilleroLaboratorio);
+    const presentacion = normalizarTexto(p?.presentacionEnvase);
+    if (!nombre || !cultivo || !semillero || !presentacion) return false;
+    if (contieneBloqueado(nombre) || contieneBloqueado(cultivo) || contieneBloqueado(semillero)) return false;
+    return true;
+  };
+  const productosPublicos = productosPublicosRaw.filter(esProductoValidoIA);
 
   const cultivosDisponibles = [...new Set(productosPublicos.map((p) => String(p.cultivo || '').trim()).filter(Boolean))];
   const cultivoDetectado = cultivosDisponibles.find((c) => {
@@ -2225,12 +2251,14 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
     respuesta = '¿Qué cantidad aproximada querés cotizar?';
   } else if ((cultivoDetectado || yaPreguntoUso) && (cantidadYaInformada || esCantidad)) {
     const baseCultivo = cultivoDetectado || cultivosDisponibles.find((c) => historial.some((h) => String(h?.texto || '').toLowerCase().includes(String(c || '').toLowerCase()))) || '';
-    const sugeridos = productosPublicos
+    const contextoCultivo = productosPublicos
       .filter((p) => !baseCultivo || normalizar(p.cultivo).includes(normalizar(baseCultivo)))
+      .slice(0, 8);
+    const sugeridos = contextoCultivo
       .slice(0, 3);
     productosSugeridos = sugeridos.map((p) => ({ productoPrecampaniaId: p.id, nombre: p.nombre }));
     if (!sugeridos.length) {
-      respuesta = 'No encontré opciones publicadas para ese cultivo ahora. ¿Querés que probemos con otro cultivo o que lo revise comercial?';
+      respuesta = 'No tengo productos válidos cargados para ese cultivo todavía.';
     } else {
       const detalle = sugeridos.map((p, i) => `${i + 1}. ${p.nombre} — ${p.presentacionEnvase || 'Presentación a confirmar'}.\nVariedad: ${p.nombre}.\nPresentación: ${p.presentacionEnvase || 'A confirmar'}.\nSemillero: ${p.semilleroLaboratorio || 'A confirmar'}.\n¿Por qué podría servir?: ${p.recomendacionesUso || 'Puede adaptarse al cultivo indicado según disponibilidad.'}`).join('\n\n');
       respuesta = `Te sugiero estas opciones:\n${detalle}\n\nSi querés, elegí una opción para agregar este producto.\nCotización sujeta a revisión comercial.`;
