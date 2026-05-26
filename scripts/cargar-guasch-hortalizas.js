@@ -1,8 +1,74 @@
 const { PrismaClient } = require('@prisma/client');
+
 const prisma = new PrismaClient();
-const CONFIG = { cultivo: 'HORTALIZAS', semilleroLaboratorio: 'GUASCH', moneda: 'USD', margenPorcentaje: 0, utilidadPorcentaje: 0, fletePorcentaje: 10, ivaPorcentaje: 21, visibleEnSemillasYa: true, activo: true, origen: 'GUASCH_LISTA_2026_05_18' };
+
+const CONFIG = {
+  cultivo: 'HORTALIZAS',
+  semilleroLaboratorio: 'GUASCH',
+  moneda: 'USD',
+  fletePorcentaje: 10,
+  ivaPorcentaje: 21,
+  margenPorcentaje: 0,
+  utilidadPorcentaje: 0,
+  visibleEnSemillasYa: true,
+  activo: true,
+  origen: 'GUASCH_HORTALIZAS_MANUAL_2026_05_18'
+};
+
 const PRODUCTOS = [
-['Acelga Verde Penca Blanca Ancha','Doypack 150 gr',2.55],['Acelga Verde Penca Blanca Ancha','Alupack 1 kg',15.40],['Acelga Verde Penca Blanca Ancha','Balde 5 kg',79.00],['Acelga Verde Penca Blanca Ancha','Bolsa 10 kg',148.75],['Achicoria Hoja Fina San Pedro','Lata 200 gr',4.15],['Achicoria Hoja Fina San Pedro','Lata 500 gr',9.50],['Achicoria Spadona','Lata 200 gr',3.90],['Achicoria Spadona','Lata 500 gr',9.10],['Cebolla Roja Chata de Italia','Lata 250 gr',21.70],['Cebolla Roja Chata de Italia','Lata 500 gr',42.70],['Cebolla Valencianita Sel. La Banda','Lata 250 gr',19.35],['Cebolla Valencianita Sel. La Banda','Lata 500 gr',38.00],['Cebolla Valencianita Sel. La Banda','Balde 5 kg',366.60],['Cebolla Valenciana Grano de Oro','Lata 250 gr',32.75],['Cebolla Valenciana Grano de Oro','Lata 500 gr',64.85],['Cebolla Valenciana Grano de Oro','Balde 5 kg',634.60],['Cebolla Valcatorce INTA','Lata 250 gr',22.70],['Cebolla Valcatorce INTA','Lata 500 gr',44.80],['Cebolla Valcatorce INTA','Balde 5 kg',434.00],['Cilantro','Alupack 1 kg',11.95],['Cilantro','Balde 5 kg',62.25],['Cilantro','Bolsa 10 kg',116.50],['Lechuga Prizehead','Lata 250 gr',13.85],['Lechuga Prizehead','Lata 500 gr',27.15],['Lechuga Waldmann’s Green','Lata 250 gr',14.15],['Lechuga Waldmann’s Green','Lata 500 gr',27.80],['Lechuga Crimor INTA','Lata 250 gr',11.95],['Lechuga Crimor INTA','Lata 500 gr',23.50],['Maíz Dulce Golden Bantam','Alupack 1 kg',4.50],['Maíz Dulce Golden Bantam','Balde 10 kg',44.45],['Maíz Dulce Golden Bantam','Bolsa 20 kg',80.90],['Maíz Dulce Golden Hib-F1','Alupack 1 kg',26.70],['Maíz Dulce Golden Hib-F1','Balde 5 kg',134.00],['Perejil Común Hojas Lisas','Doypack 250 gr',3.65],['Perejil Común Hojas Lisas','Alupack 1 kg',13.95],['Pimiento Jalapeño M','Lata 100 gr',28.14],['Remolacha Green Top Bunching','Doypack 150 gr',4.80],['Remolacha Green Top Bunching','Alupack 1 kg',30.60],['Remolacha Green Top Bunching','Balde 5 kg',154.00],['Remolacha Green Top Bunching','Bolsa 10 kg',299.00],['Rúcula Cultivada','Lata 250 gr',5.30],['Rúcula Cultivada','Lata 500 gr',9.95],['Rúcula Importada Emerald','Alupack 1 kg',43.60],['Tomate Río Pampa','Sobre 1.000 semillas',36.84],['Tomate Río Pampa','Sobre 5.000 semillas',175.08],['Zanahoria Chantenay Red Core','Lata 250 gr',8.35],['Zanahoria Chantenay Red Core','Lata 500 gr',16.30],['Zanahoria Nantes','Lata 250 gr',9.60],['Zanahoria Nantes','Lata 500 gr',18.90],['Zapallito Pilar','Lata 2000 semillas',9.07],['Zapallito Pilar','Balde 5 kg',117.90],['Zapallito Pilar','Balde 10 kg',234.00],['Zapallo Grey Zucchini','Lata 500 gr',16.90],['Zapallo Gris Plomo','Lata 200 gr',8.85],['Zapallo Gris Plomo','Lata 500 gr',23.05],['Zapallo Gris Plomo','Balde 5 kg',218.00],['Zapallo Cokena INTA','Lata 500 gr',37.00],['Zapallo Cokena INTA','Balde 5 kg',360.00],['Zapallo Waltham Butternut','Lata 250 gr',10.70],['Zapallo Waltham Butternut','Lata 500 gr',20.50],['Zapallo Waltham Butternut','Balde 5 kg',193.00]
+  ['Acelga Verde Penca Blanca Ancha', 'Doypack 150 gr', 2.55], ['Acelga Verde Penca Blanca Ancha', 'Alupack 1 kg', 15.40], ['Acelga Verde Penca Blanca Ancha', 'Balde 5 kg', 79.00], ['Acelga Verde Penca Blanca Ancha', 'Bolsa 10 kg', 148.75], ['Achicoria Hoja Fina San Pedro', 'Lata 200 gr', 4.15], ['Achicoria Hoja Fina San Pedro', 'Lata 500 gr', 9.50], ['Achicoria Spadona', 'Lata 200 gr', 3.90], ['Achicoria Spadona', 'Lata 500 gr', 9.10], ['Cebolla Roja Chata de Italia', 'Lata 250 gr', 21.70], ['Cebolla Roja Chata de Italia', 'Lata 500 gr', 42.70], ['Cebolla Valencianita Sel. La Banda', 'Lata 250 gr', 19.35], ['Cebolla Valencianita Sel. La Banda', 'Lata 500 gr', 38.00], ['Cebolla Valencianita Sel. La Banda', 'Balde 5 kg', 366.60], ['Cebolla Valenciana Grano de Oro', 'Lata 250 gr', 32.75], ['Cebolla Valenciana Grano de Oro', 'Lata 500 gr', 64.85], ['Cebolla Valenciana Grano de Oro', 'Balde 5 kg', 634.60], ['Cebolla Valcatorce INTA', 'Lata 250 gr', 22.70], ['Cebolla Valcatorce INTA', 'Lata 500 gr', 44.80], ['Cebolla Valcatorce INTA', 'Balde 5 kg', 434.00], ['Cilantro', 'Alupack 1 kg', 11.95], ['Cilantro', 'Balde 5 kg', 62.25], ['Cilantro', 'Bolsa 10 kg', 116.50], ['Lechuga Prizehead', 'Lata 250 gr', 13.85], ['Lechuga Prizehead', 'Lata 500 gr', 27.15], ['Lechuga Waldmann’s Green', 'Lata 250 gr', 14.15], ['Lechuga Waldmann’s Green', 'Lata 500 gr', 27.80], ['Lechuga Crimor INTA', 'Lata 250 gr', 11.95], ['Lechuga Crimor INTA', 'Lata 500 gr', 23.50], ['Maíz Dulce Golden Bantam', 'Alupack 1 kg', 4.50], ['Maíz Dulce Golden Bantam', 'Balde 10 kg', 44.45], ['Maíz Dulce Golden Bantam', 'Bolsa 20 kg', 80.90], ['Maíz Dulce Golden Hib-F1', 'Alupack 1 kg', 26.70], ['Maíz Dulce Golden Hib-F1', 'Balde 5 kg', 134.00], ['Perejil Común Hojas Lisas', 'Doypack 250 gr', 3.65], ['Perejil Común Hojas Lisas', 'Alupack 1 kg', 13.95], ['Pimiento Jalapeño M', 'Lata 100 gr', 28.14], ['Remolacha Green Top Bunching', 'Doypack 150 gr', 4.80], ['Remolacha Green Top Bunching', 'Alupack 1 kg', 30.60], ['Remolacha Green Top Bunching', 'Balde 5 kg', 154.00], ['Remolacha Green Top Bunching', 'Bolsa 10 kg', 299.00], ['Rúcula Cultivada', 'Lata 250 gr', 5.30], ['Rúcula Cultivada', 'Lata 500 gr', 9.95], ['Rúcula Importada Emerald', 'Alupack 1 kg', 43.60], ['Tomate Río Pampa', 'Sobre 1.000 semillas', 36.84], ['Tomate Río Pampa', 'Sobre 5.000 semillas', 175.08], ['Zanahoria Chantenay Red Core', 'Lata 250 gr', 8.35], ['Zanahoria Chantenay Red Core', 'Lata 500 gr', 16.30], ['Zanahoria Nantes', 'Lata 250 gr', 9.60], ['Zanahoria Nantes', 'Lata 500 gr', 18.90], ['Zapallito Pilar', 'Lata 2000 semillas', 9.07], ['Zapallito Pilar', 'Balde 5 kg', 117.90], ['Zapallito Pilar', 'Balde 10 kg', 234.00], ['Zapallo Grey Zucchini', 'Lata 500 gr', 16.90], ['Zapallo Gris Plomo', 'Lata 200 gr', 8.85], ['Zapallo Gris Plomo', 'Lata 500 gr', 23.05], ['Zapallo Gris Plomo', 'Balde 5 kg', 218.00], ['Zapallo Cokena INTA', 'Lata 500 gr', 37.00], ['Zapallo Cokena INTA', 'Balde 5 kg', 360.00], ['Zapallo Waltham Butternut', 'Lata 250 gr', 10.70], ['Zapallo Waltham Butternut', 'Lata 500 gr', 20.50], ['Zapallo Waltham Butternut', 'Balde 5 kg', 193.00]
 ];
-async function main(){const d=await prisma.productoPrecampania.updateMany({where:{semilleroLaboratorio:CONFIG.semilleroLaboratorio,cultivo:CONFIG.cultivo},data:{activo:false,visibleEnSemillasYa:false}});for(const [nombre,presentacionEnvase,precioListaUsd] of PRODUCTOS){await prisma.productoPrecampania.create({data:{nombre,semilleroLaboratorio:CONFIG.semilleroLaboratorio,categoria:CONFIG.cultivo,cultivo:CONFIG.cultivo,presentacionEnvase,descripcion:`${CONFIG.cultivo} · ${CONFIG.semilleroLaboratorio} · ${nombre} · ${presentacionEnvase}`,observacionesComerciales:`origen=${CONFIG.origen}; utilidadPorcentaje=${CONFIG.utilidadPorcentaje}; precioListaUsd=${precioListaUsd}`,precioInternoManual:precioListaUsd,monedaCompra:CONFIG.moneda,costoCompra:precioListaUsd,porcentajeFlete:CONFIG.fletePorcentaje,porcentajeIva:CONFIG.ivaPorcentaje,porcentajeMargen:CONFIG.margenPorcentaje,precioVentaFinal:precioListaUsd,visibleEnSemillasYa:CONFIG.visibleEnSemillasYa,activo:CONFIG.activo,publicadoWeb:true,estado:precioListaUsd==null?'CONSULTAR':'DISPONIBLE'}})}console.log(`GUASCH Hortalizas: desactivados=${d.count}, creados=${PRODUCTOS.length}`)}
-main().catch((e)=>{console.error(e);process.exitCode=1;}).finally(async()=>prisma.$disconnect());
+
+async function main() {
+  const where = {
+    cultivo: CONFIG.cultivo,
+    semilleroLaboratorio: CONFIG.semilleroLaboratorio
+  };
+
+  const desactivados = await prisma.productoPrecampania.updateMany({
+    where,
+    data: { activo: false, visibleEnSemillasYa: false }
+  });
+
+  let creados = 0;
+
+  for (const [nombre, presentacionEnvase, precioListaUsd] of PRODUCTOS) {
+    const metadatosComerciales = `origen=${CONFIG.origen}; precio_lista_usd=${precioListaUsd}; utilidad_porcentaje=${CONFIG.utilidadPorcentaje}`;
+    const descripcion = `${CONFIG.cultivo} · ${CONFIG.semilleroLaboratorio} · ${nombre} · ${presentacionEnvase} · ${metadatosComerciales}`;
+
+    await prisma.productoPrecampania.create({
+      data: {
+        nombre,
+        semilleroLaboratorio: CONFIG.semilleroLaboratorio,
+        categoria: CONFIG.cultivo,
+        cultivo: CONFIG.cultivo,
+        presentacionEnvase,
+        descripcion,
+        precioInternoManual: precioListaUsd,
+        monedaCompra: CONFIG.moneda,
+        costoCompra: precioListaUsd,
+        porcentajeFlete: CONFIG.fletePorcentaje,
+        porcentajeIva: CONFIG.ivaPorcentaje,
+        porcentajeMargen: CONFIG.margenPorcentaje,
+        precioVentaFinal: precioListaUsd,
+        visibleEnSemillasYa: CONFIG.visibleEnSemillasYa,
+        activo: CONFIG.activo,
+        publicadoWeb: true,
+        estado: 'DISPONIBLE'
+      }
+    });
+
+    creados += 1;
+  }
+
+  console.log(`GUASCH HORTALIZAS: desactivados=${desactivados.count}, creados=${creados}`);
+}
+
+main()
+  .catch((error) => {
+    console.error('Error al cargar HORTALIZAS GUASCH:', error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
