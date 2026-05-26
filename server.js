@@ -812,7 +812,7 @@ function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1
   const precioManual = payload.precioManual == null || payload.precioManual === '' ? null : Number(payload.precioManual);
   const base = {
     nombre: String(payload.nombre || '').trim(),
-    semilleroLaboratorio: String(payload.semilleroLaboratorio || '').trim(),
+    semilleroLaboratorio: normalizarSemilleroPrecampania(payload.semilleroLaboratorio),
     categoria: String(payload.categoria || '').trim(),
     cultivo: String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro',
     presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
@@ -838,6 +838,12 @@ function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1
   };
   if (base.visibleEnSemillasYa) {
     base.publicadoWeb = true;
+  }
+  if (base.semilleroLaboratorio === 'GUASCH') {
+    base.monedaCompra = 'USD';
+    base.porcentajeMargen = 0;
+    base.porcentajeFlete = 10;
+    base.porcentajeIva = 21;
   }
   base.precioVentaFinal = calcularPrecioProductoPrecampania(base);
   if (base.usaPrecioManual && base.precioInternoManual == null && base.precioManual != null) {
@@ -2068,23 +2074,47 @@ app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) =
   res.json(productos);
 }));
 
-const SEMILLEROS_PRECAMPAÑA = ['Guasch', 'CAPS', 'Garden', 'Gasty', 'Chuchuy', 'Florensa', 'Picasso'];
+const SEMILLEROS_PRECAMPAÑA = ['CAPS', 'GUASCH'];
 const CULTIVOS_PRECAMPAÑA = [
   'Alfalfa', 'Cebolla', 'Bermuda', 'Rye Grass', 'Maíz', 'Sorgo', 'Trigo', 'Avena', 'Pasturas', 'Césped', 'Hortícolas', 'Otro',
   'Acelga', 'Achicoria', 'Albahaca', 'Apio', 'Arveja', 'Berenjena', 'Brócoli', 'Calabaza', 'Choclo', 'Coliflor', 'Espinaca',
   'Lechuga', 'Melón', 'Pepino', 'Perejil', 'Pimiento', 'Poroto', 'Radicheta', 'Remolacha', 'Repollo', 'Rúcula', 'Tomate', 'Zanahoria'
 ];
 const CULTIVOS_PRECAMPAÑA_MAP = new Map(CULTIVOS_PRECAMPAÑA.map((cultivo) => [String(cultivo).trim().toUpperCase(), cultivo]));
+const PATRONES_BASURA_PRECAMPAÑA = [
+  'envios a todo el pais', 'telefonos', 'venta minima', 'arg-agro', 'venta', 'productos', 'marcas', 'www.', 'semillasya', 'ing. lambois'
+];
+
+function normalizarSimple(txt = '') {
+  return String(txt || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+}
+function esProductoBasuraPrecampania(producto = {}) {
+  const nombre = normalizarSimple(producto.nombre);
+  const descripcion = normalizarSimple(producto.descripcion);
+  const cultivo = normalizarSimple(producto.cultivo || producto.categoria);
+  const combinado = `${nombre} ${descripcion} ${cultivo}`;
+  return PATRONES_BASURA_PRECAMPAÑA.some((p) => combinado.includes(p));
+}
+function normalizarSemilleroPrecampania(valor = '') {
+  const base = normalizarSimple(valor).toUpperCase();
+  if (base === 'GUASCH') return 'GUASCH';
+  if (base === 'CAPS') return 'CAPS';
+  return String(valor || '').trim();
+}
 
 function normalizarCultivoPrecampania(valorCultivo = '', valorCategoria = '') {
   const cultivoCrudo = String(valorCultivo || '').trim() || String(valorCategoria || '').trim() || 'Otro';
-  const clave = cultivoCrudo.toUpperCase();
+  const cultivoSinHibrido = cultivoCrudo.replace(/\bh[ií]brid[oa]s?\b/gi, '').replace(/\s+/g, ' ').trim() || 'Otro';
+  const clave = cultivoSinHibrido.toUpperCase();
   return CULTIVOS_PRECAMPAÑA_MAP.get(clave) || cultivoCrudo;
 }
 
 app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({ where: { activo: true }, orderBy: { createdAt: 'desc' } });
-  const productos = productosRaw.map((p) => ({ ...p, cultivo: String(p.cultivo || p.categoria || '').trim() || 'Otro' }));
+  const productos = productosRaw
+    .map((p) => ({ ...p, semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria) }))
+    .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio))
+    .filter((p) => !esProductoBasuraPrecampania(p));
   res.json({ semilleros: SEMILLEROS_PRECAMPAÑA, cultivos: CULTIVOS_PRECAMPAÑA, productos });
 }));
 
@@ -2115,7 +2145,7 @@ app.get('/api/productos-precampania/debug', asyncHandler(async (_req, res) => {
 
 app.post('/api/productos-precampania', asyncHandler(async (req, res) => {
   const payload = req.body || {};
-  const semillero = String(payload.semilleroLaboratorio || '').trim();
+  const semillero = normalizarSemilleroPrecampania(payload.semilleroLaboratorio);
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
   const cultivo = normalizarCultivoPrecampania(payload.cultivo, payload.categoria);
   if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
@@ -2130,7 +2160,7 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
   const payload = req.body || {};
-  const semillero = String(payload.semilleroLaboratorio || '').trim();
+  const semillero = normalizarSemilleroPrecampania(payload.semilleroLaboratorio);
   if (!SEMILLEROS_PRECAMPAÑA.includes(semillero)) return res.status(400).json({ error: 'semillero/laboratorio inválido' });
   const cultivo = normalizarCultivoPrecampania(payload.cultivo, payload.categoria);
   if (!cultivo) return res.status(400).json({ error: 'cultivo obligatorio' });
@@ -2196,16 +2226,18 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
     orderBy: { createdAt: 'asc' },
     select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true }
   });
-  res.json(productos);
+  res.json(productos.filter((p) => !esProductoBasuraPrecampania(p)).map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) })));
 }));
 
 app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({
-    where: { activo: true, visibleEnSemillasYa: true },
+    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
     orderBy: { createdAt: 'asc' },
     select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true }
   });
-  const productos = productosRaw.map((p) => ({ ...p, cultivo: String(p.cultivo || p.categoria || '').trim() || 'Otro' }));
+  const productos = productosRaw
+    .map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) }))
+    .filter((p) => !esProductoBasuraPrecampania(p));
   const cultivos = [...new Set(productos.map((p) => p.cultivo).filter(Boolean))];
   const semilleros = [...new Set(productos.map((p) => p.semilleroLaboratorio).filter(Boolean))];
   res.json({ cultivos, semilleros, productos });
