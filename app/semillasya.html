@@ -271,6 +271,8 @@
 
 
           <section class="panel flow-panel" id="selectorCultivoPanel">
+            <p class="small hidden" id="catalogoErrorVisible">No se pudo cargar catálogo. Reintentar.</p>
+            <button class="btn btn-outline hidden" id="reintentarCatalogo" type="button" style="margin-bottom:.8rem;">Reintentar</button>
             <label for="cultivoInput">Cultivo</label>
             <div class="cultivo-select-pro">
               <input id="cultivoInput" placeholder="Ej: Lechuga, Cebolla, Alfalfa" autocomplete="off" />
@@ -360,21 +362,7 @@
     const presentacionProducto = (p) => p.presentacionEnvase || 'Sin presentación';
 
     function normalizarCultivo(c) {
-      const s = String(c || '').trim().toLowerCase();
-      if (!s) return '';
-      const mapa = {
-        cesped: 'Césped',
-        'césped': 'Césped',
-        maiz: 'Maíz',
-        'maíz': 'Maíz',
-        melon: 'Melón',
-        'melón': 'Melón',
-        sandia: 'Sandía',
-        'sandía': 'Sandía',
-        otro: 'Otro',
-        otros: 'Otro'
-      };
-      return mapa[s] || s.charAt(0).toUpperCase() + s.slice(1);
+      return String(c || '').trim();
     }
 
     function renderCultivos() {
@@ -631,12 +619,20 @@
       alert('Solicitud recibida. La revisaremos y te responderemos.');
     }
 
+    function setCatalogoErrorVisible(mostrar) {
+      $('catalogoErrorVisible').classList.toggle('hidden', !mostrar);
+      $('reintentarCatalogo').classList.toggle('hidden', !mostrar);
+    }
+
     async function cargarProductos() {
+      setCatalogoErrorVisible(false);
       const r = await fetch('/api/semillasya/catalogo');
-      if (!r.ok) throw new Error('No se pudo cargar el catálogo de PRECAMPAÑA.');
+      if (!r.ok) throw new Error('No se pudo cargar catálogo. Reintentar.');
       const data = await r.json();
       state.productos = Array.isArray(data?.productos) ? data.productos : [];
       state.cultivosDisponibles = Array.isArray(data?.cultivos) ? data.cultivos : [];
+      console.log('[SemillasYa] total productos recibidos:', state.productos.length);
+      console.log('[SemillasYa] cultivos detectados:', [...new Set((state.cultivosDisponibles.length ? state.cultivosDisponibles : state.productos.map((p) => cultivoProducto(p))).map(normalizarCultivo).filter(Boolean))]);
       state.catalogoCargado = true;
       renderCultivos();
     }
@@ -682,6 +678,9 @@
     $('chatInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') $('chatSend').click();
     });
+    $('reintentarCatalogo').addEventListener('click', () => {
+      cargarProductos().catch(() => setCatalogoErrorVisible(true));
+    });
 
     renderSemillerosTrack();
     renderCarrito();
@@ -695,9 +694,10 @@
       mostrarCatalogoConUbicacion();
       addBotMsg(`Ya tengo tus datos de ubicación: ${state.cliente.provincia}, ${state.cliente.ciudad}.`);
       cargarProductos().catch(() => {
+        setCatalogoErrorVisible(true);
         $('pantallaProductos').classList.remove('hidden');
         $('cultivoElegidoTitulo').textContent = 'Catálogo';
-        $('catalog').innerHTML = '<p class="small">No se pudo cargar el catálogo.</p>';
+        $('catalog').innerHTML = '<p class="small">No se pudo cargar catálogo. Reintentar.</p>';
       });
     }
   </script>
