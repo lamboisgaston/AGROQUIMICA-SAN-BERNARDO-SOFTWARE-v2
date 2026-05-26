@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido, TipoOperacionVenta, TipoReglaComercial } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
+const { sendNuevaCotizacionSemillasYaEmail } = require('./services/emailService');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -3562,6 +3563,24 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
     localidad: ciudadLimpia,
     items: resultado.itemsCalculados
   });
+
+  try {
+    const variedades = resultado.itemsCalculados.map((it) => it.nombreProducto).filter(Boolean);
+    const cultivoPrincipal = resultado.itemsCalculados.find((it) => it.cultivo)?.cultivo || null;
+    const superficieInformada = chatData?.cantidadSuperficie || chatData?.superficie || null;
+    await sendNuevaCotizacionSemillasYaEmail({
+      productor: nombreLimpio || null,
+      telefono: telefonoLimpio || null,
+      provincia: provinciaLimpia || null,
+      cultivo: cultivoPrincipal,
+      variedades,
+      superficie: superficieInformada,
+      totalEstimado: resultado.presupuesto.total,
+      fechaHora: new Date(),
+    });
+  } catch (mailError) {
+    console.error('[semillasya][solicitud] error envío email', mailError);
+  }
 
   return res.status(201).json({
     ok: true,
