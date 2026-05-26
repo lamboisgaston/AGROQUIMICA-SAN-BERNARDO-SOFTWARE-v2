@@ -115,19 +115,19 @@
     .flow-panel p { margin: 0 0 1.1rem; color: var(--muted); }
 
     .cards { display: grid; gap: .6rem; }
-    .productos-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-
-    .product {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: .55rem;
-      background: #fff;
-      display: grid;
-      gap: .25rem;
-    }
-    .product strong { color: var(--green-900); font-size: .88rem; line-height: 1.2; }
+    .catalog-jerarquia { display: grid; gap: .7rem; }
+    .semillero-block { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: .65rem; }
+    .semillero-title { margin: 0 0 .5rem; font-size: .95rem; letter-spacing: .05em; color: var(--green-900); text-transform: uppercase; }
+    .variedad-row { border-top: 1px dashed #d8e6dc; padding-top: .45rem; margin-top: .45rem; }
+    .variedad-row:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+    .variedad-title { margin: 0 0 .32rem; font-size: .86rem; color: #133a28; font-weight: 700; text-transform: uppercase; }
+    .presentaciones-lista { display: grid; gap: .35rem; }
+    .presentacion-item { display: flex; align-items: center; justify-content: space-between; gap: .45rem; border: 1px solid #e2ece5; border-radius: 10px; padding: .38rem .45rem; background: #fbfefc; }
+    .presentacion-info { min-width: 0; }
+    .presentacion-nombre { display: block; font-size: .8rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .presentacion-precio { font-size: .78rem; color: var(--muted); }
+    .presentacion-item .btn { padding: .3rem .58rem; font-size: .78rem; }
     .meta { color: var(--muted); font-size: .78rem; line-height: 1.2; }
-    .product .btn { padding: .45rem .7rem; font-size: .86rem; }
 
     .assistant-card {
       padding: 1rem;
@@ -360,6 +360,20 @@
     const cultivoProducto = (p) => p.cultivo || 'Otros';
     const marcaProducto = (p) => p.semilleroLaboratorio || 'Sin semillero';
     const presentacionProducto = (p) => p.presentacionEnvase || 'Sin presentación';
+    const variedadProducto = (p) => p.nombre || 'Variedad sin nombre';
+    const precioProducto = (p) => Number(
+      p.precioFinalConIva
+      ?? p.precioFinal
+      ?? p.precioVentaPesos
+      ?? p.precioPesosCalculado
+      ?? p.precio
+      ?? 0
+    );
+    const formatearPrecio = (valor) => new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2
+    }).format(Number(valor || 0));
 
     function normalizarCultivo(c) {
       return String(c || '').trim();
@@ -477,16 +491,45 @@
           const cultivo = normalizarCultivo(cultivoProducto(p));
           return cultivo === state.cultivoSeleccionado;
         })
-        .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
+        .sort((a, b) => (
+          String(marcaProducto(a)).localeCompare(String(marcaProducto(b)), 'es')
+          || String(variedadProducto(a)).localeCompare(String(variedadProducto(b)), 'es')
+          || String(presentacionProducto(a)).localeCompare(String(presentacionProducto(b)), 'es')
+        ));
 
-      $('catalog').innerHTML = list.map((p) => `
-        <article class="product">
-          <strong>${p.nombre || 'Producto sin nombre'}</strong>
-          <span class="meta">Semillero: ${marcaProducto(p)}</span>
-          <span class="meta">Presentación: ${presentacionProducto(p)}</span>
-          <button class="btn btn-primary" data-add="${p.id}">Agregar</button>
-        </article>
-      `).join('') || '<p class="small">No hay productos para este cultivo.</p>';
+      const jerarquia = list.reduce((acc, p) => {
+        const semillero = marcaProducto(p);
+        const variedad = variedadProducto(p);
+        ((acc[semillero] ??= {})[variedad] ??= []).push(p);
+        return acc;
+      }, {});
+
+      const html = Object.entries(jerarquia).map(([semillero, variedades]) => {
+        const filasVariedad = Object.entries(variedades).map(([variedad, presentaciones]) => `
+          <article class="variedad-row">
+            <h4 class="variedad-title">${variedad}</h4>
+            <div class="presentaciones-lista">
+              ${presentaciones.map((p) => `
+                <div class="presentacion-item">
+                  <div class="presentacion-info">
+                    <span class="presentacion-nombre">${presentacionProducto(p)}</span>
+                    <span class="presentacion-precio">${formatearPrecio(precioProducto(p))}</span>
+                  </div>
+                  <button class="btn btn-primary" data-add="${p.id}">Agregar</button>
+                </div>
+              `).join('')}
+            </div>
+          </article>
+        `).join('');
+        return `
+          <section class="semillero-block">
+            <h3 class="semillero-title">${semillero}</h3>
+            ${filasVariedad}
+          </section>
+        `;
+      }).join('');
+
+      $('catalog').innerHTML = html ? `<div class="catalog-jerarquia">${html}</div>` : '<p class="small">No hay productos para este cultivo.</p>';
 
       document.querySelectorAll('[data-add]').forEach((btn) => {
         btn.onclick = () => {
