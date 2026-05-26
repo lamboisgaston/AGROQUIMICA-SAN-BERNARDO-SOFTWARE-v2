@@ -2464,27 +2464,34 @@ app.get('/api/debug/alfalfa-guasch', asyncHandler(async (_req, res) => {
 
 
 app.get('/api/debug/guasch-catalogo', asyncHandler(async (_req, res) => {
-  const guaschWhere = { semilleroLaboratorio: 'GUASCH', activo: true };
-  const [totalActivosGuasch, porCultivoRaw, porCultivoSemilleroRaw, ultimosProductos] = await Promise.all([
-    prisma.productoPrecampania.count({ where: guaschWhere }),
-    prisma.productoPrecampania.groupBy({ by: ['cultivo'], where: guaschWhere, _count: { _all: true } }),
-    prisma.productoPrecampania.groupBy({ by: ['cultivo', 'semilleroLaboratorio'], where: guaschWhere, _count: { _all: true } }),
-    prisma.productoPrecampania.findMany({
-      where: guaschWhere,
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: { id: true, nombre: true, cultivo: true, semilleroLaboratorio: true, presentacionEnvase: true, precioInternoManual: true, estado: true, createdAt: true }
-    })
-  ]);
+  const activos = await prisma.productoPrecampania.findMany({
+    where: { activo: true },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, nombre: true, cultivo: true, categoria: true, semilleroLaboratorio: true, presentacionEnvase: true, createdAt: true }
+  });
+
+  const guaschActivos = activos
+    .map((p) => ({ ...p, semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria) }))
+    .filter((p) => p.semilleroLaboratorio === 'GUASCH');
+
+  const porCultivoMap = guaschActivos.reduce((acc, p) => {
+    const cultivo = String(p.cultivo || 'SIN_CULTIVO').trim() || 'SIN_CULTIVO';
+    acc.set(cultivo, (acc.get(cultivo) || 0) + 1);
+    return acc;
+  }, new Map());
+
+  const totalPorCultivo = Array.from(porCultivoMap.entries())
+    .map(([cultivo, total]) => ({ cultivo, total }))
+    .sort((a, b) => a.cultivo.localeCompare(b.cultivo, 'es'));
 
   res.json({
     ok: true,
-    totalGuaschActivos: totalActivosGuasch,
-    totalPorCultivo: porCultivoRaw.map((x) => ({ cultivo: x.cultivo || 'SIN_CULTIVO', total: x._count._all })),
-    totalPorCultivoYSemillero: porCultivoSemilleroRaw.map((x) => ({ cultivo: x.cultivo || 'SIN_CULTIVO', semilleroLaboratorio: x.semilleroLaboratorio || 'SIN_SEMILLERO', total: x._count._all })),
-    ultimosProductosCargados: ultimosProductos
+    totalGuaschActivos: guaschActivos.length,
+    totalPorCultivo,
+    ultimos20GuaschActivos: guaschActivos.slice(0, 20)
   });
 }));
+
 
 app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
   const [totalPrecampania, visiblesEnSemillasYa, porSemilleroRaw, ultimosProductos] = await Promise.all([

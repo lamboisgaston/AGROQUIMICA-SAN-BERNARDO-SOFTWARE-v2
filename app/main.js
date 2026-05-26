@@ -1439,10 +1439,25 @@ function renderProductosPrecampania() {
     const matchCat = !categoriaFiltro || String(p.categoria || '').toLowerCase().includes(categoriaFiltro);
     return matchQ && matchVisible && matchSem && matchCultivo && matchCat;
   });
-  const ordenada = [...lista].sort((a,b)=> String(a.cultivo||'').localeCompare(String(b.cultivo||''),'es') || String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
-  const porCultivo = ordenada.reduce((acc,p)=>{ const c=String(p.cultivo||p.categoria||'Otro').trim()||'Otro'; (acc[c]??=[]).push(p); return acc; },{});
-  const bloques = Object.entries(porCultivo).map(([cultivo, productos]) => {
-    const cards = productos.map((p) => {
+  const ordenada = [...lista].sort((a, b) => (
+    String(a.cultivo || a.categoria || 'Otro').localeCompare(String(b.cultivo || b.categoria || 'Otro'), 'es')
+    || String(a.semilleroLaboratorio || '').localeCompare(String(b.semilleroLaboratorio || ''), 'es')
+    || String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es')
+    || String(a.presentacionEnvase || '').localeCompare(String(b.presentacionEnvase || ''), 'es')
+  ));
+
+  const porCultivo = ordenada.reduce((acc, p) => {
+    const cultivo = String(p.cultivo || p.categoria || 'Otro').trim() || 'Otro';
+    const semillero = String(p.semilleroLaboratorio || 'SIN_SEMILLERO').trim() || 'SIN_SEMILLERO';
+    const nombre = String(p.nombre || '-').trim() || '-';
+    (((acc[cultivo] ??= {})[semillero] ??= {})[nombre] ??= []).push(p);
+    return acc;
+  }, {});
+
+  const bloques = Object.entries(porCultivo).map(([cultivo, semilleros]) => {
+    const semilleroBloques = Object.entries(semilleros).map(([semillero, productosPorNombre]) => {
+      const cards = Object.entries(productosPorNombre).map(([nombre, presentaciones]) => {
+        const presentacionCards = presentaciones.map((p) => {
       const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
       const precioConFleteUsd = precioListaUsd * (1 + Number(p.porcentajeFlete || 0) / 100);
       const precioArsSinIva = precioConFleteUsd * Number(tipoCambioActual || 1);
@@ -1455,8 +1470,8 @@ function renderProductosPrecampania() {
         : 'Consultar';
       return `<article class="pre-producto-card">
         <div>
-          <div class="pre-producto-nombre">${p.nombre || '-'}</div>
-          <div class="pre-producto-semillero">${p.semilleroLaboratorio || '-'} · ${p.presentacionEnvase || '-'} </div>
+          <div class="pre-producto-nombre">${p.presentacionEnvase || '-'}</div>
+          <div class="pre-producto-semillero">${semillero} · ${nombre}</div>
           <div class="pre-producto-precio">${textoPrecio}</div>
         </div>
         <div class="pre-producto-actions">
@@ -1466,8 +1481,14 @@ function renderProductosPrecampania() {
           <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span></button>
         </div>
       </article>`;
+        }).join('');
+        return `<section class="pre-producto-subgroup"><h5 class="pre-producto-title">${nombre} (${presentaciones.length})</h5>${presentacionCards}</section>`;
+      }).join('');
+      const totalSemillero = Object.values(productosPorNombre).reduce((acc, arr) => acc + arr.length, 0);
+      return `<section class="pre-semillero-block"><h4 class="pre-semillero-title">${semillero} (${totalSemillero})</h4>${cards}</section>`;
     }).join('');
-    return `<section class="pre-cultivo-block"><h3 class="pre-cultivo-title">${cultivo} (${productos.length} variedades)</h3>${cards}</section>`;
+    const totalCultivo = Object.values(semilleros).reduce((acc, productosPorNombre) => acc + Object.values(productosPorNombre).reduce((sub, arr) => sub + arr.length, 0), 0);
+    return `<section class="pre-cultivo-block"><h3 class="pre-cultivo-title">${cultivo} (${totalCultivo} presentaciones)</h3>${semilleroBloques}</section>`;
   });
   $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos SemillasYa.</div>';
   renderCultivoChipsPrecampania();
