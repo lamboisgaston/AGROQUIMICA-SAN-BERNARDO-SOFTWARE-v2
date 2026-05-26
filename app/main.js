@@ -93,6 +93,16 @@ function normalizarMonedaProducto(valor) {
   return 'ARS';
 }
 function pct(base, p) { return Number(base) * (1 + (Number(p || 0) / 100)); }
+
+function calcularPrecioSemillasYa({ precioListaUsd = 0, tipoCambioSistema = 1 } = {}) {
+  const precioLista = Number(precioListaUsd || 0);
+  const tc = Number(tipoCambioSistema || 1);
+  const precioUsdConFlete = precioLista * 1.10;
+  const precioArsSinIva = precioUsdConFlete * tc;
+  const iva = precioArsSinIva * 0.21;
+  const precioFinalConIva = precioArsSinIva + iva;
+  return { precioListaUsd: precioLista, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
+}
 function calcularSubtotalRemito(item) {
   const basePesos = item.monedaCosto === 'USD' ? Number(item.costoCompra || 0) * tipoCambioActual : Number(item.costoCompra || 0);
   return pct(pct(pct(basePesos, item.ivaPorcentaje), item.fletePorcentaje), item.gananciaPorcentaje) * Number(item.cantidad || 0);
@@ -1459,14 +1469,9 @@ function renderProductosPrecampania() {
       const cards = Object.entries(productosPorNombre).map(([nombre, presentaciones]) => {
         const presentacionCards = presentaciones.map((p) => {
       const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
-      const precioConFleteUsd = precioListaUsd * (1 + Number(p.porcentajeFlete || 0) / 100);
-      const precioArsSinIva = precioConFleteUsd * Number(tipoCambioActual || 1);
-      const precioFinalPesos = precioArsSinIva * (1 + Number(p.porcentajeMargen || 0) / 100);
-      const esGuasch = String(p.semilleroLaboratorio || '').toUpperCase() === 'GUASCH';
+      const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
       const textoPrecio = precioListaUsd > 0
-        ? (esGuasch
-          ? `USD lista: ${precioListaUsd.toFixed(2)} · USD + flete 10%: ${precioConFleteUsd.toFixed(2)} · ARS sin IVA: ${money(precioArsSinIva)}`
-          : money(precioFinalPesos))
+        ? `USD lista: ${calculoSemillasYa.precioListaUsd.toFixed(2)} · USD puesto Argentina: ${calculoSemillasYa.precioUsdConFlete.toFixed(2)} · Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}`
         : 'Consultar';
       return `<article class="pre-producto-card">
         <div>
