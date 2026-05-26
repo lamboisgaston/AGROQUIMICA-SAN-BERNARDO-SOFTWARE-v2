@@ -94,14 +94,21 @@ function normalizarMonedaProducto(valor) {
 }
 function pct(base, p) { return Number(base) * (1 + (Number(p || 0) / 100)); }
 
-function calcularPrecioSemillasYa({ precioListaUsd = 0, tipoCambioSistema = 1 } = {}) {
-  const precioLista = Number(precioListaUsd || 0);
+function calcularPrecioSemillasYa(producto = {}, tipoCambioSistema = 1) {
   const tc = Number(tipoCambioSistema || 1);
-  const precioUsdConFlete = precioLista * 1.10;
+  const ivaRate = 0.21;
+  const precioListaUsd = Number(producto.precioListaUsd ?? 0);
+  const costoCompra = Number(producto.costoCompra ?? 0);
+  const precioInternoManual = Number(producto.precioInternoManual ?? 0);
+  const fletePorcentaje = Number(producto.porcentajeFlete ?? producto.fletePorcentaje ?? 10);
+  const baseUsd = [precioListaUsd, costoCompra, precioInternoManual].find((v) => Number.isFinite(v) && v > 0) || 0;
+  const tienePrecio = baseUsd > 0;
+  if (!tienePrecio) return { tienePrecio: false, precioFinalConIva: null, precioListaUsd, costoCompra, precioInternoManual, baseUsd: 0 };
+  const precioUsdConFlete = baseUsd * (1 + (fletePorcentaje / 100));
   const precioArsSinIva = precioUsdConFlete * tc;
-  const iva = precioArsSinIva * 0.21;
+  const iva = precioArsSinIva * ivaRate;
   const precioFinalConIva = precioArsSinIva + iva;
-  return { precioListaUsd: precioLista, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
+  return { tienePrecio: true, precioFinalConIva, precioListaUsd, costoCompra, precioInternoManual, baseUsd, precioUsdConFlete, precioArsSinIva, iva };
 }
 function calcularSubtotalRemito(item) {
   const basePesos = item.monedaCosto === 'USD' ? Number(item.costoCompra || 0) * tipoCambioActual : Number(item.costoCompra || 0);
@@ -1472,18 +1479,22 @@ function renderProductosPrecampania() {
       }, {});
       const variedadesHtml = Object.entries(porVariedad).map(([variedad, presentaciones]) => {
         const presentacionesHtml = presentaciones.map((p) => {
-        const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
-        const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
+        const calculoSemillasYa = calcularPrecioSemillasYa({
+          precioListaUsd: p.precioUsd,
+          costoCompra: (p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0,
+          precioInternoManual: p.precioInternoManual,
+          porcentajeFlete: p.porcentajeFlete
+        }, tipoCambioActual);
         return `<article class="pre-presentacion-item">
           <div class="pre-presentacion-main">
             <!-- RENDER_PRODUCTOS_SEMILLASYA_POR_PRESENTACION -->
             <div class="pre-presentacion-nombre">${p.nombre || variedad || '-'}</div>
             <div class="pre-presentacion-detalle">${p.presentacionEnvase || '-'}</div>
             <div class="pre-presentacion-detalle">
-              ${precioListaUsd > 0 ? `USD lista: ${calculoSemillasYa.precioListaUsd.toFixed(2)}` : 'USD lista: consultar'}
+              ${calculoSemillasYa.tienePrecio ? `USD base: ${calculoSemillasYa.baseUsd.toFixed(2)}` : 'USD base: consultar'}
             </div>
             <div class="pre-presentacion-detalle">
-              ${precioListaUsd > 0 ? `Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}` : 'Precio estimado ARS + IVA: consultar'}
+              ${calculoSemillasYa.tienePrecio ? `Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}` : 'Precio estimado ARS + IVA: consultar'}
             </div>
           </div>
           <div class="pre-producto-actions">
