@@ -38,6 +38,15 @@ function escapeHtml(value) {
 function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
+function calcularPrecioSemillasYa({ precioListaUsd = 0, tipoCambioSistema = 1 } = {}) {
+  const precioLista = Number(precioListaUsd || 0);
+  const tc = Number(tipoCambioSistema || 1);
+  const precioUsdConFlete = precioLista * 1.10;
+  const precioArsSinIva = precioUsdConFlete * tc;
+  const iva = precioArsSinIva * 0.21;
+  const precioFinalConIva = precioArsSinIva + iva;
+  return { precioListaUsd: precioLista, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
+}
 function parseJsonSafe(value, fallback = {}) {
   if (!value || typeof value !== 'string') return fallback;
   try { return JSON.parse(value); } catch { return fallback; }
@@ -1741,7 +1750,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
   const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
-    ? p.items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)
+    ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / 1.21), 0)
     : Number(p.subtotal || 0);
   const ivaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa * ALICUOTA_IVA_SEMILLASYA : 0;
   const totalFinalConIvaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa + ivaSemillasYa : Number(p.total || 0);
@@ -1872,7 +1881,7 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   const descuento = Number(p.descuentoValor || 0);
   const redondeo = Number(p.ajusteRedondeo || 0);
   const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
-    ? p.items.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)
+    ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / 1.21), 0)
     : Number(p.subtotal || 0);
   const ivaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa * ALICUOTA_IVA_SEMILLASYA : 0;
   const totalFinalConIvaSemillasYa = esPresupuestoSemillasYa ? subtotalSinIvaSemillasYa + ivaSemillasYa : Number(p.total || 0);
@@ -3380,9 +3389,8 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
       const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
       const cantidad = parsePositiveInt(item.cantidad);
       const precioListaUsd = Number(productoLista.precioUsd || ((String(productoLista.monedaCompra || 'ARS').toUpperCase() === 'USD') ? productoLista.costoCompra : 0) || 0);
-      const porcentajeFlete = Number(productoLista.porcentajeFlete || 0);
-      const porcentajeMargen = Number(productoLista.porcentajeMargen || 0);
-      const precioUnitario = Number((precioListaUsd * Number(tipoCambioActual || 1) * (1 + (porcentajeFlete / 100)) * (1 + (porcentajeMargen / 100))).toFixed(2));
+      const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
+      const precioUnitario = Number(calculoSemillasYa.precioFinalConIva.toFixed(2));
       const observacionItem = String(item.observaciones || '').trim() || null;
 
       itemsCalculados.push({
@@ -3415,13 +3423,6 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
           paisLimpio ? `País: ${paisLimpio}` : null,
           provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
           ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
-          chatData?.cultivo ? `Cultivo chat: ${chatData.cultivo}` : null,
-          chatData?.superficie ? `Superficie/Cantidad chat: ${chatData.superficie}` : null,
-          chatData?.semilleroPreferido ? `Semillero preferido chat: ${chatData.semilleroPreferido}` : null,
-          chatData?.solicitudSugerida ? `Solicitud sugerida chat: ${chatData.solicitudSugerida}` : null,
-          Array.isArray(chatData?.historial) && chatData.historial.length
-            ? `Chat: ${chatData.historial.map((h) => `${h.tipo || 'bot'}: ${String(h.texto || '').slice(0, 120)}`).join(' || ')}`
-            : null,
           observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
         ].filter(Boolean).join(' | ')
       }
