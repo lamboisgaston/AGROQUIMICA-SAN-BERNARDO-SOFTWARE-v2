@@ -6,13 +6,13 @@ const CONFIG = {
   cultivos: ['GRAMÍNEAS / PASTURAS', 'CULTIVOS FORRAJEROS / COBERTURA', 'TRÉBOLES / LOTUS'],
   semilleroLaboratorio: 'GUASCH',
   moneda: 'USD',
-  margenPorcentaje: 0,
-  utilidadPorcentaje: 0,
   fletePorcentaje: 10,
   ivaPorcentaje: 21,
+  margenPorcentaje: 0,
+  utilidadPorcentaje: 0,
   visibleEnSemillasYa: true,
   activo: true,
-  origen: 'GUASCH_LISTA_2026_05_18'
+  origen: 'GUASCH_PASTURAS_MANUAL_2026_05_18'
 };
 
 const PRODUCTOS = [
@@ -36,23 +36,55 @@ const PRODUCTOS = [
 ];
 
 async function main() {
+  const where = {
+    cultivo: { in: CONFIG.cultivos },
+    semilleroLaboratorio: CONFIG.semilleroLaboratorio
+  };
+
   const desactivados = await prisma.productoPrecampania.updateMany({
-    where: { semilleroLaboratorio: CONFIG.semilleroLaboratorio, cultivo: { in: CONFIG.cultivos } },
+    where,
     data: { activo: false, visibleEnSemillasYa: false }
   });
 
+  let creados = 0;
+
   for (const [cultivo, nombre, presentacionEnvase, precioListaUsd] of PRODUCTOS) {
-    const descripcion = `${cultivo} · ${CONFIG.semilleroLaboratorio} · ${nombre} · ${presentacionEnvase}`;
-    await prisma.productoPrecampania.create({ data: {
-      nombre, semilleroLaboratorio: CONFIG.semilleroLaboratorio, categoria: cultivo, cultivo, presentacionEnvase, descripcion,
-      observacionesComerciales: `origen=${CONFIG.origen}; utilidadPorcentaje=${CONFIG.utilidadPorcentaje}; precioListaUsd=${precioListaUsd}`,
-      precioInternoManual: precioListaUsd, monedaCompra: CONFIG.moneda, costoCompra: precioListaUsd, porcentajeFlete: CONFIG.fletePorcentaje,
-      porcentajeIva: CONFIG.ivaPorcentaje, porcentajeMargen: CONFIG.margenPorcentaje, precioVentaFinal: precioListaUsd,
-      visibleEnSemillasYa: CONFIG.visibleEnSemillasYa, activo: CONFIG.activo, publicadoWeb: true, estado: precioListaUsd == null ? 'CONSULTAR' : 'DISPONIBLE'
-    }});
+    const metadatosComerciales = `origen=${CONFIG.origen}; precio_lista_usd=${precioListaUsd}; utilidad_porcentaje=${CONFIG.utilidadPorcentaje}`;
+    const descripcion = `${cultivo} · ${CONFIG.semilleroLaboratorio} · ${nombre} · ${presentacionEnvase} · ${metadatosComerciales}`;
+
+    await prisma.productoPrecampania.create({
+      data: {
+        nombre,
+        semilleroLaboratorio: CONFIG.semilleroLaboratorio,
+        categoria: cultivo,
+        cultivo,
+        presentacionEnvase,
+        descripcion,
+        precioInternoManual: precioListaUsd,
+        monedaCompra: CONFIG.moneda,
+        costoCompra: precioListaUsd,
+        porcentajeFlete: CONFIG.fletePorcentaje,
+        porcentajeIva: CONFIG.ivaPorcentaje,
+        porcentajeMargen: CONFIG.margenPorcentaje,
+        precioVentaFinal: precioListaUsd,
+        visibleEnSemillasYa: CONFIG.visibleEnSemillasYa,
+        activo: CONFIG.activo,
+        publicadoWeb: true,
+        estado: 'DISPONIBLE'
+      }
+    });
+
+    creados += 1;
   }
 
-  console.log(`GUASCH Pasturas: desactivados=${desactivados.count}, creados=${PRODUCTOS.length}`);
+  console.log(`GUASCH PASTURAS: desactivados=${desactivados.count}, creados=${creados}`);
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => prisma.$disconnect());
+main()
+  .catch((error) => {
+    console.error('Error al cargar PASTURAS GUASCH:', error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
