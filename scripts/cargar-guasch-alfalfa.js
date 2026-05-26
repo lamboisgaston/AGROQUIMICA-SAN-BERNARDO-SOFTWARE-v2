@@ -44,8 +44,8 @@ async function main() {
   let creados = 0;
 
   for (const [nombre, tratamiento, grupo, presentacionEnvase, precioListaUsd] of PRODUCTOS) {
-    const observacionesComerciales = `origen=${CONFIG.origen}; tratamiento=${tratamiento}; grupo=${grupo}; precio_lista_usd=${precioListaUsd}; utilidad_porcentaje=${CONFIG.utilidadPorcentaje}`;
-    const descripcion = `${CONFIG.cultivo} · ${CONFIG.semilleroLaboratorio} · ${nombre} · ${tratamiento} · ${grupo} · ${presentacionEnvase}`;
+    const metadatosComerciales = `origen=${CONFIG.origen}; tratamiento=${tratamiento}; grupo=${grupo}; precio_lista_usd=${precioListaUsd}; utilidad_porcentaje=${CONFIG.utilidadPorcentaje}`;
+    const descripcion = `${CONFIG.cultivo} · ${CONFIG.semilleroLaboratorio} · ${nombre} · ${tratamiento} · ${grupo} · ${presentacionEnvase} · ${metadatosComerciales}`;
 
     await prisma.productoPrecampania.create({
       data: {
@@ -55,7 +55,6 @@ async function main() {
         cultivo: CONFIG.cultivo,
         presentacionEnvase,
         descripcion,
-        observacionesComerciales,
         precioInternoManual: precioListaUsd,
         monedaCompra: CONFIG.moneda,
         costoCompra: precioListaUsd,
