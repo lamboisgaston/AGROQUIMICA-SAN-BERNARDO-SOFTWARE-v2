@@ -2266,13 +2266,13 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
     orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }, { createdAt: 'asc' }],
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true, precioUsd: true, costoCompra: true, precioInternoManual: true, porcentajeFlete: true, monedaCompra: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true, precioInternoManual: true, costoCompra: true, porcentajeFlete: true, porcentajeIva: true, monedaCompra: true, precioVentaFinal: true }
   });
   const productos = productosRaw
     .map((p) => {
       try {
         const calculo = calcularPrecioSemillasYa({
-          precioListaUsd: p.precioUsd,
+          precioListaUsd: null,
           costoCompra: String(p.monedaCompra || 'ARS').toUpperCase() === 'USD' ? p.costoCompra : 0,
           precioInternoManual: p.precioInternoManual,
           porcentajeFlete: p.porcentajeFlete
@@ -2293,7 +2293,7 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
     productos: productos.filter((p) => p.cultivo === cultivo)
   }));
 
-  res.json({ cultivos, semilleros, totalProductos: productos.length, catalogoPorCultivo, productos });
+  res.status(200).json({ ok: true, productos });
 }));
 
 app.get('/api/debug/semillasya-catalogo', asyncHandler(async (_req, res) => {
