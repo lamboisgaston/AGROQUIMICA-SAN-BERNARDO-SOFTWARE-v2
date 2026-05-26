@@ -1459,40 +1459,35 @@ function renderProductosPrecampania() {
   const porCultivo = ordenada.reduce((acc, p) => {
     const cultivo = String(p.cultivo || p.categoria || 'Otro').trim() || 'Otro';
     const semillero = String(p.semilleroLaboratorio || 'SIN_SEMILLERO').trim() || 'SIN_SEMILLERO';
-    const nombre = String(p.nombre || '-').trim() || '-';
-    (((acc[cultivo] ??= {})[semillero] ??= {})[nombre] ??= []).push(p);
+    ((acc[cultivo] ??= {})[semillero] ??= []).push(p);
     return acc;
   }, {});
 
   const bloques = Object.entries(porCultivo).map(([cultivo, semilleros]) => {
-    const semilleroBloques = Object.entries(semilleros).map(([semillero, productosPorNombre]) => {
-      const cards = Object.entries(productosPorNombre).map(([nombre, presentaciones]) => {
-        const presentacionCards = presentaciones.map((p) => {
-      const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
-      const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
-      const textoPrecio = precioListaUsd > 0
-        ? `USD lista: ${calculoSemillasYa.precioListaUsd.toFixed(2)} · USD puesto Argentina: ${calculoSemillasYa.precioUsdConFlete.toFixed(2)} · Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}`
-        : 'Consultar';
-      return `<article class="pre-producto-card">
-        <div>
-          <div class="pre-producto-nombre">${p.presentacionEnvase || '-'}</div>
-          <div class="pre-producto-semillero">${semillero} · ${nombre}</div>
-          <div class="pre-producto-precio">${textoPrecio}</div>
-        </div>
-        <div class="pre-producto-actions">
-          <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">✏️ Editar</button>
-          <button class="pre-icon-btn" title="Imagen" data-pre-editar="${p.id}">🖼️</button>
-          <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">📄</button>
-          <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span></button>
-        </div>
-      </article>`;
-        }).join('');
-        return `<section class="pre-producto-subgroup"><h5 class="pre-producto-title">${nombre} (${presentaciones.length})</h5>${presentacionCards}</section>`;
+    const semilleroBloques = Object.entries(semilleros).map(([semillero, productos]) => {
+      const cards = productos.map((p) => {
+        const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
+        const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
+        const textoPrecio = precioListaUsd > 0
+          ? `USD lista: ${calculoSemillasYa.precioListaUsd.toFixed(2)} · USD puesto Argentina: ${calculoSemillasYa.precioUsdConFlete.toFixed(2)} · Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}`
+          : 'Consultar';
+        return `<article class="pre-producto-card">
+          <div>
+            <div class="pre-producto-nombre">${p.nombre || '-'} | ${p.presentacionEnvase || '-'}</div>
+            <div class="pre-producto-semillero">${semillero}</div>
+            <div class="pre-producto-precio">${textoPrecio}</div>
+          </div>
+          <div class="pre-producto-actions">
+            <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">✏️ Editar</button>
+            <button class="pre-icon-btn" title="Imagen" data-pre-editar="${p.id}">🖼️</button>
+            <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">📄</button>
+            <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span></button>
+          </div>
+        </article>`;
       }).join('');
-      const totalSemillero = Object.values(productosPorNombre).reduce((acc, arr) => acc + arr.length, 0);
-      return `<section class="pre-semillero-block"><h4 class="pre-semillero-title">${semillero} (${totalSemillero})</h4>${cards}</section>`;
+      return `<section class="pre-semillero-block"><h4 class="pre-semillero-title">${semillero} (${productos.length})</h4>${cards}</section>`;
     }).join('');
-    const totalCultivo = Object.values(semilleros).reduce((acc, productosPorNombre) => acc + Object.values(productosPorNombre).reduce((sub, arr) => sub + arr.length, 0), 0);
+    const totalCultivo = Object.values(semilleros).reduce((acc, productos) => acc + productos.length, 0);
     return `<section class="pre-cultivo-block"><h3 class="pre-cultivo-title">${cultivo} (${totalCultivo} presentaciones)</h3>${semilleroBloques}</section>`;
   });
   $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos SemillasYa.</div>';
