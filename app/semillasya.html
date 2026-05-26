@@ -382,6 +382,9 @@
     function normalizarCultivo(c) {
       return String(c || '').trim();
     }
+    function claveCultivo(c) {
+      return normalizarCultivo(c).toUpperCase();
+    }
 
     function renderCultivos() {
       const list = [...new Set(
@@ -406,9 +409,6 @@
     function filtrarCultivos(q) {
       const texto = normalizarCultivo(q || '');
       if (!texto) return state.cultivosFiltrados;
-      if (texto.toLowerCase() === 'remolacha') {
-        return state.cultivosFiltrados.filter((c) => c.toUpperCase() === 'REMOLACHA');
-      }
       return state.cultivosFiltrados.filter((c) => c.toLowerCase().includes(texto.toLowerCase()));
     }
 
@@ -498,8 +498,8 @@
 
       const list = state.productos
         .filter((p) => {
-          const cultivo = normalizarCultivo(cultivoProducto(p));
-          return cultivo === state.cultivoSeleccionado;
+          const cultivo = claveCultivo(cultivoProducto(p));
+          return cultivo === claveCultivo(state.cultivoSeleccionado);
         })
         .sort((a, b) => (
           String(marcaProducto(a)).localeCompare(String(marcaProducto(b)), 'es')
@@ -539,7 +539,11 @@
         `;
       }).join('');
 
-      $('catalog').innerHTML = html ? `<div class="catalog-jerarquia">${html}</div>` : '<p class="small">No hay productos para este cultivo.</p>';
+      const debugConteo = `${state.cultivoSeleccionado}: ${list.length} productos cargados`;
+      $('catalogoInfoVisible').textContent = debugConteo;
+      $('catalog').innerHTML = html
+        ? `<p class="small" style="margin:0 0 .7rem;">${debugConteo}</p><div class="catalog-jerarquia">${html}</div>`
+        : `<p class="small">${debugConteo}</p><p class="small">No hay productos para este cultivo.</p>`;
 
       document.querySelectorAll('[data-add]').forEach((btn) => {
         btn.onclick = () => {
