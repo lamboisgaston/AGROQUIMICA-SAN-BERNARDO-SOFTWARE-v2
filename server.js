@@ -39,22 +39,26 @@ function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
 function calcularPrecioSemillasYa(producto = {}, tipoCambioSistema = 1) {
-  const tc = Number(tipoCambioSistema || 1);
+  const tc = Number(tipoCambioSistema || 0);
   const ivaRate = 0.21;
-  const precioListaUsd = Number(producto.precioListaUsd ?? 0);
-  const costoCompra = Number(producto.costoCompra ?? 0);
-  const precioInternoManual = Number(producto.precioInternoManual ?? 0);
-  const fletePorcentaje = Number(producto.porcentajeFlete ?? producto.fletePorcentaje ?? 10);
+  const precioListaUsd = Number(producto?.precioListaUsd ?? 0);
+  const costoCompra = Number(producto?.costoCompra ?? 0);
+  const precioInternoManual = Number(producto?.precioInternoManual ?? 0);
+  const fletePorcentaje = Number(producto?.porcentajeFlete ?? producto?.fletePorcentaje ?? 10);
   const baseUsd = [precioListaUsd, costoCompra, precioInternoManual].find((v) => Number.isFinite(v) && v > 0) || 0;
-  const tienePrecio = baseUsd > 0;
+  const tienePrecio = Number.isFinite(baseUsd) && baseUsd > 0 && Number.isFinite(tc) && tc > 0;
   if (!tienePrecio) {
-    return { tienePrecio: false, precioListaUsd, costoCompra, precioInternoManual, baseUsd: 0, precioUsdConFlete: 0, precioArsSinIva: 0, iva: 0, precioFinalConIva: null };
+    return { tienePrecio: false, valido: false, mostrar: 'Consultar', precioListaUsd, costoCompra, precioInternoManual, baseUsd: 0, precioUsdConFlete: 0, precioArsSinIva: 0, iva: 0, precioFinalConIva: null };
   }
-  const precioUsdConFlete = baseUsd * (1 + (fletePorcentaje / 100));
+  const fleteSeguro = Number.isFinite(fletePorcentaje) ? fletePorcentaje : 0;
+  const precioUsdConFlete = baseUsd * (1 + (fleteSeguro / 100));
   const precioArsSinIva = precioUsdConFlete * tc;
   const iva = precioArsSinIva * ivaRate;
   const precioFinalConIva = precioArsSinIva + iva;
-  return { tienePrecio: true, precioListaUsd, costoCompra, precioInternoManual, baseUsd, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
+  if (![precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva].every((v) => Number.isFinite(v) && v > 0)) {
+    return { tienePrecio: false, valido: false, mostrar: 'Consultar', precioListaUsd, costoCompra, precioInternoManual, baseUsd, precioUsdConFlete: 0, precioArsSinIva: 0, iva: 0, precioFinalConIva: null };
+  }
+  return { tienePrecio: true, valido: true, mostrar: `$ ${precioFinalConIva.toFixed(2)}`, precioListaUsd, costoCompra, precioInternoManual, baseUsd, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
 }
 function parseJsonSafe(value, fallback = {}) {
   if (!value || typeof value !== 'string') return fallback;
@@ -2266,13 +2270,17 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   });
   const productos = productosRaw
     .map((p) => {
-      const calculo = calcularPrecioSemillasYa({
-        precioListaUsd: p.precioUsd,
-        costoCompra: String(p.monedaCompra || 'ARS').toUpperCase() === 'USD' ? p.costoCompra : 0,
-        precioInternoManual: p.precioInternoManual,
-        porcentajeFlete: p.porcentajeFlete
-      }, tipoCambioActual);
-      return { ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), tienePrecio: calculo.tienePrecio, precioFinalConIva: calculo.tienePrecio ? Number(calculo.precioFinalConIva.toFixed(2)) : null };
+      try {
+        const calculo = calcularPrecioSemillasYa({
+          precioListaUsd: p.precioUsd,
+          costoCompra: String(p.monedaCompra || 'ARS').toUpperCase() === 'USD' ? p.costoCompra : 0,
+          precioInternoManual: p.precioInternoManual,
+          porcentajeFlete: p.porcentajeFlete
+        }, tipoCambioActual);
+        return { ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), tienePrecio: Boolean(calculo.tienePrecio), precioFinalConIva: calculo.tienePrecio ? Number(calculo.precioFinalConIva.toFixed(2)) : null, precioMostrar: calculo.mostrar || 'Consultar' };
+      } catch {
+        return { ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), tienePrecio: false, precioFinalConIva: null, precioMostrar: 'Consultar' };
+      }
     })
     .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio))
     .filter((p) => !esProductoBasuraPrecampania(p));
@@ -2286,6 +2294,39 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   }));
 
   res.json({ cultivos, semilleros, totalProductos: productos.length, catalogoPorCultivo, productos });
+}));
+
+app.get('/api/debug/semillasya-catalogo', asyncHandler(async (_req, res) => {
+  const activos = await prisma.productoPrecampania.findMany({
+    where: { activo: true },
+    select: { id: true, nombre: true, cultivo: true, categoria: true, semilleroLaboratorio: true, visibleEnSemillasYa: true, publicadoWeb: true, precioUsd: true, costoCompra: true, precioInternoManual: true, porcentajeFlete: true, monedaCompra: true }
+  });
+  const normalizados = activos.map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) }));
+  const publicados = normalizados.filter((p) => p.visibleEnSemillasYa && p.publicadoWeb && SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio) && !esProductoBasuraPrecampania(p));
+  const productosSinPrecio = [];
+  const productosInvalidos = [];
+  for (const p of publicados) {
+    try {
+      const calculo = calcularPrecioSemillasYa({
+        precioListaUsd: p.precioUsd,
+        costoCompra: String(p.monedaCompra || 'ARS').toUpperCase() === 'USD' ? p.costoCompra : 0,
+        precioInternoManual: p.precioInternoManual,
+        porcentajeFlete: p.porcentajeFlete
+      }, tipoCambioActual);
+      if (!calculo?.valido) productosSinPrecio.push({ id: p.id, nombre: p.nombre, semilleroLaboratorio: p.semilleroLaboratorio, cultivo: p.cultivo });
+    } catch {
+      productosInvalidos.push({ id: p.id, nombre: p.nombre, semilleroLaboratorio: p.semilleroLaboratorio, cultivo: p.cultivo });
+    }
+  }
+  res.json({
+    ok: true,
+    totalProductosActivos: normalizados.length,
+    totalPublicados: publicados.length,
+    totalCAPS: publicados.filter((p) => p.semilleroLaboratorio === 'CAPS').length,
+    totalGUASCH: publicados.filter((p) => p.semilleroLaboratorio === 'GUASCH').length,
+    productosInvalidos,
+    productosSinPrecio
+  });
 }));
 
 app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {

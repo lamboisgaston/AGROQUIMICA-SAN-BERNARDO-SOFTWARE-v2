@@ -672,15 +672,24 @@
 
     async function cargarProductos() {
       setCatalogoErrorVisible(false);
-      const r = await fetch('/api/semillasya/catalogo');
-      if (!r.ok) throw new Error('No se pudo cargar catálogo. Reintentar.');
-      const data = await r.json();
-      state.productos = Array.isArray(data?.productos) ? data.productos : [];
-      state.cultivosDisponibles = Array.isArray(data?.cultivos) ? data.cultivos : [];
-      console.log('[SemillasYa] total productos recibidos:', state.productos.length);
-      console.log('[SemillasYa] cultivos detectados:', [...new Set((state.cultivosDisponibles.length ? state.cultivosDisponibles : state.productos.map((p) => cultivoProducto(p))).map(normalizarCultivo).filter(Boolean))]);
-      state.catalogoCargado = true;
-      renderCultivos();
+      try {
+        const r = await fetch('/api/semillasya/catalogo');
+        if (!r.ok) throw new Error('No se pudo cargar catálogo. Reintentar.');
+        const data = await r.json();
+        state.productos = Array.isArray(data?.productos) ? data.productos.filter((p) => p && typeof p === 'object') : [];
+        state.cultivosDisponibles = Array.isArray(data?.cultivos) ? data.cultivos.filter(Boolean) : [];
+        if (!state.cultivosDisponibles.length) {
+          state.cultivosDisponibles = [...new Set(state.productos.map((p) => normalizarCultivo(cultivoProducto(p))).filter(Boolean))];
+        }
+        console.log('[SemillasYa] total productos recibidos:', state.productos.length);
+        console.log('[SemillasYa] cultivos detectados:', [...new Set((state.cultivosDisponibles.length ? state.cultivosDisponibles : state.productos.map((p) => cultivoProducto(p))).map(normalizarCultivo).filter(Boolean))]);
+        state.catalogoCargado = true;
+      } catch (error) {
+        console.warn('[SemillasYa] error cargando catálogo', error);
+        state.catalogoCargado = false;
+      } finally {
+        renderCultivos();
+      }
     }
 
 
