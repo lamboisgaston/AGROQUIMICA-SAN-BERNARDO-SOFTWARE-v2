@@ -1476,7 +1476,9 @@ function renderProductosPrecampania() {
         const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
         return `<article class="pre-presentacion-item">
           <div class="pre-presentacion-main">
-            <div class="pre-presentacion-nombre">- ${p.presentacionEnvase || '-'}</div>
+            <!-- RENDER_PRODUCTOS_SEMILLASYA_POR_PRESENTACION -->
+            <div class="pre-presentacion-nombre">${p.nombre || variedad || '-'}</div>
+            <div class="pre-presentacion-detalle">${p.presentacionEnvase || '-'}</div>
             <div class="pre-presentacion-detalle">
               ${precioListaUsd > 0 ? `USD lista: ${calculoSemillasYa.precioListaUsd.toFixed(2)}` : 'USD lista: consultar'}
             </div>
