@@ -1396,10 +1396,7 @@ function calcularPreviewPrecampania() {
 }
 
 function renderSemillerosPrecampania() {
-  const semillerosDisponibles = Array.from(new Set([
-    ...precampaniaSemilleros,
-    ...precampaniaProductos.map((p) => String(p.semilleroLaboratorio || '').trim()).filter(Boolean)
-  ])).sort((a, b) => a.localeCompare(b, 'es'));
+  const semillerosDisponibles = ['CAPS', 'GUASCH'];
   const cultivosDisponibles = Array.from(new Set([
     ...precampaniaCultivos,
     ...precampaniaProductos.map((p) => String(p.cultivo || p.categoria || 'Otro').trim() || 'Otro')
@@ -1447,12 +1444,20 @@ function renderProductosPrecampania() {
   const bloques = Object.entries(porCultivo).map(([cultivo, productos]) => {
     const cards = productos.map((p) => {
       const precioListaUsd = Number(p.precioUsd || ((p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0) || 0);
-      const precioFinalPesos = precioListaUsd * Number(tipoCambioActual || 1) * (1 + Number(p.porcentajeMargen || 0) / 100) * (1 + Number(p.porcentajeFlete || 0) / 100);
+      const precioConFleteUsd = precioListaUsd * (1 + Number(p.porcentajeFlete || 0) / 100);
+      const precioArsSinIva = precioConFleteUsd * Number(tipoCambioActual || 1);
+      const precioFinalPesos = precioArsSinIva * (1 + Number(p.porcentajeMargen || 0) / 100);
+      const esGuasch = String(p.semilleroLaboratorio || '').toUpperCase() === 'GUASCH';
+      const textoPrecio = precioListaUsd > 0
+        ? (esGuasch
+          ? `USD lista: ${precioListaUsd.toFixed(2)} · USD + flete 10%: ${precioConFleteUsd.toFixed(2)} · ARS sin IVA: ${money(precioArsSinIva)}`
+          : money(precioFinalPesos))
+        : 'Consultar';
       return `<article class="pre-producto-card">
         <div>
           <div class="pre-producto-nombre">${p.nombre || '-'}</div>
           <div class="pre-producto-semillero">${p.semilleroLaboratorio || '-'} · ${p.presentacionEnvase || '-'} </div>
-          <div class="pre-producto-precio">${money(precioFinalPesos)}</div>
+          <div class="pre-producto-precio">${textoPrecio}</div>
         </div>
         <div class="pre-producto-actions">
           <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">✏️ Editar</button>
