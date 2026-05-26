@@ -45,6 +45,24 @@
     }
     .header p { margin: .45rem 0 0; color: var(--muted); }
 
+    .landing-hero { padding: 2.4rem 0 1.4rem; text-align: center; }
+    .hero-kicker { margin: 0; color: var(--green-700); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
+    .landing-hero h1 { margin: .65rem 0 .7rem; font-size: clamp(2.1rem, 6vw, 3.5rem); color: var(--green-900); }
+    .hero-subtitle { margin: 0 auto .4rem; max-width: 760px; font-size: clamp(1.05rem, 2.6vw, 1.35rem); color: var(--text); }
+    .hero-secondary { margin: 0 auto 1.3rem; color: var(--muted); font-size: 1rem; }
+    .hero-cta { padding: .78rem 1.35rem; font-size: 1rem; }
+
+    .brands-band { padding: .85rem 0; margin-bottom: 1.2rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
+    .brands-band p { text-align: center; margin: 0 0 .7rem; color: var(--muted); font-weight: 600; }
+    .brands-track { display: flex; gap: .8rem; width: max-content; animation: brandsScroll 24s linear infinite; }
+    .brand-card { width: min(5cm, 112px); height: min(5cm, 74px); border-radius: 12px; border: 1px solid #d8e6dc; background: #fff; display:flex; align-items:center; justify-content:center; font-weight:700; color:#28523d; font-size:.88rem; letter-spacing:.02em; }
+
+    .how-it-works { padding: 1.3rem; margin-bottom: 1.3rem; }
+    .how-it-works h2 { margin: 0 0 .85rem; color: var(--green-900); text-align:center; }
+    .steps-grid { display: grid; gap: .7rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .step-pill { border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: .9rem .8rem; text-align: center; }
+    .step-pill strong { display:block; color: var(--green-700); margin-bottom: .25rem; }
+
     .panel {
       background: var(--card);
       border: 1px solid var(--line);
@@ -165,8 +183,10 @@
     .cultivo-option:hover { background:#eef4ff; }
     .hidden-soft { display:none; }
     @keyframes semillerosScroll { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+    @keyframes brandsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
     @media (max-width: 920px) {
+      .steps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       body { padding-bottom: 1rem; }
       .catalog-layout { grid-template-columns: 1fr; }
       .quote-dock { position: static; margin-top: 1rem; }
@@ -178,12 +198,30 @@
 </head>
 <body>
   <main class="container">
-    <header class="header">
-      <h1>SemillasYa</h1>
-      <p>Un camino guiado para armar tu solicitud de cotización.</p>
-    </header>
+    <section class="landing-hero">
+      <p class="hero-kicker">Plataforma tecnológica de semillas</p>
+      <h1>www.semillasya.com</h1>
+      <p class="hero-subtitle">Tecnología de cotización, compra y envío de semillas a todo el país.</p>
+      <p class="hero-secondary">Precios finales puestos en tu localidad.</p>
+      <button class="btn btn-primary hero-cta" id="iniciarCotizacionBtn">Cotizar semillas</button>
+    </section>
 
-    <section class="panel step-card" id="ubicacionGate">
+    <section class="brands-band" aria-label="Semilleros y proveedores">
+      <p>Trabajamos con semilleros y proveedores de referencia</p>
+      <div class="brands-track" id="brandsTrack"></div>
+    </section>
+
+    <section class="panel how-it-works">
+      <h2>Cómo funciona</h2>
+      <div class="steps-grid">
+        <article class="step-pill"><strong>1</strong>Elegís tu localidad</article>
+        <article class="step-pill"><strong>2</strong>Seleccionás cultivo</article>
+        <article class="step-pill"><strong>3</strong>Armás tu pedido</article>
+        <article class="step-pill"><strong>4</strong>Recibís cotización final</article>
+      </div>
+    </section>
+
+    <section class="panel step-card hidden" id="ubicacionGate">
       <h2>Paso 1 · Datos iniciales</h2>
       <p class="hint">Ingresá tu ubicación y contacto para comenzar.</p>
       <div class="row">
@@ -672,6 +710,27 @@
         $('catalog').innerHTML = '<p class="small">No se pudo cargar el catálogo.</p>';
       });
     }
+  </script>
+
+  <script>
+    (function () {
+      const marcas = ['CAPS', 'Guasch', 'Picasso', 'Florensa', 'Garden', 'Gasty', 'Chuchuy'];
+      const track = document.getElementById('brandsTrack');
+      if (track) {
+        const cards = marcas.concat(marcas).map((nombre) => `<div class="brand-card">${nombre}</div>`).join('');
+        track.innerHTML = cards;
+      }
+      const btn = document.getElementById('iniciarCotizacionBtn');
+      const gate = document.getElementById('ubicacionGate');
+      if (btn && gate) {
+        btn.addEventListener('click', () => {
+          gate.classList.remove('hidden');
+          gate.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const focusInput = document.getElementById('provinciaSelect');
+          if (focusInput) focusInput.focus();
+        });
+      }
+    })();
   </script>
 </body>
 </html>
