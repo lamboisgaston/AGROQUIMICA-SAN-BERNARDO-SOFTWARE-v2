@@ -327,13 +327,6 @@
 
 
   <script>
-    const CULTIVOS_VALIDOS = [
-      'Acelga', 'Achicoria', 'Albahaca', 'Apio', 'Arveja', 'Cebolla', 'Lechuga', 'Maíz',
-      'Melón', 'Pepino', 'Perejil', 'Pimiento', 'Poroto', 'Puerro', 'Rabanito', 'Remolacha',
-      'Repollo', 'Sandía', 'Tomate', 'Zanahoria', 'Zapallito', 'Zapallo', 'Césped', 'Alfalfa',
-      'Sorgo', 'Otro'
-    ];
-
     const state = {
       productos: [],
       carrito: [],
@@ -385,13 +378,11 @@
     }
 
     function renderCultivos() {
-      const disponibles = new Set(
+      const list = [...new Set(
         (state.cultivosDisponibles.length ? state.cultivosDisponibles : state.productos.map((p) => cultivoProducto(p)))
           .map(normalizarCultivo)
-          .filter((c) => CULTIVOS_VALIDOS.includes(c))
-      );
-      if (state.productos.some((p) => !disponibles.has(normalizarCultivo(cultivoProducto(p))))) disponibles.add('Otro');
-      const list = CULTIVOS_VALIDOS.filter((c) => disponibles.has(c));
+          .filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b, 'es'));
 
       state.cultivosFiltrados = list;
       if (!state.cultivoSeleccionado || !list.includes(state.cultivoSeleccionado)) {
@@ -424,7 +415,7 @@
     }
 
     function seleccionarCultivo(cultivo) {
-      if (!CULTIVOS_VALIDOS.includes(cultivo)) return;
+      if (!cultivo) return;
       state.cultivoSeleccionado = cultivo;
       $('cultivoInput').value = cultivo;
       $('cultivoClear').classList.remove('hidden-soft');
@@ -496,7 +487,6 @@
       const list = state.productos
         .filter((p) => {
           const cultivo = normalizarCultivo(cultivoProducto(p));
-          if (state.cultivoSeleccionado === 'Otro') return !CULTIVOS_VALIDOS.includes(cultivo) || cultivo === 'Otro';
           return cultivo === state.cultivoSeleccionado;
         })
         .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
