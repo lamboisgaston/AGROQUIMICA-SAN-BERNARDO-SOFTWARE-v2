@@ -2103,10 +2103,21 @@ function normalizarSemilleroPrecampania(valor = '') {
 }
 
 function normalizarCultivoPrecampania(valorCultivo = '', valorCategoria = '') {
-  const cultivoCrudo = String(valorCultivo || '').trim() || String(valorCategoria || '').trim() || 'Otro';
-  const cultivoSinHibrido = cultivoCrudo.replace(/\bh[ií]brid[oa]s?\b/gi, '').replace(/\s+/g, ' ').trim() || 'Otro';
-  const clave = cultivoSinHibrido.toUpperCase();
-  return CULTIVOS_PRECAMPAÑA_MAP.get(clave) || cultivoCrudo;
+  const cultivoCrudo = String(valorCultivo || '').trim() || String(valorCategoria || '').trim() || 'OTRO';
+  const cultivoSinHibrido = cultivoCrudo.replace(/\bh[ií]brid[oa]s?\b/gi, '').replace(/\s+/g, ' ').trim() || 'OTRO';
+  const claveNormalizada = normalizarSimple(cultivoSinHibrido).toUpperCase();
+  const mapaCanonico = {
+    'ACHICORIA': 'ACHICORIA',
+    'CEBOLLA': 'CEBOLLA',
+    'TOMATE': 'TOMATE',
+    'MAIZ DULCE': 'MAÍZ DULCE',
+    'ZAPALLITO': 'ZAPALLITO',
+    'SANDIA': 'SANDÍA',
+    'CESPED': 'CÉSPED'
+  };
+  if (mapaCanonico[claveNormalizada]) return mapaCanonico[claveNormalizada];
+  const lookup = CULTIVOS_PRECAMPAÑA_MAP.get(claveNormalizada);
+  return lookup ? String(lookup).toUpperCase() : String(cultivoSinHibrido).toUpperCase();
 }
 
 app.get('/api/productos-precampania', asyncHandler(async (req, res) => {
