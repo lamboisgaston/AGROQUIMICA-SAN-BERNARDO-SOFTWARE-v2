@@ -2462,6 +2462,30 @@ app.get('/api/debug/alfalfa-guasch', asyncHandler(async (_req, res) => {
   });
 }));
 
+
+app.get('/api/debug/guasch-catalogo', asyncHandler(async (_req, res) => {
+  const guaschWhere = { semilleroLaboratorio: 'GUASCH', activo: true };
+  const [totalActivosGuasch, porCultivoRaw, porCultivoSemilleroRaw, ultimosProductos] = await Promise.all([
+    prisma.productoPrecampania.count({ where: guaschWhere }),
+    prisma.productoPrecampania.groupBy({ by: ['cultivo'], where: guaschWhere, _count: { _all: true } }),
+    prisma.productoPrecampania.groupBy({ by: ['cultivo', 'semilleroLaboratorio'], where: guaschWhere, _count: { _all: true } }),
+    prisma.productoPrecampania.findMany({
+      where: guaschWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { id: true, nombre: true, cultivo: true, semilleroLaboratorio: true, presentacionEnvase: true, precioInternoManual: true, estado: true, createdAt: true }
+    })
+  ]);
+
+  res.json({
+    ok: true,
+    totalGuaschActivos: totalActivosGuasch,
+    totalPorCultivo: porCultivoRaw.map((x) => ({ cultivo: x.cultivo || 'SIN_CULTIVO', total: x._count._all })),
+    totalPorCultivoYSemillero: porCultivoSemilleroRaw.map((x) => ({ cultivo: x.cultivo || 'SIN_CULTIVO', semilleroLaboratorio: x.semilleroLaboratorio || 'SIN_SEMILLERO', total: x._count._all })),
+    ultimosProductosCargados: ultimosProductos
+  });
+}));
+
 app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
   const [totalPrecampania, visiblesEnSemillasYa, porSemilleroRaw, ultimosProductos] = await Promise.all([
     prisma.productoPrecampania.count({ where: { activo: true } }),

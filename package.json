@@ -19,7 +19,12 @@
     "import:arg-agro": "node scripts/importar-arg-agro-precampania.js",
     "import:caps": "node scripts/cargar-caps-manual-precampania.js",
     "import:guasch": "node scripts/cargar-guasch-manual-semillasya.js",
-    "import:guasch:alfalfa": "node scripts/cargar-guasch-alfalfa.js"
+    "import:guasch:alfalfa": "node scripts/cargar-guasch-alfalfa.js",
+    "import:guasch:pasturas": "node scripts/cargar-guasch-pasturas.js",
+    "import:guasch:verdeos": "node scripts/cargar-guasch-verdeos.js",
+    "import:guasch:hortalizas": "node scripts/cargar-guasch-hortalizas.js",
+    "import:guasch:cesped": "node scripts/cargar-guasch-cesped.js",
+    "import:guasch:blends": "node scripts/cargar-guasch-blends-cesped.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
