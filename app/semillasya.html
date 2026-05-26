@@ -385,7 +385,7 @@
 
     function renderCultivos() {
       const list = [...new Set(
-        (state.cultivosDisponibles.length ? state.cultivosDisponibles : state.productos.map((p) => cultivoProducto(p)))
+        state.productos.map((p) => cultivoProducto(p))
           .map(normalizarCultivo)
           .filter(Boolean)
       )].sort((a, b) => a.localeCompare(b, 'es'));
@@ -406,13 +406,19 @@
     function filtrarCultivos(q) {
       const texto = normalizarCultivo(q || '');
       if (!texto) return state.cultivosFiltrados;
+      if (texto.toLowerCase() === 'remolacha') {
+        return state.cultivosFiltrados.filter((c) => c.toUpperCase() === 'REMOLACHA');
+      }
       return state.cultivosFiltrados.filter((c) => c.toLowerCase().includes(texto.toLowerCase()));
     }
 
     function renderCultivoDropdown(opciones = state.cultivosFiltrados) {
       const dd = $('cultivoDropdown');
       if (!opciones.length) {
-        dd.innerHTML = '<p class="small" style="padding:.6rem; margin:0;">No hay cultivos disponibles.</p>';
+        const sinResultados = state.productos.length > 0
+          ? 'No hay cultivos para tu búsqueda.'
+          : 'No hay cultivos disponibles.';
+        dd.innerHTML = `<p class="small" style="padding:.6rem; margin:0;">${sinResultados}</p>`;
         dd.classList.remove('hidden-soft');
         return;
       }
@@ -666,7 +672,8 @@
       alert('Solicitud recibida. La revisaremos y te responderemos.');
     }
 
-    function setCatalogoErrorVisible(mostrar) {
+    function setCatalogoErrorVisible(mostrar, mensaje = '') {
+      $('catalogoErrorVisible').textContent = mensaje || 'No se pudo cargar catálogo. Reintentar.';
       $('catalogoErrorVisible').classList.toggle('hidden', !mostrar);
       $('reintentarCatalogo').classList.toggle('hidden', !mostrar);
     }
@@ -678,19 +685,8 @@
         if (!r.ok) throw new Error('No se pudo cargar catálogo. Reintentar.');
         const data = await r.json();
 
-        let productos = data?.productos || data?.catalogo || data?.data || data?.items || [];
-        if (!Array.isArray(productos) && data?.catalogo && typeof data.catalogo === 'object') {
-          productos = Object.values(data.catalogo).flat();
-        }
-
-        state.productos = Array.isArray(productos) ? productos.filter((p) => p && typeof p === 'object') : [];
-        state.cultivosDisponibles = [...new Set(
-          state.productos
-            .filter((p) => p.activo !== false)
-            .filter((p) => p.visibleEnSemillasYa !== false)
-            .map((p) => p.cultivo || p.categoria)
-            .filter(Boolean)
-        )].sort((a, b) => String(a).localeCompare(String(b), 'es'));
+        const productos = Array.isArray(data?.productos) ? data.productos : [];
+        state.productos = productos.filter((p) => p && typeof p === 'object');
 
         $('catalogoInfoVisible').textContent = `Catálogo cargado: ${state.productos.length} productos`;
         console.log('[SemillasYa] total productos recibidos:', state.productos.length);
@@ -698,7 +694,9 @@
         state.catalogoCargado = true;
       } catch (error) {
         console.warn('[SemillasYa] error cargando catálogo', error);
-        $('catalogoInfoVisible').textContent = 'Catálogo cargado: 0 productos';
+        const errorReal = error?.message || String(error);
+        $('catalogoInfoVisible').textContent = `Error real: ${errorReal}`;
+        setCatalogoErrorVisible(true, `Error real: ${errorReal}`);
         state.catalogoCargado = false;
       } finally {
         renderCultivos();
