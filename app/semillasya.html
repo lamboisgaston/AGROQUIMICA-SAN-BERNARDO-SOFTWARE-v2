@@ -361,14 +361,17 @@
     const marcaProducto = (p) => p.semilleroLaboratorio || 'Sin semillero';
     const presentacionProducto = (p) => p.presentacionEnvase || 'Sin presentación';
     const variedadProducto = (p) => p.nombre || 'Variedad sin nombre';
-    const precioProducto = (p) => Number(
-      p.precioFinalConIva
-      ?? p.precioFinal
-      ?? p.precioVentaPesos
-      ?? p.precioPesosCalculado
-      ?? p.precio
-      ?? 0
-    );
+    const precioProducto = (p) => {
+      const v = Number(
+        p.precioFinalConIva
+        ?? p.precioFinal
+        ?? p.precioVentaPesos
+        ?? p.precioPesosCalculado
+        ?? p.precio
+        ?? 0
+      );
+      return Number.isFinite(v) && v > 0 ? v : null;
+    };
     const formatearPrecio = (valor) => new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'ARS',
@@ -513,7 +516,7 @@
                 <div class="presentacion-item">
                   <div class="presentacion-info">
                     <span class="presentacion-nombre">${presentacionProducto(p)}</span>
-                    <span class="presentacion-precio">${formatearPrecio(precioProducto(p))}</span>
+                    <span class="presentacion-precio">${precioProducto(p) == null ? 'Consultar' : formatearPrecio(precioProducto(p))}</span>
                   </div>
                   <button class="btn btn-primary" data-add="${p.id}">Agregar</button>
                 </div>

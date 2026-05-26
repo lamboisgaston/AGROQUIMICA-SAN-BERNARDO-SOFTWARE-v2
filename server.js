@@ -38,14 +38,23 @@ function escapeHtml(value) {
 function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
-function calcularPrecioSemillasYa({ precioListaUsd = 0, tipoCambioSistema = 1 } = {}) {
-  const precioLista = Number(precioListaUsd || 0);
+function calcularPrecioSemillasYa(producto = {}, tipoCambioSistema = 1) {
   const tc = Number(tipoCambioSistema || 1);
-  const precioUsdConFlete = precioLista * 1.10;
+  const ivaRate = 0.21;
+  const precioListaUsd = Number(producto.precioListaUsd ?? 0);
+  const costoCompra = Number(producto.costoCompra ?? 0);
+  const precioInternoManual = Number(producto.precioInternoManual ?? 0);
+  const fletePorcentaje = Number(producto.porcentajeFlete ?? producto.fletePorcentaje ?? 10);
+  const baseUsd = [precioListaUsd, costoCompra, precioInternoManual].find((v) => Number.isFinite(v) && v > 0) || 0;
+  const tienePrecio = baseUsd > 0;
+  if (!tienePrecio) {
+    return { tienePrecio: false, precioListaUsd, costoCompra, precioInternoManual, baseUsd: 0, precioUsdConFlete: 0, precioArsSinIva: 0, iva: 0, precioFinalConIva: null };
+  }
+  const precioUsdConFlete = baseUsd * (1 + (fletePorcentaje / 100));
   const precioArsSinIva = precioUsdConFlete * tc;
-  const iva = precioArsSinIva * 0.21;
+  const iva = precioArsSinIva * ivaRate;
   const precioFinalConIva = precioArsSinIva + iva;
-  return { precioListaUsd: precioLista, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
+  return { tienePrecio: true, precioListaUsd, costoCompra, precioInternoManual, baseUsd, precioUsdConFlete, precioArsSinIva, iva, precioFinalConIva };
 }
 function parseJsonSafe(value, fallback = {}) {
   if (!value || typeof value !== 'string') return fallback;
@@ -2253,10 +2262,18 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
     orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }, { createdAt: 'asc' }],
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true, precioUsd: true, costoCompra: true, precioInternoManual: true, porcentajeFlete: true, monedaCompra: true }
   });
   const productos = productosRaw
-    .map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) }))
+    .map((p) => {
+      const calculo = calcularPrecioSemillasYa({
+        precioListaUsd: p.precioUsd,
+        costoCompra: String(p.monedaCompra || 'ARS').toUpperCase() === 'USD' ? p.costoCompra : 0,
+        precioInternoManual: p.precioInternoManual,
+        porcentajeFlete: p.porcentajeFlete
+      }, tipoCambioActual);
+      return { ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), tienePrecio: calculo.tienePrecio, precioFinalConIva: calculo.tienePrecio ? Number(calculo.precioFinalConIva.toFixed(2)) : null };
+    })
     .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio))
     .filter((p) => !esProductoBasuraPrecampania(p));
 
@@ -3393,8 +3410,15 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
       const item = itemsEntrada[i];
       const productoLista = productosById.get(parsePositiveInt(item.productoPrecampaniaId));
       const cantidad = parsePositiveInt(item.cantidad);
-      const precioListaUsd = Number(productoLista.precioUsd || ((String(productoLista.monedaCompra || 'ARS').toUpperCase() === 'USD') ? productoLista.costoCompra : 0) || 0);
-      const calculoSemillasYa = calcularPrecioSemillasYa({ precioListaUsd, tipoCambioSistema: tipoCambioActual });
+      const calculoSemillasYa = calcularPrecioSemillasYa({
+        precioListaUsd: productoLista.precioUsd,
+        costoCompra: String(productoLista.monedaCompra || 'ARS').toUpperCase() === 'USD' ? productoLista.costoCompra : 0,
+        precioInternoManual: productoLista.precioInternoManual,
+        porcentajeFlete: productoLista.porcentajeFlete
+      }, tipoCambioActual);
+      if (!calculoSemillasYa.tienePrecio || calculoSemillasYa.precioFinalConIva == null) {
+        return res.status(400).json({ ok: false, error: `El producto ${productoLista.nombre} no tiene precio válido para SemillasYa.` });
+      }
       const precioUnitario = Number(calculoSemillasYa.precioFinalConIva.toFixed(2));
       const observacionItem = String(item.observaciones || '').trim() || null;
 
