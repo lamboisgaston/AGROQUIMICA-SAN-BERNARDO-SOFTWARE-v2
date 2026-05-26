@@ -18,7 +18,7 @@
     "import:guasch:precampania": "node scripts/import_guasch_precampania.js",
     "import:arg-agro": "node scripts/importar-arg-agro-precampania.js",
     "import:caps": "node scripts/cargar-caps-manual-precampania.js",
-    "import:guasch": "node scripts/cargar-guasch-semillasya.js"
+    "import:guasch": "node scripts/cargar-guasch-manual-semillasya.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
