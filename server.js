@@ -2411,6 +2411,57 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
   });
 }));
 
+
+app.get('/api/debug/alfalfa-guasch', asyncHandler(async (_req, res) => {
+  const where = { cultivo: 'ALFALFA', semilleroLaboratorio: 'GUASCH' };
+  const [total, productos] = await Promise.all([
+    prisma.productoPrecampania.count({ where }),
+    prisma.productoPrecampania.findMany({
+      where,
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        nombre: true,
+        presentacionEnvase: true,
+        precioInternoManual: true,
+        porcentajeFlete: true,
+        activo: true,
+        visibleEnSemillasYa: true,
+        observacionesComerciales: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    })
+  ]);
+
+  const listado = productos.map((p) => {
+    const obs = String(p.observacionesComerciales || '');
+    const tratamiento = (obs.match(/tratamiento=([^;]+)/)?.[1] || '').trim() || null;
+    const grupo = (obs.match(/grupo=([^;]+)/)?.[1] || '').trim() || null;
+    const origen = (obs.match(/origen=([^;]+)/)?.[1] || '').trim() || null;
+    return {
+      id: p.id,
+      nombre: p.nombre,
+      tratamiento,
+      grupo,
+      presentacionEnvase: p.presentacionEnvase,
+      precioListaUsd: p.precioInternoManual,
+      fletePorcentaje: p.porcentajeFlete,
+      activo: p.activo,
+      visibleEnSemillasYa: p.visibleEnSemillasYa,
+      origen,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt
+    };
+  });
+
+  res.json({
+    ok: true,
+    totalProductosCultivoAlfalfaSemilleroGuasch: total,
+    productos: listado
+  });
+}));
+
 app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
   const [totalPrecampania, visiblesEnSemillasYa, porSemilleroRaw, ultimosProductos] = await Promise.all([
     prisma.productoPrecampania.count({ where: { activo: true } }),
