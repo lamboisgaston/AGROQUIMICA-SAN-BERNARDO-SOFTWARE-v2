@@ -2251,16 +2251,24 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
 
 app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({
-    where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true }
+    where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
+    orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, observacionesComerciales: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true }
   });
   const productos = productosRaw
     .map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) }))
+    .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio))
     .filter((p) => !esProductoBasuraPrecampania(p));
+
   const cultivos = [...new Set(productos.map((p) => p.cultivo).filter(Boolean))];
   const semilleros = [...new Set(productos.map((p) => p.semilleroLaboratorio).filter(Boolean))];
-  res.json({ cultivos, semilleros, productos });
+  const catalogoPorCultivo = cultivos.map((cultivo) => ({
+    cultivo,
+    total: productos.filter((p) => p.cultivo === cultivo).length,
+    productos: productos.filter((p) => p.cultivo === cultivo)
+  }));
+
+  res.json({ cultivos, semilleros, totalProductos: productos.length, catalogoPorCultivo, productos });
 }));
 
 app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
@@ -2502,38 +2510,35 @@ app.get('/api/debug/guasch-catalogo', asyncHandler(async (_req, res) => {
 }));
 
 
-app.get('/api/semillasya/debug', asyncHandler(async (_req, res) => {
-  const [totalPrecampania, visiblesEnSemillasYa, porSemilleroRaw, ultimosProductos] = await Promise.all([
-    prisma.productoPrecampania.count({ where: { activo: true } }),
-    prisma.productoPrecampania.count({ where: { activo: true, visibleEnSemillasYa: true } }),
-    prisma.productoPrecampania.groupBy({ by: ['semilleroLaboratorio'], where: { activo: true }, _count: { _all: true } }),
-    prisma.productoPrecampania.findMany({
-      where: { activo: true },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { id: true, nombre: true, semilleroLaboratorio: true, visibleEnSemillasYa: true, createdAt: true }
-    })
-  ]);
+app.get('/api/semillasya/catalogo/debug', asyncHandler(async (_req, res) => {
+  const visiblesRaw = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, nombre: true, cultivo: true, categoria: true, semilleroLaboratorio: true, presentacionEnvase: true, visibleEnSemillasYa: true, publicadoWeb: true, activo: true, createdAt: true }
+  });
+
+  const visibles = visiblesRaw
+    .map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) }))
+    .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio))
+    .filter((p) => !esProductoBasuraPrecampania(p));
+
+  const totalPorCultivo = Array.from(visibles.reduce((acc, p) => {
+    acc.set(p.cultivo || 'SIN_CULTIVO', (acc.get(p.cultivo || 'SIN_CULTIVO') || 0) + 1);
+    return acc;
+  }, new Map()).entries()).map(([cultivo, total]) => ({ cultivo, total })).sort((a, b) => a.cultivo.localeCompare(b.cultivo, 'es'));
+
+  const totalPorSemillero = Array.from(visibles.reduce((acc, p) => {
+    acc.set(p.semilleroLaboratorio || 'SIN_SEMILLERO', (acc.get(p.semilleroLaboratorio || 'SIN_SEMILLERO') || 0) + 1);
+    return acc;
+  }, new Map()).entries()).map(([semillero, total]) => ({ semillero, total })).sort((a, b) => a.semillero.localeCompare(b.semillero, 'es'));
 
   res.json({
     ok: true,
     fecha: new Date().toISOString(),
-    productosPrecampania: {
-      total: totalPrecampania,
-      visiblesEnSemillasYa
-    },
-    cantidadPorSemillero: porSemilleroRaw.map((item) => ({
-      semillero: item.semilleroLaboratorio || 'SIN_SEMILLERO',
-      cantidad: item._count._all
-    })),
-    ultimos5ProductosPrecampania: ultimosProductos,
-    endpoints: {
-      productosPrecampaniaGet: '/api/productos-precampania',
-      productosPrecampaniaPost: '/api/productos-precampania',
-      semillasYaCatalogoGet: '/api/semillasya/catalogo',
-      semillasYaClientePost: '/api/semillasya/cliente',
-      status: 'OK'
-    }
+    totalVisibles: visibles.length,
+    totalPorCultivo,
+    totalPorSemillero,
+    ultimos20Publicados: visibles.slice(0, 20)
   });
 }));
 
