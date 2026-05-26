@@ -677,10 +677,12 @@
         const r = await fetch('/api/semillasya/catalogo');
         if (!r.ok) throw new Error('No se pudo cargar catálogo. Reintentar.');
         const data = await r.json();
+
         let productos = data?.productos || data?.catalogo || data?.data || data?.items || [];
         if (!Array.isArray(productos) && data?.catalogo && typeof data.catalogo === 'object') {
           productos = Object.values(data.catalogo).flat();
         }
+
         state.productos = Array.isArray(productos) ? productos.filter((p) => p && typeof p === 'object') : [];
         state.cultivosDisponibles = [...new Set(
           state.productos
@@ -688,7 +690,8 @@
             .filter((p) => p.visibleEnSemillasYa !== false)
             .map((p) => p.cultivo || p.categoria)
             .filter(Boolean)
-        )];
+        )].sort((a, b) => String(a).localeCompare(String(b), 'es'));
+
         $('catalogoInfoVisible').textContent = `Catálogo cargado: ${state.productos.length} productos`;
         console.log('[SemillasYa] total productos recibidos:', state.productos.length);
         console.log('[SemillasYa] cultivos detectados:', state.cultivosDisponibles);
