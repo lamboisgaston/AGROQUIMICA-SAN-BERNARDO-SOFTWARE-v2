@@ -2568,6 +2568,42 @@ app.get('/api/debug/guasch-catalogo', asyncHandler(async (_req, res) => {
 }));
 
 
+
+app.get('/api/debug/semillasya-cultivos', asyncHandler(async (_req, res) => {
+  const rows = await prisma.productoPrecampania.findMany({
+    where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
+    select: { cultivo: true, categoria: true, semilleroLaboratorio: true }
+  });
+
+  const base = rows
+    .map((p) => ({
+      cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria) || 'SIN_CULTIVO',
+      semillero: normalizarSemilleroPrecampania(p.semilleroLaboratorio) || 'SIN_SEMILLERO'
+    }))
+    .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semillero));
+
+  const porCultivoMap = new Map();
+  for (const row of base) {
+    if (!porCultivoMap.has(row.cultivo)) porCultivoMap.set(row.cultivo, { total: 0, semilleros: new Map() });
+    const item = porCultivoMap.get(row.cultivo);
+    item.total += 1;
+    item.semilleros.set(row.semillero, (item.semilleros.get(row.semillero) || 0) + 1);
+  }
+
+  const cultivos = Array.from(porCultivoMap.entries())
+    .map(([cultivo, data]) => ({
+      cultivo,
+      total: data.total,
+      totalPorSemillero: Array.from(data.semilleros.entries())
+        .map(([semillero, total]) => ({ semillero, total }))
+        .sort((a, b) => a.semillero.localeCompare(b.semillero, 'es'))
+    }))
+    .sort((a, b) => a.cultivo.localeCompare(b.cultivo, 'es'));
+
+  res.json({ ok: true, totalProductos: base.length, cultivos });
+}));
+
+
 app.get('/api/semillasya/catalogo/debug', asyncHandler(async (_req, res) => {
   const visiblesRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
