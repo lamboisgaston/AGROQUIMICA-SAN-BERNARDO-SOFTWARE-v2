@@ -820,10 +820,11 @@ function calcularPrecioProductoPrecampania(producto = {}) {
   const porcentajeIva = numeroSeguro(producto.porcentajeIva ?? 0);
   const porcentajeMargen = numeroSeguro(producto.porcentajeMargen ?? 0);
 
-  const base = monedaCompra === 'USD' ? (costoCompra * tipoCambio) : costoCompra;
-  const baseConFlete = base * (1 + (porcentajeFlete / 100));
-  const baseConIva = baseConFlete * (1 + (porcentajeIva / 100));
-  const final = baseConIva * (1 + (porcentajeMargen / 100));
+  const precioUsdConMargen = costoCompra * (1 + (porcentajeMargen / 100));
+  const precioUsdConFlete = precioUsdConMargen * (1 + (porcentajeFlete / 100));
+  const precioArsSinIva = monedaCompra === 'USD' ? (precioUsdConFlete * tipoCambio) : precioUsdConFlete;
+  const ivaMonto = precioArsSinIva * (porcentajeIva / 100);
+  const final = precioArsSinIva + ivaMonto;
   return Number(numeroSeguro(final).toFixed(2));
 }
 

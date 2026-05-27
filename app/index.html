@@ -102,13 +102,7 @@
             <label>Dosis orientativa <input id="pre-dosis-orientativa" /></label>
           </section>
           <section class="pre-editor-panel hidden" data-pre-editor-panel="economico">
-            <label>Precio final venta ARS <input id="pre-precio-final" type="number" step="0.01" min="0" /></label>
-            <label class="pre-toggle-line">Publicado web
-              <input id="pre-publicado-web" type="checkbox" />
-            </label>
-            <label class="pre-toggle-line">Oferta
-              <input id="pre-oferta" type="checkbox" />
-            </label>
+            <p class="helper-text">Use el botón “2. Variables económicas” de cada producto para editar el armado completo del precio.</p>
           </section>
           <section class="pre-editor-panel hidden" data-pre-editor-panel="imagenes">
             <label>Imagen principal <input id="pre-imagen-url" placeholder="https://..." /></label>
@@ -120,8 +114,17 @@
       </aside>
       <dialog id="pre-modal-economico" class="modal-cierre-caja">
         <article>
-          <h3>Variables económicas</h3>
-          <p>Precio final venta ARS: <strong id="pre-modal-precio-final">$0.00</strong></p>
+          <h3>2. Variables económicas</h3>
+          <label>1. Precio de compra USD <input id="pre-modal-precio-compra-usd" type="number" step="0.01" min="0" /></label>
+          <label>2. Tipo de cambio actual del sistema <input id="pre-modal-tipo-cambio" type="number" step="0.01" min="0" disabled /></label>
+          <label>3. Margen / utilidad % <input id="pre-modal-margen" type="number" step="0.01" min="0" /></label>
+          <label>4. Flete % <input id="pre-modal-flete" type="number" step="0.01" min="0" /></label>
+          <label>5. IVA % <input id="pre-modal-iva" type="number" step="0.01" min="0" /></label>
+          <label class="pre-toggle-line">Precio manual
+            <input id="pre-modal-precio-manual" type="checkbox" />
+          </label>
+          <label>6. Precio final venta ARS <input id="pre-modal-precio-final-input" type="number" step="0.01" min="0" /></label>
+          <div id="pre-modal-preview-economico" class="helper-text"></div>
           <label class="pre-toggle-line">Publicado web
             <input id="pre-modal-publicado-web" type="checkbox" />
           </label>
