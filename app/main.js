@@ -1485,16 +1485,20 @@ function renderProductosPrecampania() {
           precioInternoManual: p.precioInternoManual,
           porcentajeFlete: p.porcentajeFlete
         }, tipoCambioActual);
+        const visibleTxt = p.visibleEnSemillasYa ? 'Sí' : 'No';
+        const publicadoTxt = p.publicadoWeb ? 'Sí' : 'No';
         return `<article class="pre-presentacion-item">
           <div class="pre-presentacion-main">
             <!-- RENDER_PRODUCTOS_SEMILLASYA_POR_PRESENTACION -->
             <div class="pre-presentacion-nombre">${p.nombre || variedad || '-'}</div>
             <div class="pre-presentacion-detalle">${p.presentacionEnvase || '-'}</div>
-            <div class="pre-presentacion-detalle">
-              ${calculoSemillasYa.tienePrecio ? `USD base: ${calculoSemillasYa.baseUsd.toFixed(2)}` : 'USD base: consultar'}
-            </div>
-            <div class="pre-presentacion-detalle">
-              ${calculoSemillasYa.tienePrecio ? `Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}` : 'Precio estimado ARS + IVA: consultar'}
+            <button type="button" class="pre-icon-btn" data-pre-toggle-comercial="${p.id}">Ver variantes comerciales</button>
+            <div class="pre-comercial-detalle hidden" id="pre-comercial-${p.id}">
+              <div class="pre-presentacion-detalle">${calculoSemillasYa.tienePrecio ? `Precio USD: ${calculoSemillasYa.baseUsd.toFixed(2)}` : 'Precio USD: consultar'}</div>
+              <div class="pre-presentacion-detalle">Flete: ${Number(p.porcentajeFlete || 0).toFixed(2)}%</div>
+              <div class="pre-presentacion-detalle">${calculoSemillasYa.tienePrecio ? `Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}` : 'Precio estimado ARS + IVA: consultar'}</div>
+              <div class="pre-presentacion-detalle">Publicación web: ${publicadoTxt}</div>
+              <div class="pre-presentacion-detalle">Visible: ${visibleTxt}</div>
             </div>
           </div>
           <div class="pre-producto-actions">
@@ -1738,6 +1742,14 @@ $('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga
   });
 $('#pre-moneda-compra')?.addEventListener('change', calcularPreviewPrecampania);
 $('#pre-lista')?.addEventListener('click', async (e) => {
+  const toggleComercial = e.target.closest('button[data-pre-toggle-comercial]');
+  if (toggleComercial) {
+    const id = toggleComercial.getAttribute('data-pre-toggle-comercial');
+    const detalle = document.getElementById(`pre-comercial-${id}`);
+    if (detalle) detalle.classList.toggle('hidden');
+    return;
+  }
+
   const editar = e.target.closest('button[data-pre-editar]');
   if (editar) {
     const id = Number(editar.dataset.preEditar);
