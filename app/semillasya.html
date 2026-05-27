@@ -362,6 +362,7 @@
     const marcaProducto = (p) => p.semilleroLaboratorio || 'Sin semillero';
     const presentacionProducto = (p) => p.presentacionEnvase || 'Sin presentación';
     const variedadProducto = (p) => p.nombre || 'Variedad sin nombre';
+    const productoDisponiblePublico = (p) => Boolean(p?.activo && p?.visibleEnSemillasYa && p?.publicadoWeb);
     const precioProducto = (p) => {
       const v = Number(
         p.precioFinalConIva
@@ -436,6 +437,10 @@
     }
 
     function agregarCarrito(producto) {
+      if (!productoDisponiblePublico(producto)) {
+        alert('Producto no disponible para cotización pública.');
+        return;
+      }
       const idx = state.carrito.findIndex((i) => i.id === producto.id);
       if (idx >= 0) state.carrito[idx].cantidad += 1;
       else state.carrito.push({ id: producto.id, producto, cantidad: 1 });
@@ -497,6 +502,7 @@
       $('cultivoElegidoTitulo').textContent = state.cultivoSeleccionado;
 
       const list = state.productos
+        .filter((p) => productoDisponiblePublico(p))
         .filter((p) => {
           const cultivo = claveCultivo(cultivoProducto(p));
           return cultivo === claveCultivo(state.cultivoSeleccionado);
@@ -636,6 +642,8 @@
     async function enviarSolicitud() {
       if (!state.carrito.length) return alert('Agregá al menos un producto.');
       if (!state.cliente?.personaId) return alert('Primero ingresá tus datos.');
+      const itemNoDisponible = state.carrito.find((it) => !productoDisponiblePublico(it?.producto));
+      if (itemNoDisponible) return alert('Producto no disponible para cotización pública.');
 
       const payload = {
         personaId: state.cliente.personaId,
@@ -690,7 +698,9 @@
         const data = await r.json();
 
         const productos = Array.isArray(data?.productos) ? data.productos : [];
-        state.productos = productos.filter((p) => p && typeof p === 'object');
+        state.productos = productos
+          .filter((p) => p && typeof p === 'object')
+          .filter((p) => productoDisponiblePublico(p));
 
         $('catalogoInfoVisible').textContent = `Catálogo cargado: ${state.productos.length} productos`;
         console.log('[SemillasYa] total productos recibidos:', state.productos.length);

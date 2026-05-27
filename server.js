@@ -3491,11 +3491,11 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
 
   const tipoCambioActual = await obtenerTipoCambioActual();
   const productosLista = await prisma.productoPrecampania.findMany({
-    where: { id: { in: ids }, activo: true, visibleEnSemillasYa: true }
+    where: { id: { in: ids }, activo: true, visibleEnSemillasYa: true, publicadoWeb: true }
   });
   const productosById = new Map(productosLista.map((p) => [p.id, p]));
   const faltantes = ids.filter((id) => !productosById.has(id));
-  if (faltantes.length) return res.status(400).json({ ok: false, error: `Productos de precampaña no encontrados: ${faltantes.join(', ')}` });
+  if (faltantes.length) return res.status(400).json({ ok: false, error: 'Producto no disponible para cotización pública.' });
 
   const resultado = await prisma.$transaction(async (tx) => {
     let personaExistente = null;
