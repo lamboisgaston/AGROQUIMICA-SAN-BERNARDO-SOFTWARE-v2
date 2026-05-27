@@ -3074,12 +3074,69 @@ app.post('/caja/cobrar/:id', async (req, res) => {
 app.get('/ventas/cobradas-recientes', asyncHandler(async (req, res) => {
   const ventas = await prisma.venta.findMany({
     where: { estado: EstadoVenta.COBRADA },
-    include: { persona: true },
+    include: {
+      persona: true,
+      items: {
+        include: { producto: { select: { nombre: true } } }
+      }
+    },
     orderBy: { updatedAt: 'desc' },
     take: 10
   });
 
   res.json(ventas);
+}));
+
+app.get('/ventas/:id/detalle', asyncHandler(async (req, res) => {
+  const ventaId = parsePositiveInt(req.params.id);
+  if (!ventaId) return res.status(400).json({ error: 'id de venta inválido' });
+
+  const venta = await prisma.venta.findUnique({
+    where: { id: ventaId },
+    include: {
+      persona: { select: { id: true, nombre: true, telefono: true, cuitDni: true } },
+      items: {
+        include: { producto: { select: { id: true, nombre: true } } }
+      }
+    }
+  });
+
+  if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
+
+  res.json({
+    venta: {
+      id: venta.id,
+      estado: venta.estado,
+      fecha: venta.updatedAt || venta.createdAt,
+      subtotal: venta.subtotal || 0,
+      descuentoTipo: venta.descuentoTipo || null,
+      descuentoValor: venta.descuentoValor || 0,
+      total: venta.total || 0,
+      formaPago: venta.medioPago || venta.condicionPagoPrevista || 'PENDIENTE',
+      observaciones: null
+    },
+    items: (venta.items || []).map(item => ({
+      id: item.id,
+      productoId: item.productoId,
+      producto: item.producto?.nombre || 'Producto',
+      cantidad: item.cantidad,
+      precioUnitario: item.precioUnitario,
+      subtotal: item.subtotal
+    })),
+    cliente: venta.persona ? {
+      id: venta.persona.id,
+      nombre: venta.persona.nombre,
+      telefono: venta.persona.telefono || '-',
+      cuitDni: venta.persona.cuitDni || '-'
+    } : {
+      id: null,
+      nombre: 'Consumidor final',
+      telefono: '-',
+      cuitDni: '-'
+    },
+    formaPago: venta.medioPago || venta.condicionPagoPrevista || 'PENDIENTE',
+    usuario: null
+  });
 }));
 
 app.get('/ventas/cobradas', asyncHandler(async (req, res) => {

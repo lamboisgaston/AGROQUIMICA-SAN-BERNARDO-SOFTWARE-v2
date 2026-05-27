@@ -2317,13 +2317,27 @@ async function loadCaja20() {
       ? `<div class="cobradas-lista-compacta">${cobradasOrdenadas.map(v => `
         <div class="item item-compacto">
           <strong>#${v.id}</strong> · ${v.persona?.nombre || 'Consumidor final'} · ${v.medioPago || 'Sin medio'} · ${money(v.total)}
-          <button class="btn-ver-ticket-cobrada" data-id="${v.id}">Ver ticket</button>
+          <div class="action-row">
+            <button class="btn-ver-ticket-cobrada" data-id="${v.id}">Ver ticket</button>
+            <button class="btn-imprimir-ticket-cobrada" data-id="${v.id}">Imprimir</button>
+            <button class="btn-pdf-ticket-cobrada" data-id="${v.id}">PDF</button>
+          </div>
         </div>
       `).join('')}</div>`
       : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
   }
 
   document.querySelectorAll('.btn-ver-ticket-cobrada').forEach(btn => {
+    btn.addEventListener('click', () => {
+      abrirDetalleTicketEnModal(btn.dataset.id);
+    });
+  });
+  document.querySelectorAll('.btn-imprimir-ticket-cobrada').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
+    });
+  });
+  document.querySelectorAll('.btn-pdf-ticket-cobrada').forEach(btn => {
     btn.addEventListener('click', () => {
       window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
     });
@@ -2332,7 +2346,38 @@ async function loadCaja20() {
   await loadCierresCaja();
 }
 
+let ventaTicketActualId = null;
 let cierreCajaPendiente = null;
+
+async function abrirDetalleTicketEnModal(ventaId) {
+  const detalle = await api(`/ventas/${ventaId}/detalle`);
+  const venta = detalle?.venta || {};
+  const cliente = detalle?.cliente || {};
+  const items = Array.isArray(detalle?.items) ? detalle.items : [];
+  ventaTicketActualId = Number(ventaId);
+  const descuento = venta.descuentoTipo
+    ? `${venta.descuentoTipo} ${Number(venta.descuentoValor || 0).toFixed(2)}`
+    : 'Sin descuento';
+
+  $('#ticket-venta-contenido').innerHTML = `
+    <p><strong>Número venta:</strong> #${venta.id || ventaTicketActualId}</p>
+    <p><strong>Fecha:</strong> ${venta.fecha ? new Date(venta.fecha).toLocaleString('es-AR') : '-'}</p>
+    <p><strong>Usuario vendedor:</strong> ${detalle?.usuario?.nombre || '-'}</p>
+    <p><strong>Comprador:</strong> ${cliente.nombre || 'Consumidor final'}</p>
+    <p><strong>Teléfono:</strong> ${cliente.telefono || '-'}</p>
+    <p><strong>CUIT/DNI:</strong> ${cliente.cuitDni || '-'}</p>
+    <p><strong>Forma de pago:</strong> ${detalle?.formaPago || '-'}</p>
+    <table>
+      <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead>
+      <tbody>${items.length ? items.map(item => `<tr><td>${item.producto || '-'}</td><td>${item.cantidad || 0}</td><td>${money(item.precioUnitario || 0)}</td><td>${money(item.subtotal || 0)}</td></tr>`).join('') : '<tr><td colspan="4">Sin productos</td></tr>'}</tbody>
+    </table>
+    <p><strong>Subtotal:</strong> ${money(venta.subtotal || 0)}</p>
+    <p><strong>Descuento:</strong> ${descuento}</p>
+    <p><strong>Total final:</strong> ${money(venta.total || 0)}</p>
+    <div class="mensaje-pago"><strong>Alias de pago: INGLAMBOIS</strong><br/>Por favor enviar comprobante de pago al Ing. Lambois.</div>
+  `;
+  $('#modal-ticket-venta')?.showModal();
+}
 
 async function cerrarCajaDesdeCaja20() {
   const fechaCaja = $('#caja-fecha')?.value || undefined;
@@ -2438,6 +2483,17 @@ $('#btn-confirmar-cierre')?.addEventListener('click', async () => {
 $('#btn-cancelar-cierre')?.addEventListener('click', () => {
   $('#modal-cierre-caja')?.close();
   cierreCajaPendiente = null;
+});
+$('#btn-ticket-cerrar-modal')?.addEventListener('click', () => {
+  $('#modal-ticket-venta')?.close();
+});
+$('#btn-ticket-imprimir-modal')?.addEventListener('click', () => {
+  if (!ventaTicketActualId) return;
+  window.open(`/ventas/${ventaTicketActualId}/ticket`, '_blank', 'noopener,noreferrer');
+});
+$('#btn-ticket-pdf-modal')?.addEventListener('click', () => {
+  if (!ventaTicketActualId) return;
+  window.open(`/ventas/${ventaTicketActualId}/ticket`, '_blank', 'noopener,noreferrer');
 });
 
 $('#ventas-cobradas-fecha').addEventListener('change', (e) => {
