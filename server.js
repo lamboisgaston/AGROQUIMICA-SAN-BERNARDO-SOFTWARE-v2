@@ -849,7 +849,7 @@ function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1
     precioInternoManual: payload.precioInternoManual == null || payload.precioInternoManual === '' ? null : Number(payload.precioInternoManual),
     monedaCompra,
     costoCompra: Number(payload.costoCompra || 0),
-    tipoCambio: Number(tipoCambioActual || 1),
+    tipoCambio: Number(payload.tipoCambio || payload.tipoCambioUsado || tipoCambioActual || 1),
     porcentajeFlete: Number(payload.porcentajeFlete || 0),
     porcentajeIva: Number(payload.porcentajeIva || 0),
     porcentajeMargen: Number(payload.porcentajeMargen || 0),
@@ -864,9 +864,9 @@ function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1
   }
   if (base.semilleroLaboratorio === 'GUASCH') {
     base.monedaCompra = 'USD';
-    base.porcentajeMargen = 0;
-    base.porcentajeFlete = 10;
-    base.porcentajeIva = 21;
+    base.porcentajeMargen = payload.porcentajeMargen == null ? 0 : base.porcentajeMargen;
+    base.porcentajeFlete = payload.porcentajeFlete == null ? 10 : base.porcentajeFlete;
+    base.porcentajeIva = payload.porcentajeIva == null ? 21 : base.porcentajeIva;
   }
   base.precioVentaFinal = calcularPrecioProductoPrecampania(base);
   if (base.usaPrecioManual && base.precioInternoManual == null && base.precioManual != null) {
@@ -2203,6 +2203,41 @@ app.put('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   const data = normalizarPayloadProductoPrecampania(payload, tipoCambioActual);
   const actualizado = await prisma.productoPrecampania.update({ where: { id }, data: { ...data, cultivo, semilleroLaboratorio: semillero } });
   res.json(actualizado);
+}));
+
+app.get('/api/debug/producto-economico/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const producto = await prisma.productoPrecampania.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      costoCompra: true,
+      tipoCambio: true,
+      porcentajeMargen: true,
+      porcentajeFlete: true,
+      porcentajeIva: true,
+      precioVentaFinal: true,
+      usaPrecioManual: true,
+      precioManual: true,
+      publicadoWeb: true,
+      estado: true,
+      visibleEnSemillasYa: true
+    }
+  });
+  if (!producto) return res.status(404).json({ error: 'Producto precampaña no encontrado' });
+  res.json({
+    ...producto,
+    precioCompraUsd: producto.costoCompra,
+    tipoCambioManual: producto.tipoCambio,
+    tipoCambioUsado: producto.tipoCambio,
+    margenPorcentaje: producto.porcentajeMargen,
+    fletePorcentaje: producto.porcentajeFlete,
+    ivaPorcentaje: producto.porcentajeIva,
+    precioFinalVentaArs: producto.precioVentaFinal,
+    precioManualActivo: producto.usaPrecioManual,
+    ofertaActiva: producto.estado === 'DISPONIBLE'
+  });
 }));
 
 app.patch('/api/productos-precampania/:id/publicacion', asyncHandler(async (req, res) => {
