@@ -82,27 +82,39 @@
       <div id="pre-drawer-overlay" class="pre-drawer-overlay hidden"></div>
       <aside id="pre-drawer" class="pre-drawer hidden">
         <div class="pre-drawer-header"><h3 id="pre-drawer-title">Agregar producto</h3><button id="btn-pre-cerrar-drawer" type="button">✕</button></div>
+        <div class="pre-editor-tabs">
+          <button type="button" class="pre-editor-tab is-active" data-pre-editor-tab="tecnico">1. Variables técnicas</button>
+          <button type="button" class="pre-editor-tab" data-pre-editor-tab="economico">2. Variables económicas</button>
+          <button type="button" class="pre-editor-tab" data-pre-editor-tab="imagenes">3. Imágenes</button>
+        </div>
         <div class="compact-form">
           <input id="pre-id" type="hidden" />
-          <label>Cultivo<select id="pre-cultivo"></select></label>
-          <label>Semillero<select id="pre-semillero"></select></label>
-          <label>Variedad / Producto <input id="pre-nombre" /></label>
-          <label>Presentación <input id="pre-envase" /></label>
-          <label>Costo base <input id="pre-costo-compra" type="number" min="0" step="0.01" /></label>
-          <label>Moneda<select id="pre-moneda-compra"><option value="ARS">ARS</option><option value="USD">USD</option></select></label>
-          <label>Tipo de cambio global <input id="pre-tipo-cambio-global" type="number" step="0.01" readonly /></label>
-          <label>Flete % <input id="pre-porcentaje-flete" type="number" step="0.01" /></label>
-          <label>Margen % <input id="pre-porcentaje-margen" type="number" step="0.01" /></label>
-          <label>Precio final <input id="pre-precio-final" type="number" step="0.01" readonly /></label>
-          <label>Categoría <input id="pre-categoria" /></label>
-          <label>Descripción <input id="pre-descripcion" /></label>
-          <label>Descripción técnica <textarea id="pre-descripcion-tecnica"></textarea></label>
-          <label>Recomendaciones de uso <textarea id="pre-recomendaciones-uso"></textarea></label>
-          <label>Época de siembra <input id="pre-epoca-siembra" /></label>
-          <label>Dosis orientativa <input id="pre-dosis-orientativa" /></label>
-          <label>Observaciones comerciales <textarea id="pre-observaciones-comerciales"></textarea></label>
-          <label>Imagen URL <input id="pre-imagen-url" placeholder="https://..." /></label>
-          <div id="pre-resumen-calculo" class="item"><strong>Vista previa:</strong> <span id="pre-calc-base">$0.00</span> · <span id="pre-calc-flete">$0.00</span> · <span id="pre-calc-margen">0%</span> · <strong id="pre-calc-estimado">$0.00</strong><span id="pre-calc-final" class="hidden"></span></div>
+          <section class="pre-editor-panel" data-pre-editor-panel="tecnico">
+            <label>Cultivo<select id="pre-cultivo"></select></label>
+            <label>Variedad / Nombre <input id="pre-nombre" /></label>
+            <label>Semillero<select id="pre-semillero"></select></label>
+            <label>Grupo <input id="pre-categoria" /></label>
+            <label>Tratamiento <input id="pre-descripcion" /></label>
+            <label>Presentación <input id="pre-envase" /></label>
+            <label>Descripción técnica <textarea id="pre-descripcion-tecnica"></textarea></label>
+            <label>Recomendaciones de uso <textarea id="pre-recomendaciones-uso"></textarea></label>
+            <label>Época de siembra <input id="pre-epoca-siembra" /></label>
+            <label>Dosis orientativa <input id="pre-dosis-orientativa" /></label>
+          </section>
+          <section class="pre-editor-panel hidden" data-pre-editor-panel="economico">
+            <label>Precio final venta ARS <input id="pre-precio-final" type="number" step="0.01" min="0" /></label>
+            <label class="pre-toggle-line">Publicado web
+              <input id="pre-publicado-web" type="checkbox" />
+            </label>
+            <label class="pre-toggle-line">Oferta
+              <input id="pre-oferta" type="checkbox" />
+            </label>
+          </section>
+          <section class="pre-editor-panel hidden" data-pre-editor-panel="imagenes">
+            <label>Imagen principal <input id="pre-imagen-url" placeholder="https://..." /></label>
+            <label>URLs adicionales <textarea id="pre-imagenes-adicionales" placeholder="Una URL por línea"></textarea></label>
+            <label>PDF ficha técnica <input id="pre-ficha-pdf-url" placeholder="https://..." /></label>
+          </section>
           <button id="btn-precampania-guardar" class="btn-primary">Guardar</button>
         </div>
       </aside>

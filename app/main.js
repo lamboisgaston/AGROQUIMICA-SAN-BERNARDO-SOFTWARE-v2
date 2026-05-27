@@ -1367,14 +1367,12 @@ function resetFormularioPrecampania() {
   $('#pre-recomendaciones-uso').value = '';
   $('#pre-epoca-siembra').value = '';
   $('#pre-dosis-orientativa').value = '';
-  $('#pre-observaciones-comerciales').value = '';
   $('#pre-imagen-url').value = '';
-  $('#pre-costo-compra').value = '0';
-  $('#pre-moneda-compra').value = 'ARS';
-  $('#pre-tipo-cambio-global').value = String(tipoCambioActual || 1);
-  $('#pre-porcentaje-flete').value = '0';
-  $('#pre-porcentaje-margen').value = '0';
   $('#pre-precio-final').value = '0';
+  $('#pre-publicado-web').checked = false;
+  $('#pre-oferta').checked = false;
+  $('#pre-imagenes-adicionales').value = '';
+  $('#pre-ficha-pdf-url').value = '';
   if (precampaniaContextoCarga.cultivo) $('#pre-cultivo').value = precampaniaContextoCarga.cultivo;
   if (precampaniaContextoCarga.semillero) $('#pre-semillero').value = precampaniaContextoCarga.semillero;
   calcularPreviewPrecampania();
@@ -1382,6 +1380,7 @@ function resetFormularioPrecampania() {
 
 function abrirDrawerPrecampania(titulo = "Agregar producto") {
   $("#pre-drawer-title").textContent = titulo;
+  seleccionarTabEditorPrecampania('tecnico');
   $("#pre-drawer")?.classList.remove("hidden");
   $("#pre-drawer-overlay")?.classList.remove("hidden");
 }
@@ -1391,25 +1390,17 @@ function cerrarDrawerPrecampania() {
 }
 
 function calcularPreviewPrecampania() {
-  const costoBase = Number($('#pre-costo-compra')?.value || 0);
-  const monedaCompra = $('#pre-moneda-compra')?.value === 'USD' ? 'USD' : 'ARS';
-  const tipoCambioGlobal = Number(tipoCambioActual || 1);
-  const porcentajeFlete = Number($('#pre-porcentaje-flete')?.value || 0);
-  const porcentajeMargen = Number($('#pre-porcentaje-margen')?.value || 0);
-
-  const costoBasePesos = monedaCompra === 'USD' ? (costoBase * tipoCambioGlobal) : costoBase;
-  const flete = costoBasePesos * (porcentajeFlete / 100);
-  const subtotal = costoBasePesos + flete;
-  const margen = subtotal * (porcentajeMargen / 100);
-  const precioFinal = subtotal + margen;
-
+  const precioFinal = Number($('#pre-precio-final')?.value || 0);
   if ($('#pre-precio-final')) $('#pre-precio-final').value = String(Number.isFinite(precioFinal) ? Number(precioFinal.toFixed(2)) : 0);
-  if ($('#pre-calc-base')) $('#pre-calc-base').textContent = money(costoBasePesos || 0);
-  if ($('#pre-calc-flete')) $('#pre-calc-flete').textContent = money(flete || 0);
-  if ($('#pre-calc-final')) $('#pre-calc-final').textContent = money(precioFinal || 0);
-  if ($('#pre-calc-estimado')) $('#pre-calc-estimado').textContent = money(precioFinal || 0);
-  if ($('#pre-calc-margen')) $('#pre-calc-margen').textContent = `${Number.isFinite(porcentajeMargen) ? porcentajeMargen : 0}%`;
-  if ($('#pre-tipo-cambio-global')) $('#pre-tipo-cambio-global').value = String(tipoCambioGlobal);
+}
+
+function seleccionarTabEditorPrecampania(tab = 'tecnico') {
+  document.querySelectorAll('[data-pre-editor-tab]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.preEditorTab === tab);
+  });
+  document.querySelectorAll('[data-pre-editor-panel]').forEach((panel) => {
+    panel.classList.toggle('hidden', panel.dataset.preEditorPanel !== tab);
+  });
 }
 
 function renderSemillerosPrecampania() {
@@ -1735,12 +1726,14 @@ $('#btn-precampania-nuevo')?.addEventListener('click', () => { resetFormularioPr
 $('#pre-cultivo')?.addEventListener('change', (e) => { precampaniaContextoCarga.cultivo = e.target.value; });
 $('#pre-semillero')?.addEventListener('change', (e) => { precampaniaContextoCarga.semillero = e.target.value; });
 $('#pre-categoria')?.addEventListener('input', (e) => { precampaniaContextoCarga.categoria = e.target.value; });
-['pre-costo-compra', 'pre-porcentaje-flete', 'pre-porcentaje-margen']
+['pre-precio-final']
   .forEach((id) => {
     $(id)?.addEventListener('input', calcularPreviewPrecampania);
     $(id)?.addEventListener('change', calcularPreviewPrecampania);
   });
-$('#pre-moneda-compra')?.addEventListener('change', calcularPreviewPrecampania);
+document.querySelectorAll('[data-pre-editor-tab]').forEach((btn) => {
+  btn.addEventListener('click', () => seleccionarTabEditorPrecampania(btn.dataset.preEditorTab));
+});
 $('#pre-lista')?.addEventListener('click', async (e) => {
   const toggleComercial = e.target.closest('button[data-pre-toggle-comercial]');
   if (toggleComercial) {
@@ -1767,14 +1760,12 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     $('#pre-recomendaciones-uso').value = p.recomendacionesUso || '';
     $('#pre-epoca-siembra').value = p.epocaSiembra || '';
     $('#pre-dosis-orientativa').value = p.dosisOrientativa || '';
-    $('#pre-observaciones-comerciales').value = p.observacionesComerciales || '';
     $('#pre-imagen-url').value = p.imagenUrl || '';
-    $('#pre-costo-compra').value = p.costoCompra == null ? '0' : String(p.costoCompra);
-    $('#pre-moneda-compra').value = p.monedaCompra === 'USD' ? 'USD' : 'ARS';
-    $('#pre-tipo-cambio-global').value = String(tipoCambioActual || 1);
-    $('#pre-porcentaje-flete').value = p.porcentajeFlete == null ? '0' : String(p.porcentajeFlete);
-    $('#pre-porcentaje-margen').value = p.porcentajeMargen == null ? '0' : String(p.porcentajeMargen);
     $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
+    $('#pre-publicado-web').checked = Boolean(p.publicadoWeb);
+    $('#pre-oferta').checked = p.estado === 'DISPONIBLE';
+    $('#pre-imagenes-adicionales').value = p.observacionesComerciales || '';
+    $('#pre-ficha-pdf-url').value = '';
     calcularPreviewPrecampania();
     abrirDrawerPrecampania('Editar producto');
     return;
@@ -1842,12 +1833,16 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     recomendacionesUso: ($('#pre-recomendaciones-uso').value || '').trim(),
     epocaSiembra: ($('#pre-epoca-siembra').value || '').trim(),
     dosisOrientativa: ($('#pre-dosis-orientativa').value || '').trim(),
-    observacionesComerciales: ($('#pre-observaciones-comerciales').value || '').trim(),
+    observacionesComerciales: ($('#pre-imagenes-adicionales').value || '').trim(),
     imagenUrl: ($('#pre-imagen-url').value || '').trim(),
-    costoCompra: Number($('#pre-costo-compra').value || 0),
-    monedaCompra: $('#pre-moneda-compra').value === 'USD' ? 'USD' : 'ARS',
-    porcentajeFlete: Number($('#pre-porcentaje-flete').value || 0),
-    porcentajeMargen: Number($('#pre-porcentaje-margen').value || 0),
+    costoCompra: 0,
+    monedaCompra: 'ARS',
+    porcentajeFlete: 0,
+    porcentajeMargen: 0,
+    porcentajeIva: 0,
+    precioVentaFinal: Number($('#pre-precio-final').value || 0),
+    publicadoWeb: Boolean($('#pre-publicado-web').checked),
+    estado: $('#pre-oferta').checked ? 'DISPONIBLE' : 'CONSULTAR',
     usaPrecioManual: false,
     precioManual: '',
     precioInternoManual: ''
