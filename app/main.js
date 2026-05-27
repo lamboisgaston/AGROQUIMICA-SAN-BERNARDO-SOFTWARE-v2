@@ -2172,7 +2172,8 @@ $('#btn-cerrar').addEventListener('click', async () => {
     $('#descuento-tipo').value = 'PORCENTAJE';
     $('#ajuste-redondeo').value = '0';
     $('#condicion-pago-prevista').value = '';
-    setMsg(`✅ Venta #${ventaCerrada.id} creada correctamente y enviada a caja`);
+    setMsg(`✅ Venta #${ventaCerrada.id} creada correctamente y enviada a caja. Puede ver/imprimir ticket en caja o en ventas cobradas.`);
+    window.open(`/ventas/${ventaCerrada.id}/ticket`, '_blank', 'noopener,noreferrer');
   } catch (err) {
     console.log('[cerrar-venta] error backend', err);
     const detalle = (typeof err?.body === 'object' && err?.body)
@@ -2316,10 +2317,17 @@ async function loadCaja20() {
       ? `<div class="cobradas-lista-compacta">${cobradasOrdenadas.map(v => `
         <div class="item item-compacto">
           <strong>#${v.id}</strong> · ${v.persona?.nombre || 'Consumidor final'} · ${v.medioPago || 'Sin medio'} · ${money(v.total)}
+          <button class="btn-ver-ticket-cobrada" data-id="${v.id}">Ver ticket</button>
         </div>
       `).join('')}</div>`
       : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
   }
+
+  document.querySelectorAll('.btn-ver-ticket-cobrada').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
+    });
+  });
 
   await loadCierresCaja();
 }

@@ -3138,18 +3138,21 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   });
 
   if (!venta) return res.status(404).send('Venta no encontrada');
-  if (venta.estado !== EstadoVenta.COBRADA) {
-    return res.status(400).send('Solo se puede generar ticket para ventas cobradas');
+  if (venta.estado === EstadoVenta.BORRADOR) {
+    return res.status(400).send('Solo se puede generar ticket para ventas cerradas');
   }
 
   const negocio = 'Agroquímica y Fumigaciones San Bernardo';
   const cliente = venta.persona?.nombre || 'Consumidor final';
+  const clienteTelefono = venta.persona?.telefono || '-';
+  const clienteDocumento = venta.persona?.cuitDni || '-';
   const fecha = new Date(venta.updatedAt || venta.createdAt).toLocaleString('es-AR');
-  const medioPago = venta.medioPago || '-';
+  const formaPago = venta.medioPago || venta.condicionPagoPrevista || 'PENDIENTE';
   const rows = (venta.items || []).map(item => `
     <tr>
       <td>${escapeHtml(item.producto?.nombre || 'Producto')}</td>
       <td>${item.cantidad}</td>
+      <td>$${Number(item.precioUnitario || 0).toFixed(2)}</td>
       <td>$${Number(item.subtotal || 0).toFixed(2)}</td>
     </tr>
   `).join('');
@@ -3160,35 +3163,61 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
     <meta charset="UTF-8" />
     <title>Ticket Venta #${venta.id}</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 16px; max-width: 420px; }
+      body { font-family: Arial, sans-serif; margin: 16px; max-width: 380px; color: #0f172a; }
       h1 { margin: 0 0 8px; font-size: 18px; }
       .institutional-signature { margin: 0 0 8px; color: #334155; font-size: 11px; line-height: 1.25; }
       p { margin: 4px 0; }
+      .bloque { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; margin-top: 10px; }
+      .bloque h2 { margin: 0 0 6px; font-size: 14px; }
       table { width: 100%; border-collapse: collapse; margin-top: 10px; }
       th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
       .total { font-size: 16px; margin-top: 10px; }
+      .mensaje-pago { margin-top: 12px; padding: 8px; background: #f8fafc; border-radius: 6px; font-size: 12px; }
       @media print { button { display: none; } }
     </style>
   </head>
   <body>
     <h1>${escapeHtml(negocio)}</h1>
     <p class="institutional-signature">www.hubya.tech</p>
-    <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
-    <p><strong>Número de venta:</strong> #${venta.id}</p>
-    <p><strong>Cliente:</strong> ${escapeHtml(cliente)}</p>
-    <table>
+    <div class="bloque">
+      <h2>Datos generales</h2>
+      <p><strong>Número de venta:</strong> #${venta.id}</p>
+      <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+      <p><strong>Estado:</strong> ${escapeHtml(venta.estado || '-')}</p>
+      <p><strong>Vendedor:</strong> -</p>
+    </div>
+    <div class="bloque">
+      <h2>Comprador</h2>
+      <p><strong>Nombre:</strong> ${escapeHtml(cliente)}</p>
+      <p><strong>Teléfono:</strong> ${escapeHtml(clienteTelefono)}</p>
+      <p><strong>CUIT/DNI:</strong> ${escapeHtml(clienteDocumento)}</p>
+    </div>
+    <div class="bloque">
+      <h2>Productos vendidos</h2>
+      <table>
       <thead>
-        <tr><th>Producto</th><th>Cantidad</th><th>Subtotal</th></tr>
+        <tr><th>Producto</th><th>Cant.</th><th>P. Unit</th><th>Subtotal</th></tr>
       </thead>
       <tbody>
-        ${rows || '<tr><td colspan="3">Sin productos</td></tr>'}
+        ${rows || '<tr><td colspan="4">Sin productos</td></tr>'}
       </tbody>
     </table>
+    </div>
+    <div class="bloque">
+      <h2>Forma de pago</h2>
+      <p><strong>Condición / medio:</strong> ${escapeHtml(formaPago)}</p>
+    </div>
+    <div class="bloque">
+      <h2>Totales</h2>
     <p><strong>Subtotal:</strong> $${Number(venta.subtotal || venta.total || 0).toFixed(2)}</p>
     <p><strong>Descuento:</strong> ${venta.descuentoTipo ? `${escapeHtml(venta.descuentoTipo)} ${Number(venta.descuentoValor || 0).toFixed(2)}` : 'Sin descuento'}</p>
     <p class="total"><strong>Total final:</strong> $${Number(venta.total || 0).toFixed(2)}</p>
-    <p><strong>Medio de pago:</strong> ${escapeHtml(medioPago)}</p>
-    <button onclick="window.print()">Imprimir</button>
+    </div>
+    <div class="mensaje-pago">
+      <strong>Alias de pago: INGLAMBOIS</strong><br/>
+      Por favor enviar comprobante de pago al Ing. Lambois.
+    </div>
+    <button onclick="window.print()">Imprimir ticket</button>
   </body>
 </html>`;
 
