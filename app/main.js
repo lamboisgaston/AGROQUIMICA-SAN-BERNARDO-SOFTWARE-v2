@@ -1394,6 +1394,37 @@ function calcularPreviewPrecampania() {
   if ($('#pre-precio-final')) $('#pre-precio-final').value = String(Number.isFinite(precioFinal) ? Number(precioFinal.toFixed(2)) : 0);
 }
 
+function calcularPreviewEconomicoPrecampania() {
+  const precioCompraUsd = Number($('#pre-modal-precio-compra-usd')?.value || 0);
+  const margenPorcentaje = Number($('#pre-modal-margen')?.value || 0);
+  const fletePorcentaje = Number($('#pre-modal-flete')?.value || 0);
+  const ivaPorcentaje = Number($('#pre-modal-iva')?.value || 0);
+  const tipoCambioSistema = Number($('#pre-modal-tipo-cambio')?.value || tipoCambioActual || 1);
+  const precioManualActivo = Boolean($('#pre-modal-precio-manual')?.checked);
+
+  const precioUsdConMargen = precioCompraUsd * (1 + (margenPorcentaje / 100));
+  const precioUsdConFlete = precioUsdConMargen * (1 + (fletePorcentaje / 100));
+  const precioArsSinIva = precioUsdConFlete * tipoCambioSistema;
+  const ivaMonto = precioArsSinIva * (ivaPorcentaje / 100);
+  const precioFinalVentaArs = precioArsSinIva + ivaMonto;
+
+  const finalInput = $('#pre-modal-precio-final-input');
+  if (finalInput && !precioManualActivo) finalInput.value = String(Number(precioFinalVentaArs.toFixed(2)));
+  if (finalInput) finalInput.disabled = !precioManualActivo;
+
+  const preview = $('#pre-modal-preview-economico');
+  if (preview) {
+    preview.innerHTML = [
+      `USD compra: <strong>${Number(precioCompraUsd.toFixed(2))}</strong>`,
+      `USD con margen: <strong>${Number(precioUsdConMargen.toFixed(2))}</strong>`,
+      `USD con flete: <strong>${Number(precioUsdConFlete.toFixed(2))}</strong>`,
+      `ARS sin IVA: <strong>${money(precioArsSinIva)}</strong>`,
+      `IVA: <strong>${money(ivaMonto)}</strong>`,
+      `Precio final venta ARS: <strong>${money(precioManualActivo ? Number(finalInput?.value || 0) : precioFinalVentaArs)}</strong>`
+    ].join('<br/>');
+  }
+}
+
 function seleccionarTabEditorPrecampania(tab = 'tecnico') {
   document.querySelectorAll('[data-pre-editor-tab]').forEach((btn) => {
     btn.classList.toggle('is-active', btn.dataset.preEditorTab === tab);
@@ -1763,9 +1794,17 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     const p = precampaniaProductos.find((x) => x.id === id);
     if (!p) return;
     $('#pre-modal-economico').dataset.preId = String(id);
-    $('#pre-modal-precio-final').textContent = money(p.precioVentaFinal || 0);
+    $('#pre-modal-precio-compra-usd').value = String(Number(p.costoCompra || 0));
+    $('#pre-modal-tipo-cambio').value = String(Number(tipoCambioActual || 1));
+    const margenDefault = p.semilleroLaboratorio === 'GUASCH' ? 0 : Number(p.porcentajeMargen || 0);
+    $('#pre-modal-margen').value = String(margenDefault);
+    $('#pre-modal-flete').value = String(Number(p.porcentajeFlete || 0));
+    $('#pre-modal-iva').value = String(Number(p.porcentajeIva || 0));
+    $('#pre-modal-precio-manual').checked = Boolean(p.usaPrecioManual);
+    $('#pre-modal-precio-final-input').value = String(Number(p.precioVentaFinal || 0));
     $('#pre-modal-publicado-web').checked = Boolean(p.publicadoWeb);
     $('#pre-modal-oferta').checked = p.estado === 'DISPONIBLE';
+    calcularPreviewEconomicoPrecampania();
     $('#pre-modal-economico')?.showModal();
     return;
   }
@@ -1818,6 +1857,13 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   await loadProductosPrecampania();
   setMsg('Producto SemillasYa desactivado', 'info');
 });
+
+['pre-modal-precio-compra-usd','pre-modal-margen','pre-modal-flete','pre-modal-iva','pre-modal-precio-final-input']
+  .forEach((id) => {
+    $(id)?.addEventListener('input', calcularPreviewEconomicoPrecampania);
+    $(id)?.addEventListener('change', calcularPreviewEconomicoPrecampania);
+  });
+$('#pre-modal-precio-manual')?.addEventListener('change', calcularPreviewEconomicoPrecampania);
 $('#btn-pre-modal-cerrar')?.addEventListener('click', () => $('#pre-modal-economico')?.close());
 $('#btn-pre-modal-guardar')?.addEventListener('click', async () => {
   const modal = $('#pre-modal-economico');
@@ -1825,10 +1871,21 @@ $('#btn-pre-modal-guardar')?.addEventListener('click', async () => {
   if (!id) return;
   const p = precampaniaProductos.find((x) => x.id === id);
   if (!p) return;
+  const usaPrecioManual = Boolean($('#pre-modal-precio-manual').checked);
+  const precioFinalInput = Number($('#pre-modal-precio-final-input').value || 0);
   const payload = {
     ...p,
+    monedaCompra: 'USD',
+    costoCompra: Number($('#pre-modal-precio-compra-usd').value || 0),
+    porcentajeMargen: Number($('#pre-modal-margen').value || 0),
+    porcentajeFlete: Number($('#pre-modal-flete').value || 0),
+    porcentajeIva: Number($('#pre-modal-iva').value || 0),
+    usaPrecioManual,
+    precioManual: usaPrecioManual ? precioFinalInput : null,
+    precioInternoManual: usaPrecioManual ? precioFinalInput : Number($('#pre-modal-precio-compra-usd').value || 0),
+    precioVentaFinal: precioFinalInput,
     publicadoWeb: Boolean($('#pre-modal-publicado-web').checked),
-    estado: $('#pre-modal-oferta').checked ? 'DISPONIBLE' : 'NO_DISPONIBLE'
+    estado: $('#pre-modal-oferta').checked ? 'DISPONIBLE' : 'CONSULTAR'
   };
   await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
   modal?.close();
@@ -1851,17 +1908,17 @@ $('#btn-precampania-guardar')?.addEventListener('click', async () => {
     dosisOrientativa: ($('#pre-dosis-orientativa').value || '').trim(),
     observacionesComerciales: ($('#pre-imagenes-adicionales').value || '').trim(),
     imagenUrl: ($('#pre-imagen-url').value || '').trim(),
-    costoCompra: 0,
-    monedaCompra: 'ARS',
-    porcentajeFlete: 0,
-    porcentajeMargen: 0,
-    porcentajeIva: 0,
+    costoCompra: Number($('#pre-modal-precio-compra-usd')?.value || 0),
+    monedaCompra: 'USD',
+    porcentajeFlete: Number($('#pre-modal-flete')?.value || 0),
+    porcentajeMargen: Number($('#pre-modal-margen')?.value || 0),
+    porcentajeIva: Number($('#pre-modal-iva')?.value || 0),
     precioVentaFinal: Number($('#pre-precio-final').value || 0),
     publicadoWeb: Boolean($('#pre-publicado-web').checked),
     estado: $('#pre-oferta').checked ? 'DISPONIBLE' : 'CONSULTAR',
     usaPrecioManual: false,
     precioManual: '',
-    precioInternoManual: ''
+    precioInternoManual: Number($('#pre-modal-precio-compra-usd')?.value || 0)
   };
   if (!payload.nombre) return setMsg('Nombre obligatorio', 'warning');
   if (!String(payload.cultivo || '').trim()) return setMsg('Cultivo obligatorio', 'warning');
