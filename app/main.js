@@ -1470,32 +1470,20 @@ function renderProductosPrecampania() {
       }, {});
       const variedadesHtml = Object.entries(porVariedad).map(([variedad, presentaciones]) => {
         const presentacionesHtml = presentaciones.map((p) => {
-        const calculoSemillasYa = calcularPrecioSemillasYa({
-          precioListaUsd: p.precioUsd,
-          costoCompra: (p.monedaCompra || 'ARS') === 'USD' ? p.costoCompra : 0,
-          precioInternoManual: p.precioInternoManual,
-          porcentajeFlete: p.porcentajeFlete
-        }, tipoCambioActual);
-        const visibleTxt = p.visibleEnSemillasYa ? 'Sí' : 'No';
-        const publicadoTxt = p.publicadoWeb ? 'Sí' : 'No';
+        const precioFinalVentaArs = Number(p.precioVentaFinal || 0);
         return `<article class="pre-presentacion-item">
           <div class="pre-presentacion-main">
             <!-- RENDER_PRODUCTOS_SEMILLASYA_POR_PRESENTACION -->
             <div class="pre-presentacion-nombre">${p.nombre || variedad || '-'}</div>
-            <div class="pre-presentacion-detalle">${p.presentacionEnvase || '-'}</div>
-            <button type="button" class="pre-icon-btn" data-pre-toggle-comercial="${p.id}">Ver variantes comerciales</button>
-            <div class="pre-comercial-detalle hidden" id="pre-comercial-${p.id}">
-              <div class="pre-presentacion-detalle">${calculoSemillasYa.tienePrecio ? `Precio USD: ${calculoSemillasYa.baseUsd.toFixed(2)}` : 'Precio USD: consultar'}</div>
-              <div class="pre-presentacion-detalle">Flete: ${Number(p.porcentajeFlete || 0).toFixed(2)}%</div>
-              <div class="pre-presentacion-detalle">${calculoSemillasYa.tienePrecio ? `Precio estimado ARS + IVA: ${money(calculoSemillasYa.precioFinalConIva)}` : 'Precio estimado ARS + IVA: consultar'}</div>
-              <div class="pre-presentacion-detalle">Publicación web: ${publicadoTxt}</div>
-              <div class="pre-presentacion-detalle">Visible: ${visibleTxt}</div>
-            </div>
+            <div class="pre-presentacion-detalle">Semillero: <strong>${p.semilleroLaboratorio || semillero || '-'}</strong></div>
+            <div class="pre-presentacion-detalle">Cultivo: <strong>${p.cultivo || cultivo || '-'}</strong></div>
+            <div class="pre-presentacion-detalle">Presentación: <strong>${p.presentacionEnvase || '-'}</strong></div>
+            <div class="pre-presentacion-detalle">Precio final venta ARS: <strong>${money(precioFinalVentaArs)}</strong></div>
           </div>
           <div class="pre-producto-actions">
-            <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">✏️</button>
-            <button class="pre-icon-btn" title="Imagen" data-pre-editar="${p.id}">🖼️</button>
-            <button class="pre-icon-btn" title="Ficha técnica" data-pre-editar="${p.id}">📄</button>
+            <button class="pre-icon-btn" type="button" data-pre-open-tab="tecnico" data-pre-id="${p.id}">1. Variables técnicas</button>
+            <button class="pre-icon-btn" type="button" data-pre-open-economico="${p.id}">2. Variables económicas</button>
+            <button class="pre-icon-btn" type="button" data-pre-open-tab="imagenes" data-pre-id="${p.id}">3. Imágenes</button>
             <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span></button>
           </div>
         </article>`;
@@ -1512,6 +1500,31 @@ function renderProductosPrecampania() {
   });
   $('#pre-lista').innerHTML = bloques.length ? bloques.join('') : '<div class="item">Sin productos SemillasYa.</div>';
   renderCultivoChipsPrecampania();
+}
+
+function cargarProductoEnDrawerPrecampania(p, tabInicial = 'tecnico') {
+  if (!p) return;
+  $('#pre-id').value = String(p.id);
+  $('#pre-nombre').value = p.nombre || '';
+  $('#pre-cultivo').value = p.cultivo || '';
+  if (!$('#pre-cultivo').value && precampaniaCultivos.includes('Otro')) $('#pre-cultivo').value = 'Otro';
+  $('#pre-semillero').value = p.semilleroLaboratorio || '';
+  $('#pre-categoria').value = p.categoria || '';
+  $('#pre-envase').value = p.presentacionEnvase || '';
+  $('#pre-descripcion').value = p.descripcion || '';
+  $('#pre-descripcion-tecnica').value = p.descripcionTecnica || '';
+  $('#pre-recomendaciones-uso').value = p.recomendacionesUso || '';
+  $('#pre-epoca-siembra').value = p.epocaSiembra || '';
+  $('#pre-dosis-orientativa').value = p.dosisOrientativa || '';
+  $('#pre-imagen-url').value = p.imagenUrl || '';
+  $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
+  $('#pre-publicado-web').checked = Boolean(p.publicadoWeb);
+  $('#pre-oferta').checked = p.estado === 'DISPONIBLE';
+  $('#pre-imagenes-adicionales').value = p.observacionesComerciales || '';
+  $('#pre-ficha-pdf-url').value = '';
+  calcularPreviewPrecampania();
+  abrirDrawerPrecampania('Editar producto');
+  seleccionarTabEditorPrecampania(tabInicial);
 }
 
 async function loadProductosPrecampania() {
@@ -1735,39 +1748,25 @@ document.querySelectorAll('[data-pre-editor-tab]').forEach((btn) => {
   btn.addEventListener('click', () => seleccionarTabEditorPrecampania(btn.dataset.preEditorTab));
 });
 $('#pre-lista')?.addEventListener('click', async (e) => {
-  const toggleComercial = e.target.closest('button[data-pre-toggle-comercial]');
-  if (toggleComercial) {
-    const id = toggleComercial.getAttribute('data-pre-toggle-comercial');
-    const detalle = document.getElementById(`pre-comercial-${id}`);
-    if (detalle) detalle.classList.toggle('hidden');
-    return;
-  }
-
-  const editar = e.target.closest('button[data-pre-editar]');
-  if (editar) {
-    const id = Number(editar.dataset.preEditar);
+  const abrirTab = e.target.closest('button[data-pre-open-tab]');
+  if (abrirTab) {
+    const id = Number(abrirTab.dataset.preId);
+    const tab = abrirTab.dataset.preOpenTab || 'tecnico';
     const p = precampaniaProductos.find((x) => x.id === id);
     if (!p) return;
-    $('#pre-id').value = String(p.id);
-    $('#pre-nombre').value = p.nombre || '';
-    $('#pre-cultivo').value = p.cultivo || '';
-    if (!$('#pre-cultivo').value && precampaniaCultivos.includes('Otro')) $('#pre-cultivo').value = 'Otro';
-    $('#pre-semillero').value = p.semilleroLaboratorio || '';
-    $('#pre-categoria').value = p.categoria || '';
-    $('#pre-envase').value = p.presentacionEnvase || '';
-    $('#pre-descripcion').value = p.descripcion || '';
-    $('#pre-descripcion-tecnica').value = p.descripcionTecnica || '';
-    $('#pre-recomendaciones-uso').value = p.recomendacionesUso || '';
-    $('#pre-epoca-siembra').value = p.epocaSiembra || '';
-    $('#pre-dosis-orientativa').value = p.dosisOrientativa || '';
-    $('#pre-imagen-url').value = p.imagenUrl || '';
-    $('#pre-precio-final').value = p.precioVentaFinal == null ? '0' : String(p.precioVentaFinal);
-    $('#pre-publicado-web').checked = Boolean(p.publicadoWeb);
-    $('#pre-oferta').checked = p.estado === 'DISPONIBLE';
-    $('#pre-imagenes-adicionales').value = p.observacionesComerciales || '';
-    $('#pre-ficha-pdf-url').value = '';
-    calcularPreviewPrecampania();
-    abrirDrawerPrecampania('Editar producto');
+    cargarProductoEnDrawerPrecampania(p, tab);
+    return;
+  }
+  const abrirEconomico = e.target.closest('button[data-pre-open-economico]');
+  if (abrirEconomico) {
+    const id = Number(abrirEconomico.dataset.preOpenEconomico);
+    const p = precampaniaProductos.find((x) => x.id === id);
+    if (!p) return;
+    $('#pre-modal-economico').dataset.preId = String(id);
+    $('#pre-modal-precio-final').textContent = money(p.precioVentaFinal || 0);
+    $('#pre-modal-publicado-web').checked = Boolean(p.publicadoWeb);
+    $('#pre-modal-oferta').checked = p.estado === 'DISPONIBLE';
+    $('#pre-modal-economico')?.showModal();
     return;
   }
   const duplicar = e.target.closest('button[data-pre-duplicar]');
@@ -1818,6 +1817,23 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   await api(`/api/productos-precampania/${id}`, { method: 'DELETE' });
   await loadProductosPrecampania();
   setMsg('Producto SemillasYa desactivado', 'info');
+});
+$('#btn-pre-modal-cerrar')?.addEventListener('click', () => $('#pre-modal-economico')?.close());
+$('#btn-pre-modal-guardar')?.addEventListener('click', async () => {
+  const modal = $('#pre-modal-economico');
+  const id = Number(modal?.dataset.preId || 0);
+  if (!id) return;
+  const p = precampaniaProductos.find((x) => x.id === id);
+  if (!p) return;
+  const payload = {
+    ...p,
+    publicadoWeb: Boolean($('#pre-modal-publicado-web').checked),
+    estado: $('#pre-modal-oferta').checked ? 'DISPONIBLE' : 'NO_DISPONIBLE'
+  };
+  await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  modal?.close();
+  await loadProductosPrecampania();
+  setMsg('Variables económicas actualizadas', 'ok');
 });
 $('#btn-precampania-guardar')?.addEventListener('click', async () => {
   calcularPreviewPrecampania();
