@@ -1795,9 +1795,8 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
     if (!p) return;
     $('#pre-modal-economico').dataset.preId = String(id);
     $('#pre-modal-precio-compra-usd').value = String(Number(p.costoCompra || 0));
-    $('#pre-modal-tipo-cambio').value = String(Number(tipoCambioActual || 1));
-    const margenDefault = p.semilleroLaboratorio === 'GUASCH' ? 0 : Number(p.porcentajeMargen || 0);
-    $('#pre-modal-margen').value = String(margenDefault);
+    $('#pre-modal-tipo-cambio').value = String(Number(p.tipoCambio || tipoCambioActual || 1));
+    $('#pre-modal-margen').value = String(Number(p.porcentajeMargen || 0));
     $('#pre-modal-flete').value = String(Number(p.porcentajeFlete || 0));
     $('#pre-modal-iva').value = String(Number(p.porcentajeIva || 0));
     $('#pre-modal-precio-manual').checked = Boolean(p.usaPrecioManual);
@@ -1858,7 +1857,7 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   setMsg('Producto SemillasYa desactivado', 'info');
 });
 
-['pre-modal-precio-compra-usd','pre-modal-margen','pre-modal-flete','pre-modal-iva','pre-modal-precio-final-input']
+['pre-modal-precio-compra-usd','pre-modal-tipo-cambio','pre-modal-margen','pre-modal-flete','pre-modal-iva','pre-modal-precio-final-input']
   .forEach((id) => {
     $(id)?.addEventListener('input', calcularPreviewEconomicoPrecampania);
     $(id)?.addEventListener('change', calcularPreviewEconomicoPrecampania);
@@ -1877,6 +1876,7 @@ $('#btn-pre-modal-guardar')?.addEventListener('click', async () => {
     ...p,
     monedaCompra: 'USD',
     costoCompra: Number($('#pre-modal-precio-compra-usd').value || 0),
+    tipoCambio: Number($('#pre-modal-tipo-cambio').value || 0),
     porcentajeMargen: Number($('#pre-modal-margen').value || 0),
     porcentajeFlete: Number($('#pre-modal-flete').value || 0),
     porcentajeIva: Number($('#pre-modal-iva').value || 0),
@@ -1887,6 +1887,7 @@ $('#btn-pre-modal-guardar')?.addEventListener('click', async () => {
     publicadoWeb: Boolean($('#pre-modal-publicado-web').checked),
     estado: $('#pre-modal-oferta').checked ? 'DISPONIBLE' : 'CONSULTAR'
   };
+  console.log("guardando variables económicas", payload);
   await api(`/api/productos-precampania/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
   modal?.close();
   await loadProductosPrecampania();
