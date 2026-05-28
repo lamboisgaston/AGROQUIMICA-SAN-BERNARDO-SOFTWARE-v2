@@ -2360,6 +2360,7 @@ async function abrirDetalleTicketEnModal(ventaId) {
     : 'Sin descuento';
 
   $('#ticket-venta-contenido').innerHTML = `
+    <div class="ticket-sb-logo"><div class="ticket-sb-marca">SAN BERNARDO</div><div class="ticket-sb-sub">AGROQUIMICA • FUMIGACIONES • RIEGO</div></div>
     <p><strong>Número venta:</strong> #${venta.id || ventaTicketActualId}</p>
     <p><strong>Fecha:</strong> ${venta.fecha ? new Date(venta.fecha).toLocaleString('es-AR') : '-'}</p>
     <p><strong>Usuario vendedor:</strong> ${detalle?.usuario?.nombre || '-'}</p>

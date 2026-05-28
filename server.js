@@ -1786,38 +1786,48 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   <meta charset="utf-8" />
   <title>Presupuesto #${p.id}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; color:#111; }
-    .wrap { max-width: 900px; margin:0 auto; }
-    .head { display:flex; justify-content:space-between; border-bottom:2px solid #222; padding-bottom:10px; }
-    .institutional-signature { margin-top:4px; color:#334155; font-size:11px; line-height:1.25; }
-    table { width:100%; border-collapse: collapse; margin-top:16px; }
-    th, td { border:1px solid #ccc; padding:8px; }
-    th { background:#f2f2f2; }
-    .tot { margin-top:12px; text-align:right; }
-    .box { margin-top:16px; border:1px solid #ccc; padding:10px; border-radius:6px; }
+    :root { --sb-gold:#d4a106; --sb-black:#111111; --sb-gray:#f3f4f6; }
+    body { font-family: Arial, sans-serif; margin: 24px; color:var(--sb-black); background:#fff; }
+    .wrap { max-width: 980px; margin:0 auto; }
+    .sb-logo { text-align:center; margin-bottom:10px; }
+    .sb-logo .marca { font-size:54px; font-weight:900; letter-spacing:2px; color:var(--sb-gold); -webkit-text-stroke:1.6px var(--sb-black); text-shadow:1px 1px 0 #000; line-height:1; }
+    .sb-logo .sub { margin-top:2px; font-size:21px; letter-spacing:4px; color:#444; font-weight:700; }
+    .pres-title { border-top:4px solid var(--sb-gold); border-bottom:2px solid var(--sb-black); padding:8px 10px; margin-bottom:8px; font-weight:800; font-size:22px; }
+    .head-grid { display:grid; grid-template-columns: 1.1fr .9fr; border:1px solid #b4b4b4; }
+    .head-grid > div { padding:10px; min-height:146px; }
+    .head-grid > div:first-child { border-right:1px solid #b4b4b4; }
+    .head-section-title { margin:-10px -10px 10px; padding:6px 10px; background:var(--sb-gold); font-weight:800; font-style:italic; border-bottom:1px solid var(--sb-black); }
+    .head-row { margin:5px 0; }
+    table { width:100%; border-collapse: collapse; margin-top:12px; }
+    th, td { border:1px solid #bcbcbc; padding:7px; }
+    th { background:var(--sb-gray); font-weight:800; }
+    .tot { margin-top:10px; text-align:right; border:1px solid #bcbcbc; padding:10px; background:#fafafa; }
+    .box { margin-top:12px; border:1px solid #ccc; padding:10px; border-radius:4px; }
     .print { margin-top:18px; }
     @media print { .print { display:none; } body { margin: 0; } }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="head">
+    ${esPresupuestoSemillasYa ? '<div class="sb-logo"><div class="marca">www.semillasya.com</div><div class="sub">SOLICITUD DE COTIZACIÓN</div></div>' : '<div class="sb-logo"><div class="marca">SAN BERNARDO</div><div class="sub">AGROQUIMICA • FUMIGACIONES • RIEGO</div></div>'}
+    <div class="pres-title">PRESUPUESTO N° ${p.id}</div>
+    <div class="head-grid">
       <div>
-        ${esPresupuestoSemillasYa ? '<h1>www.semillasya.com</h1><div class="institutional-signature">Argentina</div><div>Cotización de semillas</div>' : '<h1>Agroquímica y Fumigaciones San Bernardo</h1><div class="institutional-signature">www.hubya.tech</div><div>Dirección: Chile 1455</div>'}
+        <div class="head-section-title">DATOS DE LA EMPRESA</div>
+        <div class="head-row"><strong>Razón social:</strong> Agroquímica y Fumigaciones San Bernardo</div>
+        <div class="head-row"><strong>Dirección:</strong> Chile 1455, Salta Capital</div>
+        <div class="head-row"><strong>Fecha:</strong> ${fecha}</div>
+        <div class="head-row"><strong>Estado:</strong> ${escapeHtml(p.estado)}</div>
       </div>
       <div>
-        <strong>Presupuesto #${p.id}</strong><br/>
-        Fecha: ${fecha}<br/>
-        Estado: ${escapeHtml(p.estado)}
+        <div class="head-section-title">DATOS DEL CLIENTE</div>
+        <div class="head-row"><strong>Cliente:</strong> ${escapeHtml(nombreCliente)}</div>
+        <div class="head-row"><strong>Teléfono:</strong> ${escapeHtml(p.persona?.telefono || '-')}</div>
+        <div class="head-row"><strong>CUIT/DNI:</strong> ${escapeHtml(p.persona?.cuitDni || '-')}</div>
       </div>
-    </div>
-    <div class="box">
-      <strong>Cliente:</strong> ${escapeHtml(nombreCliente)}<br/>
-      <strong>Teléfono:</strong> ${escapeHtml(p.persona?.telefono || '-')}<br/>
-      <strong>CUIT/DNI:</strong> ${escapeHtml(p.persona?.cuitDni || '-')}
     </div>
     <table>
-      <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead>
+      <thead><tr><th>DESCRIPCIÓN</th><th>UNIDADES</th><th>PRECIO $ final</th><th>TOTAL</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="tot">
@@ -3220,9 +3230,12 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
     <meta charset="UTF-8" />
     <title>Ticket Venta #${venta.id}</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 16px; max-width: 380px; color: #0f172a; }
-      h1 { margin: 0 0 8px; font-size: 18px; }
-      .institutional-signature { margin: 0 0 8px; color: #334155; font-size: 11px; line-height: 1.25; }
+      :root { --sb-gold:#d4a106; --sb-black:#111111; }
+      body { font-family: Arial, sans-serif; margin: 16px; max-width: 420px; color: #0f172a; border:2px solid #111; padding:12px; }
+      .sb-logo { text-align:center; margin-bottom:6px; }
+      .sb-logo .marca { font-size:36px; font-weight:900; letter-spacing:1.4px; color:var(--sb-gold); -webkit-text-stroke:1.3px var(--sb-black); line-height:1; }
+      .sb-logo .sub { margin-top:1px; font-size:11px; letter-spacing:1.4px; color:#444; font-weight:700; }
+      h1 { margin: 0 0 8px; font-size: 16px; text-align:center; }
       p { margin: 4px 0; }
       .bloque { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; margin-top: 10px; }
       .bloque h2 { margin: 0 0 6px; font-size: 14px; }
@@ -3234,8 +3247,8 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
     </style>
   </head>
   <body>
+    <div class="sb-logo"><div class="marca">SAN BERNARDO</div><div class="sub">AGROQUIMICA • FUMIGACIONES • RIEGO</div></div>
     <h1>${escapeHtml(negocio)}</h1>
-    <p class="institutional-signature">www.hubya.tech</p>
     <div class="bloque">
       <h2>Datos generales</h2>
       <p><strong>Número de venta:</strong> #${venta.id}</p>

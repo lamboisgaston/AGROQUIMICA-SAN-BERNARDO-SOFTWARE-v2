@@ -146,6 +146,10 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .modal-cierre-caja article { padding: 16px; }
 .modal-cierre-caja::backdrop { background: rgba(15, 23, 42, 0.45); }
 .modal-ticket-venta { width: min(900px, 96vw); }
+
+.ticket-sb-logo { text-align:center; margin-bottom:8px; }
+.ticket-sb-marca { font-size:30px; font-weight:900; letter-spacing:1.2px; color:#d4a106; -webkit-text-stroke:1px #111; line-height:1; }
+.ticket-sb-sub { font-size:10px; font-weight:700; letter-spacing:1px; color:#444; margin-top:2px; }
 .ticket-venta-contenido table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 .ticket-venta-contenido th, .ticket-venta-contenido td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
 .resumen-cierre-lista { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 12px; }
