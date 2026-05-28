@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido, TipoOperacionVenta, TipoReglaComercial } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
+const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -2346,6 +2347,24 @@ app.delete('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+
+app.get('/api/semillasya/ubicaciones', asyncHandler(async (req, res) => {
+  const provinciaId = String(req.query.provinciaId || '').trim();
+  const q = String(req.query.q || '').trim();
+  res.json({
+    ok: true,
+    pais: 'Argentina',
+    provincias: PROVINCIAS_ARGENTINA,
+    localidades: buscarLocalidades(q, provinciaId).map((l) => ({
+      id: l.id,
+      nombre: l.nombre,
+      provinciaId: l.provinciaId,
+      provincia: l.provinciaNombre,
+      etiqueta: `${l.nombre} — Provincia de ${l.provinciaNombre}`
+    }))
+  });
+}));
+
 app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
   const productos = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, semilleroLaboratorio: { in: SEMILLEROS_PRECAMPAÑA } },
@@ -2484,11 +2503,48 @@ app.post('/api/ia/ing-lambois/chat', asyncHandler(async (req, res) => {
     cultivo: normalizarTexto(estadoRecibido.cultivo),
     uso: '',
     provincia: normalizarTexto(estadoRecibido.provincia || provincia),
+    provinciaId: normalizarTexto(estadoRecibido.provinciaId),
     ciudad: normalizarTexto(estadoRecibido.ciudad || ciudad),
+    localidad: normalizarTexto(estadoRecibido.localidad || estadoRecibido.ciudad || ciudad),
+    localidadId: normalizarTexto(estadoRecibido.localidadId),
     cantidad: '',
     productoElegido: normalizarTexto(estadoRecibido.productoElegido),
     etapaConversacion: elegirEtapa(estadoRecibido.etapaConversacion)
   };
+
+  const opcionUbicacion = mensaje.match(/^(.+?)\s+—\s+Provincia de\s+(.+)$/i);
+  if (opcionUbicacion) {
+    const provinciaElegida = PROVINCIAS_ARGENTINA.find((p) => normalizarUbicacion(p.nombre) === normalizarUbicacion(opcionUbicacion[2]));
+    const localidadElegida = provinciaElegida ? buscarLocalidades(opcionUbicacion[1], provinciaElegida.id).find((l) => normalizarUbicacion(l.nombre) === normalizarUbicacion(opcionUbicacion[1])) : null;
+    if (provinciaElegida && localidadElegida) {
+      estadoChat.provincia = provinciaElegida.nombre;
+      estadoChat.provinciaId = provinciaElegida.id;
+      estadoChat.ciudad = localidadElegida.nombre;
+      estadoChat.localidad = localidadElegida.nombre;
+      estadoChat.localidadId = localidadElegida.id;
+    }
+  }
+
+  const localidadesDetectadas = (!estadoChat.provinciaId && !estadoChat.provincia)
+    ? detectarLocalidadesEnTexto(mensaje).slice(0, 8)
+    : [];
+  if (localidadesDetectadas.length) {
+    const localidadesPorNombre = localidadesDetectadas.filter((l) => normalizarUbicacion(mensaje).includes(normalizarUbicacion(l.nombre)) || normalizarUbicacion(l.nombre).includes(normalizarUbicacion(mensaje)));
+    const candidatas = localidadesPorNombre.length ? localidadesPorNombre : localidadesDetectadas;
+    const opcionesUbicacion = candidatas.map((l) => `${l.nombre} — Provincia de ${l.provinciaNombre}`);
+    if (candidatas.length > 1 || normalizarUbicacion(mensaje).split(' ').length <= 4) {
+      return res.json({
+        ok: true,
+        respuesta: '¿A qué provincia pertenece esa localidad?',
+        estadoChat,
+        historial: [...historial, { tipo: 'user', texto: mensaje }, { tipo: 'bot', texto: '¿A qué provincia pertenece esa localidad?' }].slice(-30),
+        productosSugeridos: [],
+        agregarProducto: null,
+        opcionesRapidas: opcionesUbicacion,
+        reglas: { noConfirmarVenta: true, noPrometerStock: true, noPrometerPrecioFinal: true }
+      });
+    }
+  }
 
   let respuesta = '';
   let productosSugeridos = [];
@@ -3725,13 +3781,16 @@ app.use((err, req, res, next) => {
 
 app.post('/api/semillasya/solicitud', async (req, res) => {
   try {
-  const { personaId, nombre, telefono, pais, provincia, ciudad, localidad, observaciones, items, origen, estadoSolicitado, chat } = req.body || {};
+  const { personaId, nombre, telefono, pais, provincia, provinciaId, ciudad, localidad, localidadId, observaciones, items, origen, estadoSolicitado, chat } = req.body || {};
 
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
-  const paisLimpio = String(pais || '').trim();
-  const provinciaLimpia = String(provincia || '').trim();
-  const ciudadLimpia = String(ciudad || localidad || '').trim();
+  const ubicacion = validarUbicacion({ provinciaId, provincia, localidadId, localidad: ciudad || localidad });
+  const paisLimpio = 'Argentina';
+  const provinciaLimpia = ubicacion.ok ? ubicacion.provincia.nombre : String(provincia || '').trim();
+  const ciudadLimpia = ubicacion.ok ? ubicacion.localidad.nombre : String(ciudad || localidad || '').trim();
+  const provinciaIdLimpio = ubicacion.ok ? ubicacion.provincia.id : String(provinciaId || '').trim();
+  const localidadIdLimpio = ubicacion.ok ? ubicacion.localidad.id : String(localidadId || '').trim();
   const observacionesLimpias = String(observaciones || '').trim();
   const origenLimpio = String(origen || 'SEMILLASYA_WEB').trim().toUpperCase() || 'SEMILLASYA_WEB';
   const estadoSolicitadoLimpio = String(estadoSolicitado || '').trim().toUpperCase() || 'BORRADOR';
@@ -3740,8 +3799,8 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
 
   if (!nombreLimpio) return res.status(400).json({ ok: false, error: 'nombre es obligatorio' });
   if (!telefonoLimpio) return res.status(400).json({ ok: false, error: 'telefono es obligatorio' });
-  if (!paisLimpio) return res.status(400).json({ ok: false, error: 'pais es obligatorio' });
-  if (!provinciaLimpia) return res.status(400).json({ ok: false, error: 'provincia es obligatoria' });
+  if (String(pais || 'Argentina').trim().toLowerCase() !== 'argentina') return res.status(400).json({ ok: false, error: 'pais debe ser Argentina' });
+  if (!ubicacion.ok) return res.status(400).json({ ok: false, error: ubicacion.error });
   if (!itemsEntrada.length) return res.status(400).json({ ok: false, error: 'Debe incluir al menos un item' });
 
   const ids = itemsEntrada.map((it) => parsePositiveInt(it.productoPrecampaniaId)).filter(Boolean);
@@ -3769,15 +3828,17 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
     const observacionesPersona = [
       paisLimpio ? `País: ${paisLimpio}` : null,
       provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
-      ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
+      ciudadLimpia ? `Localidad: ${ciudadLimpia}` : null,
+      provinciaIdLimpio ? `provinciaId: ${provinciaIdLimpio}` : null,
+      localidadIdLimpio ? `localidadId: ${localidadIdLimpio}` : null,
       `Origen: ${origenLimpio}`,
       `Estado solicitado: ${estadoSolicitadoLimpio}`,
       observacionesLimpias ? `Obs: ${observacionesLimpias}` : null
     ].filter(Boolean).join(' | ');
 
     const persona = personaExistente
-      ? await tx.persona.update({ where: { id: personaExistente.id }, data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona } })
-      : await tx.persona.create({ data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', observaciones: observacionesPersona } });
+      ? await tx.persona.update({ where: { id: personaExistente.id }, data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata: JSON.stringify({ origenCliente: 'SEMILLASYA', pais: paisLimpio, provincia: provinciaLimpia, localidad: ciudadLimpia, ciudad: ciudadLimpia, provinciaId: provinciaIdLimpio, localidadId: localidadIdLimpio }) } })
+      : await tx.persona.create({ data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata: JSON.stringify({ origenCliente: 'SEMILLASYA', pais: paisLimpio, provincia: provinciaLimpia, localidad: ciudadLimpia, ciudad: ciudadLimpia, provinciaId: provinciaIdLimpio, localidadId: localidadIdLimpio }) } });
 
     const itemsCalculados = [];
     for (let i = 0; i < itemsEntrada.length; i += 1) {
@@ -3825,7 +3886,9 @@ app.post('/api/semillasya/solicitud', async (req, res) => {
           `Estado solicitado: ${estadoSolicitadoLimpio}`,
           paisLimpio ? `País: ${paisLimpio}` : null,
           provinciaLimpia ? `Provincia: ${provinciaLimpia}` : null,
-          ciudadLimpia ? `Ciudad/Localidad: ${ciudadLimpia}` : null,
+          ciudadLimpia ? `Localidad: ${ciudadLimpia}` : null,
+          provinciaIdLimpio ? `provinciaId: ${provinciaIdLimpio}` : null,
+          localidadIdLimpio ? `localidadId: ${localidadIdLimpio}` : null,
           observacionesLimpias ? `Observaciones: ${observacionesLimpias}` : null
         ].filter(Boolean).join(' | ')
       }
@@ -3943,27 +4006,31 @@ app.get('/semillasya', (req, res) => {
 app.use('/semillasya', express.static(require('path').join(__dirname, 'app')));
 
 app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
-  const { nombre, telefono, pais, provincia, ciudad, localidad } = req.body || {};
+  const { nombre, telefono, pais, provincia, provinciaId, ciudad, localidad, localidadId } = req.body || {};
   const nombreLimpio = String(nombre || '').trim();
   const telefonoLimpio = normalizarTelefono(telefono);
-  const paisLimpio = String(pais || '').trim();
-  const provinciaLimpia = String(provincia || '').trim();
-  const ciudadLimpia = String(ciudad || localidad || '').trim();
+  const ubicacion = validarUbicacion({ provinciaId, provincia, localidadId, localidad: ciudad || localidad });
 
   if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
   if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
-  if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
-  if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
-  if (!ciudadLimpia) return res.status(400).json({ error: 'ciudad/localidad es obligatoria' });
+  if (String(pais || 'Argentina').trim().toLowerCase() !== 'argentina') return res.status(400).json({ error: 'pais debe ser Argentina' });
+  if (!ubicacion.ok) return res.status(400).json({ error: ubicacion.error });
 
+  const paisLimpio = 'Argentina';
+  const provinciaLimpia = ubicacion.provincia.nombre;
+  const ciudadLimpia = ubicacion.localidad.nombre;
+  const provinciaIdLimpio = ubicacion.provincia.id;
+  const localidadIdLimpio = ubicacion.localidad.id;
   const observacionesPersona = [
     `País: ${paisLimpio}`,
     `Provincia: ${provinciaLimpia}`,
-    `Ciudad/Localidad: ${ciudadLimpia}`,
+    `Localidad: ${ciudadLimpia}`,
+    `provinciaId: ${provinciaIdLimpio}`,
+    `localidadId: ${localidadIdLimpio}`,
     'Origen: SEMILLASYA_WEB'
   ].join(' | ');
 
-  const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, ciudad: ciudadLimpia, localidad: ciudadLimpia });
+  const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, localidad: ciudadLimpia, ciudad: ciudadLimpia, provinciaId: provinciaIdLimpio, localidadId: localidadIdLimpio });
   const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
   const persona = personaExistente
     ? await prisma.persona.update({
@@ -3981,35 +4048,41 @@ app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
     telefono: persona.telefono,
     pais: paisLimpio,
     provincia: provinciaLimpia,
+    provinciaId: provinciaIdLimpio,
     ciudad: ciudadLimpia,
-    localidad: ciudadLimpia
+    localidad: ciudadLimpia,
+    localidadId: localidadIdLimpio
   });
 }));
 
 app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
   req.body = req.body || {};
   return await (async () => {
-    const { nombre, telefono, pais, provincia, ciudad, localidad } = req.body || {};
+    const { nombre, telefono, pais, provincia, provinciaId, ciudad, localidad, localidadId } = req.body || {};
     const nombreLimpio = String(nombre || '').trim();
     const telefonoLimpio = normalizarTelefono(telefono);
-    const paisLimpio = String(pais || '').trim();
-    const provinciaLimpia = String(provincia || '').trim();
-    const ciudadLimpia = String(ciudad || localidad || '').trim();
+    const ubicacion = validarUbicacion({ provinciaId, provincia, localidadId, localidad: ciudad || localidad });
 
     if (!nombreLimpio) return res.status(400).json({ error: 'nombre es obligatorio' });
     if (!telefonoLimpio) return res.status(400).json({ error: 'telefono es obligatorio' });
-    if (!paisLimpio) return res.status(400).json({ error: 'pais es obligatorio' });
-    if (!provinciaLimpia) return res.status(400).json({ error: 'provincia es obligatoria' });
-    if (!ciudadLimpia) return res.status(400).json({ error: 'ciudad/localidad es obligatoria' });
+    if (String(pais || 'Argentina').trim().toLowerCase() !== 'argentina') return res.status(400).json({ error: 'pais debe ser Argentina' });
+    if (!ubicacion.ok) return res.status(400).json({ error: ubicacion.error });
 
+    const paisLimpio = 'Argentina';
+    const provinciaLimpia = ubicacion.provincia.nombre;
+    const ciudadLimpia = ubicacion.localidad.nombre;
+    const provinciaIdLimpio = ubicacion.provincia.id;
+    const localidadIdLimpio = ubicacion.localidad.id;
     const observacionesPersona = [
       `País: ${paisLimpio}`,
       `Provincia: ${provinciaLimpia}`,
-      `Ciudad/Localidad: ${ciudadLimpia}`,
+      `Localidad: ${ciudadLimpia}`,
+      `provinciaId: ${provinciaIdLimpio}`,
+      `localidadId: ${localidadIdLimpio}`,
       'Origen: SEMILLASYA_WEB'
     ].join(' | ');
 
-    const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, ciudad: ciudadLimpia, localidad: ciudadLimpia });
+    const metadata = JSON.stringify({ origenCliente: 'SEMILLASYA', tipoCliente: 'CLIENTE_WEB', pais: paisLimpio, provincia: provinciaLimpia, ciudad: ciudadLimpia, localidad: ciudadLimpia, provinciaId: provinciaIdLimpio, localidadId: localidadIdLimpio });
     const personaExistente = await prisma.persona.findFirst({ where: { telefono: telefonoLimpio, eliminado: false } });
     const persona = personaExistente
       ? await prisma.persona.update({
@@ -4020,7 +4093,7 @@ app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
         data: { nombre: nombreLimpio, telefono: telefonoLimpio, tipo: 'CLIENTE', tipoCliente: 'PERSONAL', origenCliente: 'SEMILLASYA', observaciones: observacionesPersona, metadata }
       });
 
-    return res.status(201).json({ ok: true, personaId: persona.id });
+    return res.status(201).json({ ok: true, personaId: persona.id, pais: paisLimpio, provincia: provinciaLimpia, provinciaId: provinciaIdLimpio, localidad: ciudadLimpia, ciudad: ciudadLimpia, localidadId: localidadIdLimpio });
   })();
 }));
 
@@ -4029,6 +4102,7 @@ app.get('/app', (req, res) => {
 });
 
 app.use('/app', express.static(require('path').join(__dirname, 'app')));
+app.use('/data', express.static(require('path').join(__dirname, 'data')));
 
 const PORT = process.env.PORT || 3000;
 

@@ -324,19 +324,14 @@
         <div class="row">
           <label for="provinciaSelect">Provincia</label>
           <select id="provinciaSelect">
-            <option value="Salta">Salta</option>
-            <option value="Tucumán">Tucumán</option>
-            <option value="Jujuy">Jujuy</option>
-            <option value="Santiago del Estero">Santiago del Estero</option>
-            <option value="Catamarca">Catamarca</option>
-            <option value="Córdoba">Córdoba</option>
-            <option value="Buenos Aires">Buenos Aires</option>
-            <option value="Otra provincia">Otra provincia</option>
+            <option value="">Seleccioná una provincia</option>
           </select>
         </div>
         <div class="row">
           <label for="ciudadIngreso">Ciudad / localidad</label>
-          <input id="ciudadIngreso" placeholder="Ej: Rosario de la Frontera" />
+          <input id="ciudadIngreso" placeholder="Primero elegí provincia" list="localidadesDatalist" autocomplete="off" disabled />
+          <datalist id="localidadesDatalist"></datalist>
+          <p class="small" id="localidadAyuda">Las opciones se filtran por provincia y se guardan vinculadas.</p>
         </div>
         <div class="row">
           <label for="nombreIngreso">Nombre</label>
@@ -420,6 +415,7 @@
     <p class="small" style="margin:.65rem 0 0;">La cotización final siempre queda sujeta a revisión comercial.</p>
   </section>
 
+  <script src="/data/argentina-ubicaciones.js"></script>
   <script>
     const state = {
       productos: [],
@@ -454,6 +450,45 @@
       GGCH: '/app/assets/semilleros/garden-gasty-chuchuy.svg',
       RODEO: '/app/assets/semilleros/rodeo.svg'
     };
+    const UBICACIONES_AR = window.ArgentinaUbicaciones || {};
+    const PROVINCIAS_ARGENTINA = UBICACIONES_AR.PROVINCIAS_ARGENTINA || [];
+    const LOCALIDADES_ARGENTINA = UBICACIONES_AR.LOCALIDADES_ARGENTINA || [];
+    const localidadesDeProvincia = UBICACIONES_AR.localidadesDeProvincia || ((provinciaId) => LOCALIDADES_ARGENTINA.filter((l) => l.provinciaId === provinciaId));
+    const buscarLocalidadExacta = UBICACIONES_AR.buscarLocalidadExacta || (() => null);
+
+    function renderProvincias() {
+      $('provinciaSelect').innerHTML = '<option value="">Seleccioná una provincia</option>' + PROVINCIAS_ARGENTINA
+        .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.nombre)}</option>`)
+        .join('');
+    }
+
+    function provinciaSeleccionada() {
+      return PROVINCIAS_ARGENTINA.find((p) => p.id === $('provinciaSelect').value) || null;
+    }
+
+    function renderLocalidadesProvincia() {
+      const provincia = provinciaSeleccionada();
+      const input = $('ciudadIngreso');
+      const datalist = $('localidadesDatalist');
+      input.value = '';
+      input.dataset.localidadId = '';
+      input.disabled = !provincia;
+      input.placeholder = provincia ? 'Ej: Rosario de la Frontera' : 'Primero elegí provincia';
+      datalist.innerHTML = provincia
+        ? localidadesDeProvincia(provincia.id).map((l) => `<option value="${escapeHtml(l.nombre)}" label="${escapeHtml(l.nombre)} — Provincia de ${escapeHtml(provincia.nombre)}" data-localidad-id="${escapeHtml(l.id)}"></option>`).join('')
+        : '';
+      $('localidadAyuda').textContent = provincia
+        ? `Localidades disponibles para ${provincia.nombre}. Seleccioná una opción de la lista.`
+        : 'Primero seleccioná una provincia para ver localidades reales.';
+    }
+
+    function localidadSeleccionada() {
+      const provincia = provinciaSeleccionada();
+      if (!provincia) return null;
+      const nombre = $('ciudadIngreso').value.trim();
+      return buscarLocalidadExacta(nombre, provincia.id);
+    }
+
     function claveSemillero(nombre) {
       return String(nombre || '')
         .normalize('NFD')
@@ -623,7 +658,10 @@
         estadoChat: state.chat.estadoChat,
         cliente: state.cliente?.nombre || null,
         provincia: state.cliente?.provincia || null,
+        provinciaId: state.cliente?.provinciaId || null,
         ciudad: state.cliente?.ciudad || null,
+        localidad: state.cliente?.localidad || state.cliente?.ciudad || null,
+        localidadId: state.cliente?.localidadId || null,
         pedidoActual: state.carrito.map((it) => ({ productoPrecampaniaId: it.id, nombre: it.producto.nombre, cantidad: it.cantidad }))
       };
       const r = await fetch('/api/ia/ing-lambois/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -645,24 +683,26 @@
     function cargarClientePersistido() {
       try {
         const cliente = JSON.parse(localStorage.getItem('semillasyaCliente') || 'null');
-        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.provincia && (cliente?.ciudad || cliente?.localidad)) state.cliente = { ...cliente, ciudad: cliente.ciudad || cliente.localidad, pais: cliente.pais || 'Argentina' };
+        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.provinciaId && cliente?.localidadId && (cliente?.ciudad || cliente?.localidad)) state.cliente = { ...cliente, ciudad: cliente.ciudad || cliente.localidad, localidad: cliente.localidad || cliente.ciudad, pais: 'Argentina' };
       } catch (_e) {}
     }
 
     function mostrarCatalogoConUbicacion() {
       $('ubicacionGate').classList.add('hidden');
       $('catalogoWrap').classList.remove('hidden');
-      $('ubicacionActualTexto').textContent = `Localidad: ${state.cliente.ciudad}, ${state.cliente.provincia}`;
+      $('ubicacionActualTexto').textContent = `Localidad: ${state.cliente.localidad || state.cliente.ciudad}, ${state.cliente.provincia}`;
       setPaso(2);
     }
 
     function validarIngreso() {
-      const provincia = $('provinciaSelect').value;
+      const provincia = provinciaSeleccionada();
+      const localidad = localidadSeleccionada();
       const ciudad = $('ciudadIngreso').value.trim();
       const nombre = $('nombreIngreso').value.trim();
       const telefono = $('telefonoIngreso').value.trim();
       if (!provincia) return 'Completá la provincia.';
       if (!ciudad) return 'Completá la ciudad/localidad.';
+      if (!localidad) return 'Seleccioná una localidad válida de la provincia elegida.';
       if (!nombre) return 'Completá tu nombre.';
       if (!telefono) return 'Completá tu teléfono.';
       return null;
@@ -678,13 +718,14 @@
     async function guardarYContinuarUbicacion() {
       const error = validarIngreso();
       if (error) return alert(error);
-      const provincia = $('provinciaSelect').value;
-      const ciudad = $('ciudadIngreso').value.trim();
+      const provincia = provinciaSeleccionada();
+      const localidad = localidadSeleccionada();
+      const ciudad = localidad.nombre;
       const nombre = $('nombreIngreso').value.trim();
       const telefono = $('telefonoIngreso').value.trim();
       const pais = 'Argentina';
-      const data = await crearOActualizarClienteWeb({ nombre, telefono, pais, provincia, ciudad, localidad: ciudad });
-      state.cliente = { personaId: data.personaId, pais, provincia, ciudad, nombre, telefono };
+      const data = await crearOActualizarClienteWeb({ nombre, telefono, pais, provincia: provincia.nombre, provinciaId: provincia.id, ciudad, localidad: ciudad, localidadId: localidad.id });
+      state.cliente = { personaId: data.personaId, pais, provincia: data.provincia, provinciaId: data.provinciaId, ciudad: data.localidad, localidad: data.localidad, localidadId: data.localidadId, nombre, telefono };
       localStorage.setItem('semillasyaCliente', JSON.stringify(state.cliente));
       mostrarCatalogoConUbicacion();
       if (!state.catalogoCargado) await cargarProductos();
@@ -701,8 +742,10 @@
         telefono: state.cliente.telefono,
         pais: state.cliente.pais,
         provincia: state.cliente.provincia,
+        provinciaId: state.cliente.provinciaId,
         ciudad: state.cliente.ciudad,
-        localidad: state.cliente.ciudad,
+        localidad: state.cliente.localidad || state.cliente.ciudad,
+        localidadId: state.cliente.localidadId,
         observaciones: $('obs').value.trim(),
         origen: 'SEMILLASYA_WEB',
         estadoSolicitado: 'BORRADOR',
@@ -754,6 +797,12 @@
       $('cotizacion').scrollIntoView({ behavior: 'smooth', block: 'start' });
       $('provinciaSelect').focus();
     });
+    $('provinciaSelect').addEventListener('change', renderLocalidadesProvincia);
+    $('ciudadIngreso').addEventListener('input', () => {
+      const loc = localidadSeleccionada();
+      $('ciudadIngreso').dataset.localidadId = loc?.id || '';
+      $('localidadAyuda').textContent = loc ? `${loc.nombre} — Provincia de ${loc.provinciaNombre}` : 'Elegí una localidad de la lista filtrada por provincia.';
+    });
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
     $('cambiarProvincia').addEventListener('click', () => { $('catalogoWrap').classList.add('hidden'); $('ubicacionGate').classList.remove('hidden'); setPaso(1); });
@@ -770,12 +819,16 @@
 
     renderCarrito();
     addBotMsg('Hola, soy el Ing. Lambois. El chat es opcional: puedo orientarte por cultivo o necesidad.', ['Lechuga', 'Cebolla', 'Alfalfa', 'No sé el cultivo']);
+    renderProvincias();
+    renderLocalidadesProvincia();
     cargarClientePersistido();
     if (state.cliente?.personaId) {
       $('nombreIngreso').value = state.cliente.nombre;
       $('telefonoIngreso').value = state.cliente.telefono;
-      $('provinciaSelect').value = state.cliente.provincia;
-      $('ciudadIngreso').value = state.cliente.ciudad;
+      $('provinciaSelect').value = state.cliente.provinciaId;
+      renderLocalidadesProvincia();
+      $('ciudadIngreso').value = state.cliente.localidad || state.cliente.ciudad;
+      $('ciudadIngreso').dataset.localidadId = state.cliente.localidadId;
       mostrarCatalogoConUbicacion();
       cargarProductos().catch(() => setCatalogoErrorVisible(true));
     }
