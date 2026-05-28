@@ -39,6 +39,7 @@ let precampaniaProductos = [];
 let precampaniaContextoCarga = { cultivo: '', semillero: '', categoria: '' };
 let precampaniaCultivos = [];
 let precampaniaCultivoActivo = 'TODOS';
+let productoSemillasYaParaDuplicar = null;
 const VENTA_ACTIVA_STORAGE_KEY = 'venta_activa_id';
 
 function setVentaActivaId(id) {
@@ -1515,6 +1516,7 @@ function renderProductosPrecampania() {
             <button class="pre-icon-btn" type="button" data-pre-open-tab="tecnico" data-pre-id="${p.id}">1. Variables técnicas</button>
             <button class="pre-icon-btn" type="button" data-pre-open-economico="${p.id}">2. Variables económicas</button>
             <button class="pre-icon-btn" type="button" data-pre-open-tab="imagenes" data-pre-id="${p.id}">3. Imágenes</button>
+            <button type="button" class="pre-icon-btn" data-pre-duplicar-mostrador="${p.id}">Duplicar a Mostrador</button>
             <button type="button" class="pre-toggle ${p.visibleEnSemillasYa ? 'is-on' : 'is-off'}" data-pre-toggle-visible="${p.id}" aria-pressed="${p.visibleEnSemillasYa ? 'true' : 'false'}"><span class="pre-toggle-track"><span class="pre-toggle-thumb"></span></span></button>
           </div>
         </article>`;
@@ -1822,8 +1824,17 @@ $('#pre-lista')?.addEventListener('click', async (e) => {
   const toggleVisible = e.target.closest('button[data-pre-toggle-visible]');
   const duplicarPre = e.target.closest('[data-pre-duplicar-mostrador]');
   if (duplicarPre) {
-    await api(`/api/productos-precampania/${Number(duplicarPre.dataset.preDuplicarMostrador)}/duplicar-mostrador`, { method: 'POST', body: '{}' });
-    setMsg('Producto duplicado a mostrador', 'ok');
+    const id = Number(duplicarPre.dataset.preDuplicarMostrador);
+    const p = precampaniaProductos.find((x) => x.id === id);
+    if (!p) return;
+    productoSemillasYaParaDuplicar = p;
+    const precioBase = Number(p.precioVentaFinal || 0);
+    $('#pre-modal-dup-id').value = String(id);
+    $('#pre-modal-dup-margen').value = '0';
+    $('#pre-modal-dup-precio').value = String(precioBase.toFixed(2));
+    $('#pre-modal-dup-preview').textContent = `Costo/base SemillasYa ARS: ${money(precioBase)} (no se modifica)`;
+    $('#pre-modal-duplicar-mostrador')?.showModal();
+    return;
   }
   if (toggleVisible) {
     const id = Number(toggleVisible.dataset.preToggleVisible);
@@ -3167,3 +3178,26 @@ if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago
 $('#pre-cultivo-chips')?.addEventListener('click', (e)=>{ const btn=e.target.closest('[data-pre-chip-cultivo]'); if(!btn) return; precampaniaCultivoActivo=btn.dataset.preChipCultivo||'TODOS'; renderProductosPrecampania(); });
 $('#btn-pre-cerrar-drawer')?.addEventListener('click', cerrarDrawerPrecampania);
 $('#pre-drawer-overlay')?.addEventListener('click', cerrarDrawerPrecampania);
+
+
+function actualizarPreviewDuplicarMostrador() {
+  const base = Number(productoSemillasYaParaDuplicar?.precioVentaFinal || 0);
+  const margen = Number($('#pre-modal-dup-margen')?.value || 0);
+  const sugerido = Number((base * (1 + ((Number.isFinite(margen) ? margen : 0) / 100))).toFixed(2));
+  $('#pre-modal-dup-precio').value = String(sugerido);
+  $('#pre-modal-dup-preview').textContent = `Base ARS ${money(base)} + margen ${Number.isFinite(margen) ? margen : 0}% => sugerido ARS ${money(sugerido)}`;
+}
+
+$('#pre-modal-dup-margen')?.addEventListener('input', actualizarPreviewDuplicarMostrador);
+$('#btn-pre-modal-dup-cerrar')?.addEventListener('click', () => $('#pre-modal-duplicar-mostrador')?.close());
+$('#btn-pre-modal-dup-confirmar')?.addEventListener('click', async () => {
+  const id = Number($('#pre-modal-dup-id')?.value || 0);
+  const margenMostrador = Number($('#pre-modal-dup-margen')?.value || 0);
+  const precioFinalSugeridoArs = Number($('#pre-modal-dup-precio')?.value || 0);
+  await api(`/api/productos-precampania/${id}/duplicar-mostrador`, {
+    method: 'POST',
+    body: JSON.stringify({ margenMostrador, precioFinalSugeridoArs })
+  });
+  $('#pre-modal-duplicar-mostrador')?.close();
+  setMsg('Producto duplicado a mostrador en subcategoría SEMILLAS', 'ok');
+});
