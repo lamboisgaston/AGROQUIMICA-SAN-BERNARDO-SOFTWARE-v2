@@ -785,6 +785,22 @@ async function renderCuentaCorrienteClienteActivo() {
   }
 }
 
+function obtenerVentaIdMovimientoCuentaCorriente(movimiento) {
+  const descripcion = String(movimiento?.descripcion || '');
+  const ventaIdDirecto = Number(
+    movimiento?.ventaId
+    || movimiento?.referenciaVentaId
+    || movimiento?.comprobanteId
+    || movimiento?.venta?.id
+    || 0
+  );
+  if (Number.isFinite(ventaIdDirecto) && ventaIdDirecto > 0) return ventaIdDirecto;
+
+  const matchVenta = descripcion.match(/Venta #(\d+)/i);
+  const ventaIdDescripcion = Number(matchVenta?.[1] || 0);
+  return Number.isFinite(ventaIdDescripcion) && ventaIdDescripcion > 0 ? ventaIdDescripcion : 0;
+}
+
 function renderPanelCuentaCorriente(cuenta) {
   cuentaCorrienteMostrada = cuenta;
   $('#cc-cliente-activo').textContent = cuenta?.persona
@@ -795,12 +811,11 @@ function renderPanelCuentaCorriente(cuenta) {
   aplicarEstadoSaldo('#cc-saldo', saldo);
   $('#cc-movimientos').innerHTML = (cuenta?.movimientos || []).length
     ? cuenta.movimientos.map(m => {
-      const ventaIdMovimiento = Number(m.ventaId || m.venta?.id || 0);
+      const ventaIdMovimiento = obtenerVentaIdMovimientoCuentaCorriente(m);
       const esPagoRegistrado = !ventaIdMovimiento && m.tipo === 'CREDITO';
       const acciones = ventaIdMovimiento
         ? `<div class="action-row cc-movimiento-acciones">
             <button data-cc-ver-ticket="${ventaIdMovimiento}">Ver ticket</button>
-            <button data-cc-imprimir-ticket="${ventaIdMovimiento}">Imprimir</button>
           </div>`
         : (esPagoRegistrado
           ? `<div class="action-row cc-movimiento-acciones">
@@ -824,12 +839,6 @@ $('#cc-movimientos')?.addEventListener('click', (e) => {
   const verTicket = e.target.closest('button[data-cc-ver-ticket]');
   if (verTicket) {
     window.open(`/ventas/${Number(verTicket.dataset.ccVerTicket)}/ticket`, '_blank', 'noopener,noreferrer');
-    return;
-  }
-
-  const imprimirTicket = e.target.closest('button[data-cc-imprimir-ticket]');
-  if (imprimirTicket) {
-    window.open(`/ventas/${Number(imprimirTicket.dataset.ccImprimirTicket)}/ticket?imprimir=1`, '_blank', 'noopener,noreferrer');
     return;
   }
 
