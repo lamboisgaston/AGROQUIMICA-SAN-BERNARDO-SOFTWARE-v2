@@ -1153,23 +1153,30 @@ async function loadPresupuestos() {
     return `<div class="item">#${p.id} | ${p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : 'Sin destinatario')} | ${p.estado} | ${money(p.total)} <a class="btn-link" href="/presupuestos/${p.id}/imprimir" target="_blank" rel="noopener noreferrer">Imprimir</a> <button data-pres-pdf="${p.id}">Descargar PDF</button> ${puedeWhatsapp ? `<button data-pres-whatsapp="${p.id}" data-pres-whatsapp-telefono="${telefonoCliente}" data-pres-whatsapp-total="${Number(p.total || 0)}">Enviar WhatsApp</button>` : ''} <button data-pres-aceptar="${p.id}">Aceptar</button> <button data-pres-rechazar="${p.id}">Rechazar</button></div>`;
   }).join('');
 }
-function normalizarProvinciaTerritorial(p) {
-  const PROVINCIAS_ARG = [
-    'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos',
+function metadataTerritorial(p) {
+  const raw = p?.persona?.metadata || p?.metadata || '';
+  if (raw && typeof raw === 'object') return raw;
+  if (!raw || typeof raw !== 'string') return {};
+  try { return JSON.parse(raw); } catch (_e) { return {}; }
+}
+function provinciasTerritorialesArgentina() {
+  return [
+    'Ciudad Autónoma de Buenos Aires', 'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos',
     'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro',
     'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'
   ];
-  const aliases = { 'CAPITAL FEDERAL': 'CABA', 'CIUDAD AUTONOMA DE BUENOS AIRES': 'CABA', 'CIUDAD AUTÓNOMA DE BUENOS AIRES': 'CABA' };
+}
+function normalizarProvinciaTerritorial(p) {
+  const PROVINCIAS_ARG = provinciasTerritorialesArgentina();
+  const aliases = { 'CABA': 'Ciudad Autónoma de Buenos Aires', 'CAPITAL FEDERAL': 'Ciudad Autónoma de Buenos Aires', 'CIUDAD AUTONOMA DE BUENOS AIRES': 'Ciudad Autónoma de Buenos Aires', 'CIUDAD AUTÓNOMA DE BUENOS AIRES': 'Ciudad Autónoma de Buenos Aires' };
+  const meta = metadataTerritorial(p);
   const normalizarTxt = (v) => String(v || '').trim();
-  const fuente = [p?.persona?.provincia, p?.provincia, p?.observaciones, JSON.stringify(p?.metadata || {}), JSON.stringify(p || {})]
-    .map(normalizarTxt)
-    .find(Boolean) || '';
-  const fuenteMay = fuente.toUpperCase();
+  const fuentes = [meta.provincia, p?.persona?.provincia, p?.provincia, p?.observaciones, JSON.stringify(p?.persona || {}), JSON.stringify(p || {})].map(normalizarTxt).filter(Boolean);
+  const fuenteMay = fuentes.join(' | ').toUpperCase();
   let provincia = PROVINCIAS_ARG.find((prov) => fuenteMay.includes(prov.toUpperCase()))
     || Object.keys(aliases).find((a) => fuenteMay.includes(a));
   if (aliases[provincia]) provincia = aliases[provincia];
-  const corregida = !provincia;
-  return { provincia: provincia || 'Salta', corregida };
+  return { provincia: provincia || 'Sin provincia', corregida: !provincia };
 }
 function mapearEstadoTerritorial(estado) {
   const e = String(estado || '').toUpperCase();
@@ -1182,30 +1189,27 @@ function mapearEstadoTerritorial(estado) {
   return 'nuevas';
 }
 function normalizarCiudadTerritorial(p) {
-  const fuente = [p?.persona?.localidad, p?.persona?.ciudad, p?.localidad, p?.ciudad, p?.observaciones, JSON.stringify(p?.persona?.metadata || {}), JSON.stringify(p?.metadata || {}), JSON.stringify(p || {})]
+  const meta = metadataTerritorial(p);
+  const fuente = [meta.localidad, meta.ciudad, p?.persona?.localidad, p?.persona?.ciudad, p?.localidad, p?.ciudad, p?.observaciones, JSON.stringify(meta), JSON.stringify(p || {})]
     .map((v) => String(v || '').trim())
     .filter(Boolean)
     .join(' | ');
   const m = fuente.match(/(Ciudad\/Localidad|Localidad|Ciudad)\s*:\s*([^|]+)/i);
-  return (m?.[2] || p?.persona?.localidad || p?.persona?.ciudad || p?.localidad || p?.ciudad || '-').trim();
+  return (m?.[2] || meta.localidad || meta.ciudad || p?.persona?.localidad || p?.persona?.ciudad || p?.localidad || p?.ciudad || '-').trim();
 }
 function renderPanelTerritorialSemillasYa() {
   const contProvincias = $('#pres-provincias');
   const contOps = $('#pres-operaciones-provincia');
   const contDetalle = $('#pres-detalle-solicitud');
   if (!contProvincias || !contOps || !contDetalle) return;
-  const PROVINCIAS_ARG = [
-    'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos',
-    'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro',
-    'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'
-  ];
-  const agrupado = PROVINCIAS_ARG.reduce((acc, prov) => ({ ...acc, [prov]: [] }), {});
+  const PROVINCIAS_ARG = provinciasTerritorialesArgentina();
+  const agrupado = PROVINCIAS_ARG.reduce((acc, prov) => ({ ...acc, [prov]: [] }), { 'Sin provincia': [] });
   solicitudesTerritoriales.forEach((s) => {
     const infoProv = normalizarProvinciaTerritorial(s);
     if (!agrupado[infoProv.provincia]) agrupado[infoProv.provincia] = [];
     agrupado[infoProv.provincia].push({ ...s, _provinciaCorregida: infoProv.corregida });
   });
-  const provincias = PROVINCIAS_ARG;
+  const provincias = [...PROVINCIAS_ARG, ...(agrupado['Sin provincia']?.length ? ['Sin provincia'] : [])];
   contProvincias.innerHTML = provincias.map((prov) => {
     const pendientes = (agrupado[prov] || []).filter((s) => ['WEB_SOLICITADO', 'BORRADOR'].includes(String(s.estado || '').toUpperCase())).length;
     const cotizadas = (agrupado[prov] || []).filter((s) => mapearEstadoTerritorial(s.estado) === 'cotizadas').length;
