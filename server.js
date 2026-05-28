@@ -939,7 +939,10 @@ function construirFiltroBusquedaProductos(q = '') {
   const or = [
     { nombre: { contains: termino } },
     { categoria: { contains: termino } },
-    { marca: { contains: termino } }
+    { marca: { contains: termino } },
+    { unidad: { contains: termino } },
+    { observaciones: { contains: termino } },
+    { categorias: { some: { nombre: { contains: termino } } } }
   ];
   if (Number.isInteger(idBuscado) && idBuscado > 0) {
     or.push({ id: idBuscado });
@@ -2295,6 +2298,13 @@ app.post('/api/productos-precampania/:id/duplicar-mostrador', asyncHandler(async
     return res.status(400).json({ error: 'precioFinalSugeridoArs inválido' });
   }
 
+  const cultivoNormalizado = String(pre.cultivo || pre.categoria || 'OTRO').trim().toUpperCase();
+  const nombreCategoriaCultivo = cultivoNormalizado || 'OTRO';
+  const [categoriaSemillas, categoriaCultivo] = await Promise.all([
+    prisma.categoria.upsert({ where: { nombre: 'SEMILLAS' }, update: { activo: true }, create: { nombre: 'SEMILLAS', activo: true } }),
+    prisma.categoria.upsert({ where: { nombre: nombreCategoriaCultivo }, update: { activo: true }, create: { nombre: nombreCategoriaCultivo, activo: true } })
+  ]);
+
   const creado = await prisma.producto.create({ data: {
     nombre: pre.nombre,
     categoria: 'SEMILLAS',
@@ -2303,8 +2313,9 @@ app.post('/api/productos-precampania/:id/duplicar-mostrador', asyncHandler(async
     precioVenta: precioFinalMostrador,
     precioFinalPesos: precioFinalMostrador,
     porcentajeGanancia: margenMostrador,
-    observaciones: `ORIGEN=SEMILLASYA | ProductoPrecampania ID ${pre.id} | cultivo=${pre.cultivo || ''} | semillero=${pre.semilleroLaboratorio || ''} | presentacion=${pre.presentacionEnvase || ''}`,
-    stock: 0
+    observaciones: `ORIGEN=SEMILLASYA | ProductoPrecampania ID ${pre.id} | cultivo=${cultivoNormalizado} | semillero=${pre.semilleroLaboratorio || ''} | presentacion=${pre.presentacionEnvase || ''}`,
+    stock: 0,
+    categorias: { connect: [{ id: categoriaSemillas.id }, { id: categoriaCultivo.id }] }
   } });
   res.status(201).json({ ...creado, referenciaProductoPrecampaniaId: pre.id });
 }));
