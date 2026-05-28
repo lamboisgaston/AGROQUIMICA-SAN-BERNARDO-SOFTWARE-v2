@@ -128,6 +128,20 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .compact-cierre-grid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:8px; }
 .compact-redondeo { margin-top: 6px; }
 
+.mostrador-cart-list { display: grid; gap: 10px; margin-bottom: 8px; }
+.mostrador-cart-item { display: grid; gap: 8px; padding: 10px; border: 1px solid #dbe6f3; border-radius: 12px; background: #ffffff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05); }
+.mostrador-cart-name { font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.25; }
+.mostrador-cart-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-items: center; }
+.mostrador-cart-field { display: grid; gap: 3px; min-width: 0; }
+.mostrador-cart-field > span { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: #64748b; }
+.mostrador-cart-field > strong { font-size: 13px; color: #0f172a; }
+.mostrador-cart-quantity { display: inline-flex; align-items: center; gap: 5px; }
+.mostrador-cart-quantity button { width: 26px; height: 26px; min-height: 26px; padding: 0; border-radius: 999px; font-weight: 800; line-height: 1; }
+.mostrador-cart-quantity strong { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+.mostrador-cart-subtotal strong { color: #166534; font-size: 14px; }
+.mostrador-cart-remove { justify-self: end; padding: 5px 9px; border-color: #fecaca; background: #fff1f2; color: #991b1b; }
+.mostrador-cart-empty { padding: 12px; border: 1px dashed #cbd5e1; border-radius: 10px; color: #64748b; text-align: center; background: #f8fafc; }
+
 .item-discount-control { display:inline-flex; align-items:center; gap:4px; padding:2px; border:1px solid #cbd5e1; border-radius:999px; background:#f8fafc; white-space:nowrap; }
 .item-discount-control button { width:26px; height:26px; min-height:26px; padding:0; border-radius:999px; font-weight:800; line-height:1; }
 .item-discount-value { min-width:42px; text-align:center; font-weight:800; font-variant-numeric: tabular-nums; }

@@ -639,9 +639,40 @@ function renderControlDescuentoItem(productoId, descuentoPorcentaje, prefijo = '
 
 function renderCarrito() {
   const items = venta?.items || [];
-  $('#carrito').innerHTML = items.length
-    ? items.map(raw => { const i = calcularItemConDescuento(raw); return `<tr><td>${i.producto.nombre}</td><td>${money(i.precioUnitario)}</td><td>${i.cantidad}</td><td>${renderControlDescuentoItem(i.productoId, i.descuentoPorcentaje, 'item')}</td><td>${money(i.subtotalFinal)}</td><td><button data-accion="menos" data-producto="${i.productoId}">-</button> <button data-accion="mas" data-producto="${i.productoId}">+</button> <button data-accion="quitar" data-producto="${i.productoId}">Quitar</button></td></tr>`; }).join('')
-    : '<tr><td colspan="6">Sin productos</td></tr>'; 
+  const carrito = $('#carrito');
+  carrito.innerHTML = items.length
+    ? items.map((raw) => {
+      const i = calcularItemConDescuento(raw);
+      return `
+        <article class="mostrador-cart-item">
+          <div class="mostrador-cart-name">${i.producto.nombre}</div>
+          <div class="mostrador-cart-row">
+            <div class="mostrador-cart-field">
+              <span>Precio</span>
+              <strong>${money(i.precioUnitario)}</strong>
+            </div>
+            <div class="mostrador-cart-field">
+              <span>Cantidad</span>
+              <div class="mostrador-cart-quantity">
+                <button type="button" data-accion="menos" data-producto="${i.productoId}" aria-label="Restar una unidad">-</button>
+                <strong>${i.cantidad}</strong>
+                <button type="button" data-accion="mas" data-producto="${i.productoId}" aria-label="Sumar una unidad">+</button>
+              </div>
+            </div>
+            <div class="mostrador-cart-field">
+              <span>Descuento %</span>
+              ${renderControlDescuentoItem(i.productoId, i.descuentoPorcentaje, 'item')}
+            </div>
+            <div class="mostrador-cart-field mostrador-cart-subtotal">
+              <span>Subtotal</span>
+              <strong>${money(i.subtotalFinal)}</strong>
+            </div>
+          </div>
+          <button type="button" class="mostrador-cart-remove" data-accion="quitar" data-producto="${i.productoId}">Quitar</button>
+        </article>
+      `;
+    }).join('')
+    : '<div class="mostrador-cart-empty">Sin productos</div>';
 
   const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(calcularItemConDescuento(i).subtotalFinal || 0), 0));
   const descuento = Math.max(0, Number($('#descuento').value || 0));
@@ -2122,14 +2153,21 @@ $('#carrito').addEventListener('click', async (e) => {
   const productoId = Number(b.dataset.itemDescProducto);
   const item = (venta?.items || []).find((i) => i.productoId === productoId);
   if (!item) return;
+  const descuentoPrevio = item.descuentoPorcentaje;
   const descuentoPorcentaje = clampPorcentaje(Number(item.descuentoPorcentaje || 0) + Number(b.dataset.itemDescAjustar || 0));
+  item.descuentoPorcentaje = descuentoPorcentaje;
+  renderCarrito();
   try {
     await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, {
       method: 'PUT',
       body: JSON.stringify({ cantidad: item.cantidad, descuentoPorcentaje })
     });
     await refreshVenta();
-  } catch (err) { setMsg(err.message); }
+  } catch (err) {
+    item.descuentoPorcentaje = descuentoPrevio;
+    renderCarrito();
+    setMsg(err.message);
+  }
 });
 
 $('#descuento').addEventListener('input', renderCarrito);
