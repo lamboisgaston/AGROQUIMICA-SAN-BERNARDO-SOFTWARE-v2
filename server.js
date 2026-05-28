@@ -2278,18 +2278,35 @@ app.post('/api/productos-precampania/:id/duplicar-mostrador', asyncHandler(async
   if (!id) return res.status(400).json({ error: 'id inválido' });
   const pre = await prisma.productoPrecampania.findUnique({ where: { id } });
   if (!pre || !pre.activo) return res.status(404).json({ error: 'Producto precampaña no encontrado' });
-  const precio = Number(pre.usaPrecioManual ? (pre.precioManual ?? pre.precioVentaFinal) : pre.precioVentaFinal || 0);
+
+  const payload = req.body || {};
+  const margenMostrador = Number(payload.margenMostrador ?? 0);
+  if (!Number.isFinite(margenMostrador) || margenMostrador < 0) {
+    return res.status(400).json({ error: 'margenMostrador inválido' });
+  }
+
+  const precioBase = Number(pre.usaPrecioManual ? (pre.precioManual ?? pre.precioVentaFinal) : pre.precioVentaFinal || 0);
+  const precioCalculado = Number((precioBase * (1 + (margenMostrador / 100))).toFixed(2));
+  const precioFinalMostrador = payload.precioFinalSugeridoArs == null
+    ? precioCalculado
+    : Number(payload.precioFinalSugeridoArs);
+
+  if (!Number.isFinite(precioFinalMostrador) || precioFinalMostrador < 0) {
+    return res.status(400).json({ error: 'precioFinalSugeridoArs inválido' });
+  }
+
   const creado = await prisma.producto.create({ data: {
     nombre: pre.nombre,
-    categoria: pre.categoria || 'SEMILLASYA',
+    categoria: 'SEMILLAS',
     marca: pre.semilleroLaboratorio || 'SEMILLASYA',
     unidad: pre.presentacionEnvase || '',
-    precioVenta: precio,
-    precioFinalPesos: precio,
-    observaciones: `Creado desde ProductoPrecampania ID ${pre.id} / SemillasYa`,
+    precioVenta: precioFinalMostrador,
+    precioFinalPesos: precioFinalMostrador,
+    porcentajeGanancia: margenMostrador,
+    observaciones: `ORIGEN=SEMILLASYA | ProductoPrecampania ID ${pre.id} | cultivo=${pre.cultivo || ''} | semillero=${pre.semilleroLaboratorio || ''} | presentacion=${pre.presentacionEnvase || ''}`,
     stock: 0
   } });
-  res.status(201).json(creado);
+  res.status(201).json({ ...creado, referenciaProductoPrecampaniaId: pre.id });
 }));
 
 app.delete('/api/productos-precampania/:id', asyncHandler(async (req, res) => {
