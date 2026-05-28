@@ -2749,7 +2749,7 @@ app.get('/mostrador/ventas/:id', asyncHandler(async (req, res) => {
 
   const venta = await prisma.venta.findUnique({
     where: { id: ventaId },
-    include: { persona: true, items: { include: { producto: true } } }
+    include: { persona: true, items: { include: { producto: true }, orderBy: { id: 'asc' } } }
   });
 
   if (!venta) {
@@ -2781,15 +2781,8 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   const precioPesosCalculado = calcularPrecioFinalPesos(producto, tipoCambioActual).precioVentaPesos;
 
-  const existente = await prisma.ventaItem.findUnique({
-    where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } }
-  });
-
-  const cantidadFinal = (existente?.cantidad || 0) + cantidadParsed;
-
-  await prisma.ventaItem.upsert({
-    where: { ventaId_productoId: { ventaId, productoId: productoIdParsed } },
-    create: {
+  await prisma.ventaItem.create({
+    data: {
       ventaId,
       productoId: productoIdParsed,
       ...normalizarItemConDescuento({
@@ -2797,12 +2790,7 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
         precioUnitario: precioPesosCalculado,
         descuentoPorcentaje: 0
       })
-    },
-    update: normalizarItemConDescuento({
-      cantidad: cantidadFinal,
-      precioUnitario: precioPesosCalculado,
-      descuentoPorcentaje: existente?.descuentoPorcentaje || 0
-    })
+    }
   });
 
   const items = await prisma.ventaItem.findMany({ where: { ventaId } });
@@ -2818,11 +2806,11 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
 }));
 
 
-app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res) => {
+app.put('/mostrador/ventas/:id/items/:itemId', asyncHandler(async (req, res) => {
   const ventaId = parsePositiveInt(req.params.id);
-  const productoId = parsePositiveInt(req.params.productoId);
-  const { cantidad, descuentoPorcentaje, descuentoMonto } = req.body || {};
-  if (!ventaId || !productoId) return res.status(400).json({ error: 'id inválido' });
+  const itemId = parsePositiveInt(req.params.itemId);
+  const { cantidad, descuentoPorcentaje } = req.body || {};
+  if (!ventaId || !itemId) return res.status(400).json({ error: 'id inválido' });
 
   if (!Number.isInteger(cantidad) || cantidad < 0) {
     return res.status(400).json({ error: 'cantidad debe ser entero >= 0' });
@@ -2834,15 +2822,13 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
     return res.status(400).json({ error: 'Solo se pueden editar ventas en BORRADOR' });
   }
 
-  const existente = await prisma.ventaItem.findUnique({
-    where: { ventaId_productoId: { ventaId, productoId } }
-  });
-  if (!existente) return res.status(404).json({ error: 'Item no encontrado en la venta' });
+  const existente = await prisma.ventaItem.findUnique({ where: { id: itemId } });
+  if (!existente || existente.ventaId !== ventaId) return res.status(404).json({ error: 'Item no encontrado en la venta' });
 
   if (cantidad === 0) {
     await prisma.ventaItem.delete({ where: { id: existente.id } });
   } else {
-    const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+    const producto = await prisma.producto.findUnique({ where: { id: existente.productoId } });
     if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
     await prisma.ventaItem.update({
       where: { id: existente.id },
@@ -2856,7 +2842,7 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
   const ventaActualizada = await prisma.venta.update({
     where: { id: ventaId },
     data: { total: totales.total, subtotal: totales.subtotal },
-    include: { persona: true, items: { include: { producto: true } } }
+    include: { persona: true, items: { include: { producto: true }, orderBy: { id: 'asc' } } }
   });
 
   res.json(ventaActualizada);
