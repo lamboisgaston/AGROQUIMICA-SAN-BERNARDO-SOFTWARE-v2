@@ -85,6 +85,16 @@ async function api(url, options = {}) {
   return data;
 }
 
+
+function escapeHtmlClient(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('\"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function setMsg(text, type = 'info') {
   const msg = $('#msg');
   msg.textContent = String(text || '');
@@ -2464,118 +2474,158 @@ $('#btn-cc-registrar-pago').addEventListener('click', async () => {
 
 
 async function loadCaja20() {
-  const [pendientes, resumen, cobradas] = await Promise.all([
-    api('/caja/ventas'),
-    api('/caja/resumen'),
-    api('/ventas/cobradas-recientes')
-  ]);
+  const pendientesEl = document.getElementById('pendientes');
+  const cobradasEl = document.getElementById('cobradas-recientes');
+  const cierresEl = document.getElementById('cierres-caja');
+
+  if (pendientesEl) pendientesEl.innerHTML = '<div class="item">Cargando pendientes de cobro...</div>';
+  if (cobradasEl) cobradasEl.innerHTML = '<div class="item">Cargando cobradas recientes...</div>';
+  if (cierresEl) cierresEl.innerHTML = '<div class="item">Cargando historial de cierres...</div>';
+
+  const renderError = (el, titulo, error) => {
+    if (!el) return;
+    el.innerHTML = `<div class="item item-error"><strong>${titulo}</strong><p>${escapeHtmlClient(error?.message || error || 'Error desconocido')}</p><button type="button" data-recargar-caja20>Reintentar</button></div>`;
+  };
 
   const setText = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.textContent = money(value || 0);
   };
 
-  setText('resumen-total', resumen.totalGeneral || resumen.totalVendido || 0);
-  setText('resumen-efectivo', resumen.efectivo || 0);
-  setText('resumen-transferencia', resumen.transferencia || 0);
-  setText('resumen-tarjeta', resumen.tarjeta || 0);
-  setText('resumen-cuenta-corriente', resumen.cuentaCorriente || 0);
+  const [pendientesRes, resumenRes, cobradasRes] = await Promise.allSettled([
+    api('/caja/ventas'),
+    api('/caja/resumen'),
+    api('/ventas/cobradas-recientes')
+  ]);
 
-  const cajaReal = Number(resumen.efectivo || 0) + Number(resumen.transferencia || 0) + Number(resumen.tarjeta || 0);
-  setText('resumen-caja-real', cajaReal);
-
-  const pendientesEl = document.getElementById('pendientes');
-  if (pendientesEl) {
-    pendientesEl.innerHTML = pendientes.length
-      ? pendientes.map(v => `
-        <div class="item">
-          <h3>${v.persona?.nombre || 'Consumidor final'}</h3>
-          <p><strong>Total:</strong> ${money(v.total)}</p>
-          <p><strong>Condición prevista:</strong> ${v.condicionPagoPrevista || 'Sin definir'}</p>
-          <p><strong>Venta:</strong> #${v.id}</p>
-          <div class="action-row">
-            <button data-caja20-cobrar="${v.id}" data-medio="EFECTIVO">Efectivo</button>
-            <button data-caja20-cobrar="${v.id}" data-medio="TRANSFERENCIA">Transferencia</button>
-            <button data-caja20-cobrar="${v.id}" data-medio="CUENTA_CORRIENTE">Cuenta corriente</button>
-          </div>
-        </div>
-      `).join('')
-      : '<div class="item">No hay ventas pendientes de cobro.</div>';
+  if (resumenRes.status === 'fulfilled') {
+    const resumen = resumenRes.value || {};
+    const efectivo = resumen.efectivo ?? resumen.EFECTIVO ?? 0;
+    const transferencia = resumen.transferencia ?? resumen.TRANSFERENCIA ?? 0;
+    const tarjeta = resumen.tarjeta ?? resumen.TARJETA ?? 0;
+    const cuentaCorriente = resumen.cuentaCorriente ?? resumen.CUENTA_CORRIENTE ?? 0;
+    setText('resumen-total', resumen.totalGeneral || resumen.totalVendido || 0);
+    setText('resumen-efectivo', efectivo);
+    setText('resumen-transferencia', transferencia);
+    setText('resumen-tarjeta', tarjeta);
+    setText('resumen-cuenta-corriente', cuentaCorriente);
+    setText('resumen-caja-real', Number(efectivo) + Number(transferencia) + Number(tarjeta));
+  } else {
+    setText('resumen-total', 0);
+    setText('resumen-efectivo', 0);
+    setText('resumen-transferencia', 0);
+    setText('resumen-tarjeta', 0);
+    setText('resumen-cuenta-corriente', 0);
+    setText('resumen-caja-real', 0);
+    setMsg(`Error al cargar resumen de caja: ${resumenRes.reason?.message || resumenRes.reason}`, 'warning');
   }
 
-  const cobradasEl = document.getElementById('cobradas-recientes');
-  if (cobradasEl) {
-    const cobradasOrdenadas = [...cobradas].sort((a, b) => {
-      const fechaA = new Date(a.cobradaAt || a.updatedAt || a.createdAt || 0).getTime();
-      const fechaB = new Date(b.cobradaAt || b.updatedAt || b.createdAt || 0).getTime();
-      if (fechaA !== fechaB) return fechaB - fechaA;
-      return Number(b.id || 0) - Number(a.id || 0);
-    });
-    cobradasEl.innerHTML = cobradas.length
-      ? `<div class="cobradas-lista-compacta">${cobradasOrdenadas.map(v => `
-        <div class="item item-compacto">
-          <strong>#${v.id}</strong> · ${v.persona?.nombre || 'Consumidor final'} · ${v.medioPago || 'Sin medio'} · ${money(v.total)}
-          <div class="action-row">
-            <button class="btn-ver-ticket-cobrada" data-id="${v.id}">Ver ticket</button>
-            <button class="btn-imprimir-ticket-cobrada" data-id="${v.id}">Imprimir</button>
-            <button class="btn-pdf-ticket-cobrada" data-id="${v.id}">PDF</button>
+  if (pendientesRes.status === 'fulfilled') {
+    const pendientes = Array.isArray(pendientesRes.value) ? pendientesRes.value : [];
+    if (pendientesEl) {
+      pendientesEl.innerHTML = pendientes.length
+        ? pendientes.map(v => `
+          <div class="item">
+            <h3>${escapeHtmlClient(v.persona?.nombre || v.comprador || 'Consumidor final')}</h3>
+            <p><strong>Nº venta:</strong> #${escapeHtmlClient(v.numeroVenta || v.id)}</p>
+            <p><strong>Total:</strong> ${money(v.total)}</p>
+            <p><strong>Condición prevista:</strong> ${escapeHtmlClient(v.condicionPagoPrevista || 'Sin definir')}</p>
+            <div class="action-row">
+              <button data-caja20-cobrar="${v.id}" data-medio="EFECTIVO">Efectivo</button>
+              <button data-caja20-cobrar="${v.id}" data-medio="TRANSFERENCIA">Transferencia</button>
+              <button data-caja20-cobrar="${v.id}" data-medio="TARJETA">Tarjeta</button>
+              <button data-caja20-cobrar="${v.id}" data-medio="CUENTA_CORRIENTE">Cuenta corriente</button>
+            </div>
           </div>
-        </div>
-      `).join('')}</div>`
-      : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
+        `).join('')
+        : '<div class="item">No hay ventas pendientes de cobro.</div>';
+    }
+  } else {
+    renderError(pendientesEl, 'No se pudieron cargar los pendientes de cobro.', pendientesRes.reason);
+  }
+
+  if (cobradasRes.status === 'fulfilled') {
+    const cobradas = Array.isArray(cobradasRes.value) ? cobradasRes.value : [];
+    if (cobradasEl) {
+      const cobradasOrdenadas = [...cobradas].sort((a, b) => {
+        const fechaA = new Date(a.cobradaAt || a.updatedAt || a.createdAt || 0).getTime();
+        const fechaB = new Date(b.cobradaAt || b.updatedAt || b.createdAt || 0).getTime();
+        if (fechaA !== fechaB) return fechaB - fechaA;
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
+      cobradasEl.innerHTML = cobradasOrdenadas.length
+        ? `<div class="cobradas-lista-compacta">${cobradasOrdenadas.map(v => `
+          <div class="item item-compacto">
+            <p><strong>Nº venta:</strong> #${escapeHtmlClient(v.numeroVenta || v.id)}</p>
+            <p><strong>Comprador:</strong> ${escapeHtmlClient(v.persona?.nombre || v.comprador || 'Consumidor final')}</p>
+            <p><strong>Forma de pago:</strong> ${escapeHtmlClient(v.formaPago || v.medioPago || 'Sin medio')}</p>
+            <p><strong>Total:</strong> ${money(v.total)}</p>
+            <div class="action-row">
+              <button class="btn-ver-ticket-cobrada" data-id="${v.id}">Ver ticket</button>
+              <button class="btn-imprimir-ticket-cobrada" data-id="${v.id}">Imprimir</button>
+            </div>
+          </div>
+        `).join('')}</div>`
+        : '<div class="item">Todavía no hay ventas cobradas recientes.</div>';
+    }
+  } else {
+    renderError(cobradasEl, 'No se pudieron cargar las cobradas recientes.', cobradasRes.reason);
   }
 
   document.querySelectorAll('.btn-ver-ticket-cobrada').forEach(btn => {
-    btn.addEventListener('click', () => {
-      abrirDetalleTicketEnModal(btn.dataset.id);
-    });
+    btn.addEventListener('click', () => abrirDetalleTicketEnModal(btn.dataset.id));
   });
   document.querySelectorAll('.btn-imprimir-ticket-cobrada').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
-    });
-  });
-  document.querySelectorAll('.btn-pdf-ticket-cobrada').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer');
-    });
+    btn.addEventListener('click', () => window.open(`/ventas/${btn.dataset.id}/ticket`, '_blank', 'noopener,noreferrer'));
   });
 
-  await loadCierresCaja();
+  try {
+    await loadCierresCaja();
+  } catch (error) {
+    renderError(cierresEl, 'No se pudo cargar el historial de cierres.', error);
+  }
 }
+
 
 let ventaTicketActualId = null;
 let cierreCajaPendiente = null;
 
 async function abrirDetalleTicketEnModal(ventaId) {
-  const detalle = await api(`/ventas/${ventaId}/detalle`);
-  const venta = detalle?.venta || {};
-  const cliente = detalle?.cliente || {};
-  const items = Array.isArray(detalle?.items) ? detalle.items : [];
   ventaTicketActualId = Number(ventaId);
-  const descuento = venta.descuentoTipo
-    ? `${venta.descuentoTipo} ${Number(venta.descuentoValor || 0).toFixed(2)}`
+  try {
+    const detalle = await api(`/ventas/${ventaId}/ticket?formato=json`);
+    const venta = detalle?.venta || {};
+    const cliente = detalle?.cliente || {};
+    const items = Array.isArray(detalle?.items) ? detalle.items : [];
+  const descuentos = detalle?.descuentos || {};
+  const descuento = descuentos.tipo
+    ? `${descuentos.tipo} ${Number(descuentos.valor || 0).toFixed(2)} (${money(descuentos.monto || 0)})`
     : 'Sin descuento';
 
   $('#ticket-venta-contenido').innerHTML = `
     <div class="ticket-sb-logo"><div class="ticket-sb-marca">SAN BERNARDO</div><div class="ticket-sb-sub">AGROQUIMICA • FUMIGACIONES • RIEGO</div></div>
-    <p><strong>Número venta:</strong> #${venta.id || ventaTicketActualId}</p>
+    <p><strong>Nº venta:</strong> #${escapeHtmlClient(venta.id || ventaTicketActualId)}</p>
     <p><strong>Fecha:</strong> ${venta.fecha ? new Date(venta.fecha).toLocaleString('es-AR') : '-'}</p>
-    <p><strong>Usuario vendedor:</strong> ${detalle?.usuario?.nombre || '-'}</p>
-    <p><strong>Comprador:</strong> ${cliente.nombre || 'Consumidor final'}</p>
-    <p><strong>Teléfono:</strong> ${cliente.telefono || '-'}</p>
-    <p><strong>CUIT/DNI:</strong> ${cliente.cuitDni || '-'}</p>
-    <p><strong>Forma de pago:</strong> ${detalle?.formaPago || '-'}</p>
+    <p><strong>Comprador:</strong> ${escapeHtmlClient(cliente.nombre || 'Consumidor final')}</p>
+    <p><strong>Teléfono:</strong> ${escapeHtmlClient(cliente.telefono || '-')}</p>
+    <p><strong>CUIT/DNI:</strong> ${escapeHtmlClient(cliente.cuitDni || '-')}</p>
+    <p><strong>Forma de pago:</strong> ${escapeHtmlClient(detalle?.formaPago || venta.formaPago || '-')}</p>
     <table>
-      <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead>
-      <tbody>${items.length ? items.map(item => `<tr><td>${item.producto || '-'}</td><td>${item.cantidad || 0}</td><td>${money(item.precioUnitario || 0)}</td><td>${money(item.subtotal || 0)}</td></tr>`).join('') : '<tr><td colspan="4">Sin productos</td></tr>'}</tbody>
+      <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Descuento</th><th>Subtotal</th></tr></thead>
+      <tbody>${items.length ? items.map(item => `<tr><td>${escapeHtmlClient(item.producto || '-')}</td><td>${item.cantidad || 0}</td><td>${money(item.precioUnitario || 0)}</td><td>${Number(item.descuentoMonto || 0) > 0 ? money(item.descuentoMonto) : '-'}</td><td>${money(item.subtotalFinal || item.subtotal || 0)}</td></tr>`).join('') : '<tr><td colspan="5">Sin productos</td></tr>'}</tbody>
     </table>
     <p><strong>Subtotal:</strong> ${money(venta.subtotal || 0)}</p>
     <p><strong>Descuento:</strong> ${descuento}</p>
-    <p><strong>Total final:</strong> ${money(venta.total || 0)}</p>
+    <p><strong>Redondeo:</strong> ${money(detalle?.redondeo ?? venta.ajusteRedondeo ?? 0)}</p>
+    <p><strong>Total final:</strong> ${money(venta.total || detalle?.total || 0)}</p>
     <div class="mensaje-pago"><strong>Alias de pago: INGLAMBOIS</strong><br/>Por favor enviar comprobante de pago al Ing. Lambois.</div>
   `;
-  $('#modal-ticket-venta')?.showModal();
+    $('#modal-ticket-venta')?.showModal();
+  } catch (error) {
+    $('#ticket-venta-contenido').innerHTML = `<div class="item item-error"><strong>No se pudo cargar el ticket.</strong><p>${escapeHtmlClient(error.message || error)}</p></div>`;
+    $('#modal-ticket-venta')?.showModal();
+    setMsg(`No se pudo cargar el ticket: ${error.message || error}`, 'warning');
+  }
 }
 
 async function cerrarCajaDesdeCaja20() {
@@ -2583,10 +2633,10 @@ async function cerrarCajaDesdeCaja20() {
   const turno = $('#caja-turno')?.value || 'DIARIO';
   const resumen = await api('/caja/resumen' + (fechaCaja ? `?fecha=${encodeURIComponent(fechaCaja)}&turno=${encodeURIComponent(turno)}` : `?turno=${encodeURIComponent(turno)}`));
   const operaciones = Number(resumen.cantidadVentasCobradas || resumen.cantidadOperaciones || 0);
-  const efectivo = Number(resumen.efectivo || 0);
-  const transferencia = Number(resumen.transferencia || 0);
-  const tarjeta = Number(resumen.tarjeta || 0);
-  const cuentaCorriente = Number(resumen.cuentaCorriente || 0);
+  const efectivo = Number(resumen.efectivo ?? resumen.EFECTIVO ?? 0);
+  const transferencia = Number(resumen.transferencia ?? resumen.TRANSFERENCIA ?? 0);
+  const tarjeta = Number(resumen.tarjeta ?? resumen.TARJETA ?? 0);
+  const cuentaCorriente = Number(resumen.cuentaCorriente ?? resumen.CUENTA_CORRIENTE ?? 0);
   const totalVendido = Number(resumen.totalGeneral || resumen.totalVendido || 0);
   const totalCobrado = efectivo + transferencia + tarjeta + cuentaCorriente;
   const pendientes = Math.max(0, totalVendido - totalCobrado);
@@ -2614,6 +2664,17 @@ async function confirmarCierreCajaPendiente() {
 }
 
 document.addEventListener('click', async (e) => {
+  const recargarCaja = e.target.closest('button[data-recargar-caja20]');
+  if (recargarCaja) {
+    try {
+      await loadCaja20();
+      setMsg('Caja recargada correctamente');
+    } catch (err) {
+      setMsg(err.message, 'warning');
+    }
+    return;
+  }
+
   const btn = e.target.closest('button[data-caja20-cobrar]');
   if (!btn) return;
 

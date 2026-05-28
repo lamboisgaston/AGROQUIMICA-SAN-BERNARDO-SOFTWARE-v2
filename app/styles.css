@@ -167,6 +167,8 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .caja-workbench #pendientes .item label { font-size: 12px; font-weight: 600; display: grid; gap: 3px; margin-top: 6px; }
 .caja-workbench #pendientes .item select { min-height: 34px; font-size: 13px; }
 .caja-workbench #pendientes .item button { width: 100%; margin-top: 6px; min-height: 36px; font-weight: 700; }
+.caja-workbench .item-error { border-color:#fecaca; background:#fff1f2; color:#7f1d1d; }
+.caja-workbench .item-error button { background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
 .modal-cierre-caja { border: 0; border-radius: 12px; padding: 0; width: min(560px, 92vw); }
 .modal-cierre-caja article { padding: 16px; }
 .modal-cierre-caja::backdrop { background: rgba(15, 23, 42, 0.45); }
