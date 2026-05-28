@@ -326,12 +326,32 @@ function normalizarBusquedaTexto(valor = '') {
   return String(valor || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
     .toLowerCase()
     .trim();
 }
 
+function construirIndiceBusquedaProducto(producto = {}) {
+  const categorias = (producto.categorias || []).map((c) => c?.nombre).filter(Boolean).join(' ');
+  return normalizarBusquedaTexto([
+    producto.nombre,
+    producto.marca,
+    producto.categoria,
+    producto.descripcion,
+    producto.codigo,
+    producto.sku,
+    producto.skuExterno,
+    producto.presentacion,
+    producto.envase,
+    producto.semillero,
+    categorias
+  ].filter(Boolean).join(' '));
+}
+
 function filtrarProductosMostrador(query = '', categoria = 'TODAS') {
   const q = normalizarBusquedaTexto(query);
+  const qTokens = q.split(' ').filter(Boolean);
   const filtroCategoria = normalizarBusquedaTexto(categoria);
   const listaBase = productos.filter((p) => {
     if (filtroCategoria === 'todas') return true;
@@ -339,11 +359,32 @@ function filtrarProductosMostrador(query = '', categoria = 'TODAS') {
     return categorias.includes(filtroCategoria) || normalizarBusquedaTexto(p.categoria || '') === filtroCategoria;
   });
   if (!q) return listaBase.slice(0, 24);
-  return listaBase.filter((p) => {
-    const categorias = (p.categorias || []).map((c) => c.nombre).join(' ');
-    const indice = normalizarBusquedaTexto([p.nombre, p.marca, p.categoria, categorias, p.codigo, p.sku, p.skuExterno].filter(Boolean).join(' '));
-    return indice.includes(q);
-  }).slice(0, 24);
+
+  return listaBase
+    .map((p) => {
+      const nombre = normalizarBusquedaTexto(p.nombre || '');
+      const marca = normalizarBusquedaTexto(p.marca || '');
+      const categoriaTexto = normalizarBusquedaTexto([p.categoria, ...(p.categorias || []).map((c) => c?.nombre)].filter(Boolean).join(' '));
+      const indice = construirIndiceBusquedaProducto(p);
+      const coincideTodosTokens = qTokens.every((token) => indice.includes(token));
+      if (!coincideTodosTokens) return null;
+
+      let score = 0;
+      if (nombre === q) score += 1000;
+      else if (nombre.startsWith(q)) score += 700;
+      else if (nombre.includes(q)) score += 500;
+
+      if (marca.startsWith(q) || categoriaTexto.startsWith(q)) score += 240;
+      if (marca.includes(q) || categoriaTexto.includes(q)) score += 180;
+      if (indice.includes(q)) score += 120;
+      score += Math.max(0, 80 - nombre.length / 10);
+
+      return { p, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || String(a.p.nombre || '').localeCompare(String(b.p.nombre || ''), 'es'))
+    .slice(0, 24)
+    .map(({ p }) => p);
 }
 
 function renderCategoriasMostrador() {
