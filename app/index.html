@@ -193,16 +193,19 @@
       <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
       <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
       <h2>2) Productos</h2>
-      <label>Tipo de venta
-        <select id="tipo-operacion-venta">
-          <option value="MOSTRADOR">MOSTRADOR</option>
-          <option value="PRECAMPAÑA">PRECAMPAÑA</option>
-        </select>
-      </label>
-      <label id="label-lista-comercial" class="hidden">Lista comercial
-        <select id="lista-comercial-select"></select>
-      </label>
-      <input id="buscar-producto" class="input-grande" placeholder="Escaneá o escribí para buscar producto" />
+      <div class="mostrador-toolbar">
+        <label>Tipo de venta
+          <select id="tipo-operacion-venta">
+            <option value="MOSTRADOR">MOSTRADOR</option>
+            <option value="PRECAMPAÑA">PRECAMPAÑA</option>
+          </select>
+        </label>
+        <label id="label-lista-comercial" class="hidden">Lista comercial
+          <select id="lista-comercial-select"></select>
+        </label>
+      </div>
+      <input id="buscar-producto" class="input-grande mostrador-search-main" placeholder="Buscar producto, marca, categoría o código…" />
+      <div id="mostrador-categorias-chips" class="mostrador-categorias-chips"></div>
       <div id="resultados-productos" class="lista"></div>
       <div id="precio-precampania-detalle" class="lista"></div>
       <div id="stock-alertas" class="lista"></div>
@@ -228,16 +231,18 @@
           </section>
           <section class="side-card">
             <h3>Cobro y cierre</h3>
-            <label>Descuento %
-              <select id="descuento-tipo">
-                <option value="PORCENTAJE">Porcentaje</option>
-              </select>
-            </label>
-            <label>descuentoPorcentaje <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
-            <label>ajusteRedondeo
-              <div class="inline-control"><button id="ajuste-menos">-</button><input id="ajuste-redondeo" type="number" value="0" step="0.01" /><button id="ajuste-mas">+</button></div>
-            </label>
-            <div class="action-row">
+            <div class="compact-cierre-grid">
+              <label>Descuento %
+                <select id="descuento-tipo">
+                  <option value="PORCENTAJE">Porcentaje</option>
+                </select>
+              </label>
+              <label>Valor descuento <input id="descuento" type="number" min="0" value="0" step="0.01" /></label>
+              <label>Redondeo
+                <div class="inline-control"><button id="ajuste-menos">-</button><input id="ajuste-redondeo" type="number" value="0" step="0.01" /><button id="ajuste-mas">+</button></div>
+              </label>
+            </div>
+            <div class="action-row compact-redondeo">
               <button class="btn-redondeo" data-redondeo="100">$100</button>
               <button class="btn-redondeo" data-redondeo="500">$500</button>
               <button class="btn-redondeo" data-redondeo="1000">$1000</button>
