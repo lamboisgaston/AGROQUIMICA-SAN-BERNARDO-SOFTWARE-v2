@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 
 function readDatabaseUrl() {
   const dbUrl = process.env.DATABASE_URL;
@@ -9,19 +8,28 @@ function readDatabaseUrl() {
   return dbUrl;
 }
 
-function resolveSqlitePath(databaseUrl) {
-  if (!databaseUrl.startsWith('file:')) {
-    throw new Error(`DATABASE_URL no es SQLite (valor actual: ${databaseUrl}).`);
+function parsePostgresDatabaseUrl(databaseUrl) {
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(databaseUrl);
+  } catch (error) {
+    throw new Error('DATABASE_URL PostgreSQL inválido.');
   }
 
-  const rawPath = databaseUrl.replace(/^file:/, '');
-  if (!rawPath) {
-    throw new Error('DATABASE_URL SQLite inválido: ruta vacía.');
+  if (!['postgresql:', 'postgres:'].includes(parsedUrl.protocol)) {
+    throw new Error('DATABASE_URL debe ser PostgreSQL Railway (postgresql:// o postgres://).');
   }
 
-  return path.isAbsolute(rawPath)
-    ? rawPath
-    : path.resolve(process.cwd(), rawPath);
+  const databaseName = decodeURIComponent(parsedUrl.pathname.replace(/^\//, ''));
+  if (!databaseName) {
+    throw new Error('DATABASE_URL PostgreSQL inválido: falta el nombre de la base.');
+  }
+
+  return {
+    databaseName,
+    url: databaseUrl
+  };
 }
 
 function warnDangerous(operation) {
@@ -40,7 +48,7 @@ function ensureFileExists(filePath, name) {
 
 module.exports = {
   ensureFileExists,
+  parsePostgresDatabaseUrl,
   readDatabaseUrl,
-  resolveSqlitePath,
   warnDangerous
 };
