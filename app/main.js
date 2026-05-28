@@ -794,9 +794,56 @@ function renderPanelCuentaCorriente(cuenta) {
   $('#cc-saldo').textContent = money(saldo);
   aplicarEstadoSaldo('#cc-saldo', saldo);
   $('#cc-movimientos').innerHTML = (cuenta?.movimientos || []).length
-    ? cuenta.movimientos.map(m => `<div class="item item-movimiento"><span>${new Date(m.createdAt).toLocaleString('es-AR')}</span><strong class="${m.tipo === 'DEBITO' ? 'mov-debe' : 'mov-haber'}">${m.tipo === 'DEBITO' ? 'DEBE' : 'HABER'}</strong><span>${money(m.monto)}</span><span>${m.descripcion || '-'}</span></div>`).join('')
+    ? cuenta.movimientos.map(m => {
+      const ventaIdMovimiento = Number(m.ventaId || m.venta?.id || 0);
+      const esPagoRegistrado = !ventaIdMovimiento && m.tipo === 'CREDITO';
+      const acciones = ventaIdMovimiento
+        ? `<div class="action-row cc-movimiento-acciones">
+            <button data-cc-ver-ticket="${ventaIdMovimiento}">Ver ticket</button>
+            <button data-cc-imprimir-ticket="${ventaIdMovimiento}">Imprimir</button>
+          </div>`
+        : (esPagoRegistrado
+          ? `<div class="action-row cc-movimiento-acciones">
+              <button data-cc-ver-comprobante-pago="${m.id}">Ver comprobante</button>
+              <button data-cc-imprimir-comprobante-pago="${m.id}">Imprimir</button>
+            </div>`
+          : '');
+      return `<div class="item item-movimiento">
+        <span>${new Date(m.createdAt).toLocaleString('es-AR')}</span>
+        <strong class="${m.tipo === 'DEBITO' ? 'mov-debe' : 'mov-haber'}">${m.tipo === 'DEBITO' ? 'DEBE' : 'HABER'}</strong>
+        <span>${money(m.monto)}</span>
+        <span>${escapeHtmlClient(m.descripcion || '-')}</span>
+        ${acciones}
+      </div>`;
+    }).join('')
     : '<div class="item">Sin movimientos</div>';
 }
+
+
+$('#cc-movimientos')?.addEventListener('click', (e) => {
+  const verTicket = e.target.closest('button[data-cc-ver-ticket]');
+  if (verTicket) {
+    window.open(`/ventas/${Number(verTicket.dataset.ccVerTicket)}/ticket`, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  const imprimirTicket = e.target.closest('button[data-cc-imprimir-ticket]');
+  if (imprimirTicket) {
+    window.open(`/ventas/${Number(imprimirTicket.dataset.ccImprimirTicket)}/ticket?imprimir=1`, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  const verComprobante = e.target.closest('button[data-cc-ver-comprobante-pago]');
+  if (verComprobante) {
+    window.open(`/cuenta-corriente/movimientos/${Number(verComprobante.dataset.ccVerComprobantePago)}/comprobante`, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  const imprimirComprobante = e.target.closest('button[data-cc-imprimir-comprobante-pago]');
+  if (imprimirComprobante) {
+    window.open(`/cuenta-corriente/movimientos/${Number(imprimirComprobante.dataset.ccImprimirComprobantePago)}/comprobante?imprimir=1`, '_blank', 'noopener,noreferrer');
+  }
+});
 
 async function refreshVenta() {
   if (!ventaId) return;

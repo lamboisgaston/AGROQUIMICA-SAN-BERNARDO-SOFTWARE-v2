@@ -3197,7 +3197,7 @@ function armarPayloadTicketVenta(venta) {
   };
 }
 
-function renderHtmlTicketVenta(detalle) {
+function renderHtmlTicketVenta(detalle, imprimirAutomaticamente = false) {
   const { venta, cliente, items, formaPago, descuentos, redondeo } = detalle;
   const fecha = venta.fecha ? new Date(venta.fecha).toLocaleString('es-AR') : '-';
   const descuentoGeneral = descuentos?.tipo
@@ -3264,6 +3264,7 @@ function renderHtmlTicketVenta(detalle) {
       Por favor enviar comprobante de pago al Ing. Lambois.
     </div>
     <button onclick="window.print()">Imprimir ticket</button>
+    ${imprimirAutomaticamente ? '<script>window.print()</script>' : ''}
   </body>
 </html>`;
 }
@@ -3391,7 +3392,7 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   }
 
   res.set('Content-Type', 'text/html; charset=utf-8');
-  res.send(renderHtmlTicketVenta(detalle));
+  res.send(renderHtmlTicketVenta(detalle, req.query.imprimir === '1'));
 }));
 
 app.get('/caja/resumen', requireCajaRole, asyncHandler(async (req, res) => {
@@ -3500,7 +3501,7 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
       persona: true,
       movimientos: {
         orderBy: { createdAt: 'desc' },
-        include: { venta: true }
+        include: { venta: true, recibo: true }
       }
     }
   });
@@ -3515,6 +3516,68 @@ app.get('/cuenta-corriente/personas/:personaId', asyncHandler(async (req, res) =
     });
   }
   res.json({ ...cuenta, persona: { ...cuenta.persona, cantidadCompras: comprasStats._count._all || 0, totalComprado: Number(comprasStats._sum.total || 0) } });
+}));
+
+
+function htmlComprobantePagoMovimientoCc(movimiento, imprimirAutomaticamente = false) {
+  const recibo = movimiento.recibo || null;
+  const cuenta = movimiento.cuentaCorriente || null;
+  const persona = recibo?.persona || cuenta?.persona || null;
+  const fechaPago = recibo?.fechaPago || movimiento.createdAt;
+  const medioPago = recibo?.medioPago || 'SIN_ESPECIFICAR';
+  const observacion = recibo?.observacion || movimiento.descripcion || '-';
+
+  return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Comprobante de pago cuenta corriente #${movimiento.id}</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 16px; max-width: 460px; color: #0f172a; }
+      .comprobante { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; }
+      h1 { margin: 0 0 12px; font-size: 18px; }
+      p { margin: 6px 0; }
+      .monto { font-size: 20px; }
+      @media print { button { display: none; } body { margin: 0; } }
+    </style>
+  </head>
+  <body>
+    <div class="comprobante">
+      <h1>Comprobante simple de pago</h1>
+      <p><strong>Fecha:</strong> ${escapeHtml(new Date(fechaPago).toLocaleString('es-AR'))}</p>
+      <p><strong>Cliente:</strong> ${escapeHtml(persona?.nombre || 'Cliente')}</p>
+      <p class="monto"><strong>Monto pagado:</strong> ${formatMoney(movimiento.monto || recibo?.montoPagado || 0)}</p>
+      <p><strong>Medio de pago:</strong> ${escapeHtml(medioPago)}</p>
+      <p><strong>Observación:</strong> ${escapeHtml(observacion)}</p>
+    </div>
+    <button onclick="window.print()">Imprimir</button>
+    ${imprimirAutomaticamente ? '<script>window.print()</script>' : ''}
+  </body>
+</html>`;
+}
+
+app.get('/cuenta-corriente/movimientos/:movimientoId/comprobante', asyncHandler(async (req, res) => {
+  const movimientoId = parsePositiveInt(req.params.movimientoId);
+  if (!movimientoId) return res.status(400).send('movimientoId inválido');
+
+  const movimiento = await prisma.movimientoCuentaCorriente.findUnique({
+    where: { id: movimientoId },
+    include: {
+      cuentaCorriente: { include: { persona: true } },
+      recibo: { include: { persona: true } },
+      venta: true
+    }
+  });
+
+  if (!movimiento) return res.status(404).send('Movimiento no encontrado');
+  if (movimiento.ventaId || movimiento.venta) {
+    return res.redirect(`/ventas/${movimiento.ventaId || movimiento.venta.id}/ticket${req.query.imprimir === '1' ? '?imprimir=1' : ''}`);
+  }
+  if (movimiento.tipo !== 'CREDITO') {
+    return res.status(400).send('El movimiento no es un pago registrado');
+  }
+
+  res.set('Content-Type', 'text/html; charset=utf-8').send(htmlComprobantePagoMovimientoCc(movimiento, req.query.imprimir === '1'));
 }));
 
 app.get('/cuenta-corriente/resumen', asyncHandler(async (req, res) => {
