@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" role="img" aria-labelledby="title desc">
+  <title id="title">G.G.CH Garden Giusti Chuchuy</title>
+  <desc id="desc">Logo Garden, Gasty y Chuchuy S.A.</desc>
+  <rect width="520" height="300" fill="#fff"/>
+  <text x="14" y="128" font-family="Georgia, 'Times New Roman', serif" font-size="70" fill="#006f55" letter-spacing="3">G.G.CH.</text>
+  <g transform="translate(302 6)">
+    <path d="M80 8c18 84-24 115-77 166 74-21 126-86 116-167-9 28-21 55-39 80-8-22-6-49 0-79z" fill="#00745b"/>
+    <path d="M117 28c-17 46-54 72-96 105 55-11 92-36 124-80-2-10-14-20-28-25z" fill="#ef2739"/>
+    <path d="M137 110c-19 48-53 82-105 105 60-4 112-48 119-121-4 7-9 12-14 16z" fill="#00745b"/>
+  </g>
+  <text x="132" y="185" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="800" fill="#e62b36" letter-spacing="4">GARDEN</text>
+  <text x="132" y="230" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="800" fill="#e62b36" letter-spacing="4">GASTY</text>
+  <text x="132" y="274" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="800" fill="#e62b36" letter-spacing="4">CHUCHUY S.A.</text>
+</svg>
