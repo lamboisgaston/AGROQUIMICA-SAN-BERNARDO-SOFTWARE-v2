@@ -628,12 +628,12 @@ function calcularItemConDescuento(item = {}) {
   return { ...item, descuentoPorcentaje, descuentoMonto, subtotalBruto, subtotalFinal, subtotal: subtotalFinal };
 }
 
-function renderControlDescuentoItem(productoId, descuentoPorcentaje, prefijo = 'item') {
+function renderControlDescuentoItem(itemId, descuentoPorcentaje, prefijo = 'item') {
   const porcentaje = clampPorcentaje(descuentoPorcentaje);
   return `<div class="item-discount-control" aria-label="Descuento por ítem">
-    <button type="button" data-${prefijo}-desc-ajustar="-1" data-${prefijo}-desc-producto="${productoId}" aria-label="Restar 1% de descuento">-</button>
+    <button type="button" data-${prefijo}-desc-ajustar="-1" data-${prefijo}-desc-item="${itemId}" aria-label="Restar 1% de descuento">-</button>
     <span class="item-discount-value">${porcentaje.toFixed(0)}%</span>
-    <button type="button" data-${prefijo}-desc-ajustar="1" data-${prefijo}-desc-producto="${productoId}" aria-label="Sumar 1% de descuento">+</button>
+    <button type="button" data-${prefijo}-desc-ajustar="1" data-${prefijo}-desc-item="${itemId}" aria-label="Sumar 1% de descuento">+</button>
   </div>`;
 }
 
@@ -654,21 +654,21 @@ function renderCarrito() {
             <div class="mostrador-cart-field">
               <span>Cantidad</span>
               <div class="mostrador-cart-quantity">
-                <button type="button" data-accion="menos" data-producto="${i.productoId}" aria-label="Restar una unidad">-</button>
+                <button type="button" data-accion="menos" data-item-id="${i.id}" aria-label="Restar una unidad">-</button>
                 <strong>${i.cantidad}</strong>
-                <button type="button" data-accion="mas" data-producto="${i.productoId}" aria-label="Sumar una unidad">+</button>
+                <button type="button" data-accion="mas" data-item-id="${i.id}" aria-label="Sumar una unidad">+</button>
               </div>
             </div>
             <div class="mostrador-cart-field">
               <span>Descuento %</span>
-              ${renderControlDescuentoItem(i.productoId, i.descuentoPorcentaje, 'item')}
+              ${renderControlDescuentoItem(i.id, i.descuentoPorcentaje, 'item')}
             </div>
             <div class="mostrador-cart-field mostrador-cart-subtotal">
               <span>Subtotal</span>
               <strong>${money(i.subtotalFinal)}</strong>
             </div>
           </div>
-          <button type="button" class="mostrador-cart-remove" data-accion="quitar" data-producto="${i.productoId}">Quitar</button>
+          <button type="button" class="mostrador-cart-remove" data-accion="quitar" data-item-id="${i.id}">Quitar</button>
         </article>
       `;
     }).join('')
@@ -2133,15 +2133,50 @@ $('#mostrador-categorias-chips')?.addEventListener('click', (e) => {
   renderProductos();
 });
 
+async function actualizarCantidadItemCarrito(itemId, cantidad) {
+  await api(`/mostrador/ventas/${ventaId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify({ cantidad: Math.max(0, cantidad) }) });
+}
+
+async function ajustarDescuentoItem(itemId, delta) {
+  const item = (venta?.items || []).find((i) => Number(i.id) === Number(itemId));
+  if (!item) return;
+  const descuentoPrevio = item.descuentoPorcentaje;
+  const descuentoPorcentaje = clampPorcentaje(Number(item.descuentoPorcentaje || 0) + Number(delta || 0));
+  item.descuentoPorcentaje = descuentoPorcentaje;
+  const recalculado = calcularItemConDescuento(item);
+  Object.assign(item, recalculado);
+  renderCarrito();
+  try {
+    await api(`/mostrador/ventas/${ventaId}/items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ cantidad: item.cantidad, descuentoPorcentaje })
+    });
+    await refreshVenta();
+  } catch (err) {
+    item.descuentoPorcentaje = descuentoPrevio;
+    Object.assign(item, calcularItemConDescuento(item));
+    renderCarrito();
+    setMsg(err.message);
+  }
+}
+
+function incrementarDescuentoItem(itemId) {
+  return ajustarDescuentoItem(itemId, 1);
+}
+
+function disminuirDescuentoItem(itemId) {
+  return ajustarDescuentoItem(itemId, -1);
+}
+
 $('#carrito').addEventListener('click', async (e) => {
-  const b = e.target.closest('button[data-producto]');
+  const b = e.target.closest('button[data-item-id][data-accion]');
   if (!b || !ventaId) return;
-  const productoId = Number(b.dataset.producto);
-  const item = (venta.items || []).find(i => i.productoId === productoId);
+  const itemId = Number(b.dataset.itemId);
+  const item = (venta.items || []).find(i => Number(i.id) === itemId);
   if (!item) return;
   const cantidad = b.dataset.accion === 'mas' ? item.cantidad + 1 : (b.dataset.accion === 'quitar' ? 0 : item.cantidad - 1);
   try {
-    await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, { method: 'PUT', body: JSON.stringify({ cantidad: Math.max(0, cantidad) }) });
+    await actualizarCantidadItemCarrito(itemId, cantidad);
     await refreshVenta();
     await loadCaja20();
   } catch (err) { setMsg(err.message); }
@@ -2150,23 +2185,11 @@ $('#carrito').addEventListener('click', async (e) => {
 $('#carrito').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-item-desc-ajustar]');
   if (!b || !ventaId) return;
-  const productoId = Number(b.dataset.itemDescProducto);
-  const item = (venta?.items || []).find((i) => i.productoId === productoId);
-  if (!item) return;
-  const descuentoPrevio = item.descuentoPorcentaje;
-  const descuentoPorcentaje = clampPorcentaje(Number(item.descuentoPorcentaje || 0) + Number(b.dataset.itemDescAjustar || 0));
-  item.descuentoPorcentaje = descuentoPorcentaje;
-  renderCarrito();
-  try {
-    await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ cantidad: item.cantidad, descuentoPorcentaje })
-    });
-    await refreshVenta();
-  } catch (err) {
-    item.descuentoPorcentaje = descuentoPrevio;
-    renderCarrito();
-    setMsg(err.message);
+  const itemId = Number(b.dataset.itemDescItem);
+  if (Number(b.dataset.itemDescAjustar || 0) > 0) {
+    await incrementarDescuentoItem(itemId);
+  } else {
+    await disminuirDescuentoItem(itemId);
   }
 });
 
@@ -2883,7 +2906,7 @@ $('#pres-productos').addEventListener('click', (e) => {
 $('#pres-productos').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-pres-desc-ajustar]');
   if (!b) return;
-  const id = Number(b.dataset.presDescProducto || 0);
+  const id = Number(b.dataset.presDescItem || 0);
   const it = presupuestoItems.find((x) => x.productoId === id);
   if (!it) return;
   it.descuentoPorcentaje = clampPorcentaje(Number(it.descuentoPorcentaje || 0) + Number(b.dataset.presDescAjustar || 0));

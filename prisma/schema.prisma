@@ -300,8 +300,6 @@ model VentaItem {
   subtotal     Float
   venta        Venta    @relation(fields: [ventaId], references: [id])
   producto     Producto @relation(fields: [productoId], references: [id])
-
-  @@unique([ventaId, productoId])
 }
 
 enum EstadoVenta {
