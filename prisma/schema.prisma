@@ -224,6 +224,10 @@ model PresupuestoItem {
   observaciones  String?
   cantidad       Int
   precioUnitario Float
+  descuentoPorcentaje Float @default(0)
+  descuentoMonto Float @default(0)
+  subtotalBruto Float @default(0)
+  subtotalFinal Float @default(0)
   subtotal       Float
   presupuesto    Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
   producto       Producto?   @relation(fields: [productoId], references: [id])
@@ -289,6 +293,10 @@ model VentaItem {
   productoId   Int
   cantidad     Int
   precioUnitario Float
+  descuentoPorcentaje Float @default(0)
+  descuentoMonto Float @default(0)
+  subtotalBruto Float @default(0)
+  subtotalFinal Float @default(0)
   subtotal     Float
   venta        Venta    @relation(fields: [ventaId], references: [id])
   producto     Producto @relation(fields: [productoId], references: [id])
