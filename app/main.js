@@ -344,7 +344,9 @@ function construirIndiceBusquedaProducto(producto = {}) {
     producto.skuExterno,
     producto.presentacion,
     producto.envase,
+    producto.unidad,
     producto.semillero,
+    producto.observaciones,
     categorias
   ].filter(Boolean).join(' '));
 }
