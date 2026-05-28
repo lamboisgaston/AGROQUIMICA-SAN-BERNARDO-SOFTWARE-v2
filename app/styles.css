@@ -98,6 +98,11 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .pill.ok { background: #dcfce7; color: #166534; }
 .pill.off { background: #fee2e2; color: #991b1b; }
 .mostrador-ux .input-grande { font-size: 14px; padding: 6px; width: 100%; }
+.mostrador-search-main { font-size: 21px !important; padding: 14px 16px !important; border-radius: 12px; border: 2px solid #bfdbfe; background: #f8fbff; }
+.mostrador-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+.mostrador-categorias-chips { display:flex; gap:8px; overflow:auto; padding: 4px 0 8px; }
+.mostrador-chip { border:1px solid #cbd5e1; background:#fff; border-radius:999px; padding:8px 12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.mostrador-chip.is-active { border-color:#22c55e; background:#dcfce7; color:#166534; }
 .btn-grande { font-size: 12px; padding: 6px 8px; }
 .cliente-buscador-row { display:grid; gap:6px; grid-template-columns: 2fr repeat(3, minmax(110px,1fr)); align-items:center; }
 #alta-rapida-panel { margin-top:6px; border:1px solid #dbeafe; border-radius:8px; padding:6px; background:#f8fbff; }
@@ -111,7 +116,7 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .inline-control { display:flex; gap:4px; align-items:center; }
 .inline-control input { flex:1; }
 .productos-modulo #panel-editar-productos, .productos-modulo #productos-admin { max-width: 100%; }
-.ventas-workbench .workbench-grid { grid-template-columns: minmax(0, 1.65fr) minmax(420px, 1fr); gap: 12px; }
+.ventas-workbench .workbench-grid { grid-template-columns: minmax(0, 1.7fr) minmax(420px, 1fr); gap: 16px; }
 .ventas-workbench .workbench-main,
 .presupuestos-workbench .workbench-main { gap: 8px; }
 .ventas-workbench .workbench-main > h2,
@@ -120,6 +125,8 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .ventas-side-panel .total-grande { font-size: 22px; line-height: 1.2; margin: 8px 0; padding: 8px; border-radius: 8px; background: #eaf2ff; }
 .ventas-side-panel #btn-cerrar { width: 100%; font-size: 17px; padding: 11px; margin-top: 6px; }
 .ventas-side-panel .action-row button { flex: 1; min-width: 80px; }
+.compact-cierre-grid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:8px; }
+.compact-redondeo { margin-top: 6px; }
 
 .presupuestos-workbench .workbench-grid { grid-template-columns: minmax(0, 1.55fr) minmax(390px, 1fr); gap: 12px; }
 .presupuesto-side-panel { gap: 8px; }
@@ -189,7 +196,7 @@ details[open] { display: grid; gap: 5px; }
 .producto-meta { font-size: 13px; color: #1e293b; }
 .producto-acciones { display:grid; gap: 6px; align-self: stretch; }
 .btn-accion-agregar, .btn-accion-editar, .btn-accion-precio { font-size: 13px; font-weight: 700; min-height: 34px; }
-.btn-accion-agregar { background: #dcfce7; border-color: #86efac; color: #166534; }
+.btn-accion-agregar { background: #16a34a; border-color: #15803d; color: #fff; font-size: 16px; padding: 10px 16px; border-radius: 10px; }
 .btn-accion-editar { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
 .btn-accion-precio { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
 

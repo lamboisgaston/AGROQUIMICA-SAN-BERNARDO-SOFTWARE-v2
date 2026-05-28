@@ -8,6 +8,8 @@ let productosListaComercial = [];
 let productos = [];
 let resultadosProductosVisibles = [];
 let indiceProductoSeleccionado = -1;
+let buscadorProductosTimer = null;
+let categoriaMostradorActiva = 'TODAS';
 let cuentaCorrienteMostrada = null;
 let fechaCajaSeleccionada = null;
 let fechaVentasCobradasSeleccionada = null;
@@ -289,12 +291,6 @@ async function buscarProveedores(query) {
 
 async function renderProductos() {
   const q = $('#buscar-producto').value.trim();
-  if (!q) {
-    resultadosProductosVisibles = [];
-    indiceProductoSeleccionado = -1;
-    $('#resultados-productos').innerHTML = '<div class="item">Sin resultados</div>';
-    return;
-  }
   try {
     const tipoOperacion = $('#tipo-operacion-venta')?.value || 'MOSTRADOR';
     const lista = tipoOperacion === 'PRECAMPAÑA'
@@ -312,7 +308,7 @@ async function renderProductos() {
           gananciaEstimada: p.gananciaEstimada == null ? null : Number(p.gananciaEstimada),
           _precampania: true
         }))
-      : await buscarProductos(q);
+      : filtrarProductosMostrador(q, categoriaMostradorActiva);
     resultadosProductosVisibles = lista;
     if (lista.length === 0) indiceProductoSeleccionado = -1;
     if (lista.length > 0 && (indiceProductoSeleccionado < 0 || indiceProductoSeleccionado >= lista.length)) {
@@ -324,6 +320,43 @@ async function renderProductos() {
   } catch (error) {
     mostrarErrorBusqueda('#resultados-productos', error);
   }
+}
+
+function normalizarBusquedaTexto(valor = '') {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function filtrarProductosMostrador(query = '', categoria = 'TODAS') {
+  const q = normalizarBusquedaTexto(query);
+  const filtroCategoria = normalizarBusquedaTexto(categoria);
+  const listaBase = productos.filter((p) => {
+    if (filtroCategoria === 'todas') return true;
+    const categorias = (p.categorias || []).map((c) => normalizarBusquedaTexto(c.nombre));
+    return categorias.includes(filtroCategoria) || normalizarBusquedaTexto(p.categoria || '') === filtroCategoria;
+  });
+  if (!q) return listaBase.slice(0, 24);
+  return listaBase.filter((p) => {
+    const categorias = (p.categorias || []).map((c) => c.nombre).join(' ');
+    const indice = normalizarBusquedaTexto([p.nombre, p.marca, p.categoria, categorias, p.codigo, p.sku, p.skuExterno].filter(Boolean).join(' '));
+    return indice.includes(q);
+  }).slice(0, 24);
+}
+
+function renderCategoriasMostrador() {
+  const cont = $('#mostrador-categorias-chips');
+  if (!cont) return;
+  const categorias = Array.from(new Set(productos
+    .flatMap((p) => (p.categorias || []).map((c) => c.nombre).concat(p.categoria ? [p.categoria] : []))
+    .filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'es'));
+  const base = ['GENERAL', 'SEMILLAS', 'FERTILIZANTES', 'AGROQUÍMICOS', 'RIEGO'];
+  const visibles = Array.from(new Set([...base, ...categorias])).slice(0, 20);
+  cont.innerHTML = [`<button type="button" class="mostrador-chip ${categoriaMostradorActiva === 'TODAS' ? 'is-active' : ''}" data-cat-mostrador="TODAS">TODAS</button>`,
+    ...visibles.map((cat) => `<button type="button" class="mostrador-chip ${categoriaMostradorActiva === cat ? 'is-active' : ''}" data-cat-mostrador="${cat}">${cat}</button>`)].join('');
 }
 
 async function agregarProductoAlCarrito(productoId) {
@@ -1145,6 +1178,7 @@ function renderCategoriasAdmin() {
 
 async function loadProductosAll() {
   productos = await api('/productos');
+  renderCategoriasMostrador();
   renderProductos();
   renderProductosAdmin();
   await loadCategoriasProducto();
@@ -1957,7 +1991,10 @@ $('#btn-precampania-publicar-todos')?.addEventListener('click', async () => {
 
 calcularPreviewPrecampania();
 
-$('#buscar-producto').addEventListener('input', renderProductos);
+$('#buscar-producto').addEventListener('input', () => {
+  clearTimeout(buscadorProductosTimer);
+  buscadorProductosTimer = setTimeout(renderProductos, 120);
+});
 $('#buscar-producto').addEventListener('keydown', async (e) => {
   if (e.key === 'ArrowDown') {
     e.preventDefault();
@@ -1990,6 +2027,13 @@ $('#resultados-productos').addEventListener('click', async (e) => {
   if (!b) return;
   console.log('Seleccionado producto:', b.dataset.producto);
   await agregarProductoAlCarrito(Number(b.dataset.producto));
+});
+$('#mostrador-categorias-chips')?.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-cat-mostrador]');
+  if (!b) return;
+  categoriaMostradorActiva = b.dataset.catMostrador || 'TODAS';
+  renderCategoriasMostrador();
+  renderProductos();
 });
 
 $('#carrito').addEventListener('click', async (e) => {
