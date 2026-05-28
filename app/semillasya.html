@@ -89,7 +89,19 @@
     .brands-band { margin: .45rem 0 1rem; padding: .78rem .88rem; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .75rem; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.68); box-shadow: var(--shadow-soft); overflow: hidden; }
     .brands-band p { margin: 0; color: var(--muted); font-weight: 800; font-size: .9rem; }
     .brand-cards { display: flex; gap: .58rem; flex-wrap: wrap; justify-content: flex-end; }
-    .brand-card { min-width: 112px; min-height: 50px; border: 1px solid #dce8dc; border-radius: 15px; background: linear-gradient(145deg, #fff, #f2f8f2); display: grid; place-items: center; color: var(--green-850); font-size: .9rem; letter-spacing: .12em; font-weight: 950; box-shadow: 0 6px 14px rgba(13,63,41,.05); }
+    .brand-card { min-width: 112px; min-height: 52px; border: 1px solid rgba(188, 211, 190, .84); border-radius: 16px; background: rgba(255,255,255,.9); display: grid; place-items: center; color: var(--green-850); font-size: .78rem; letter-spacing: .11em; font-weight: 950; box-shadow: 0 9px 18px rgba(13,63,41,.055); padding: .45rem .7rem; }
+    .brand-card--logo { min-width: 122px; background: linear-gradient(145deg, #fff, #f7fbf7); }
+    .brand-card img { display: block; max-height: 46px; max-width: 118px; width: auto; height: auto; object-fit: contain; }
+    .brand-card--fallback { border-style: dashed; background: linear-gradient(145deg, #f9fcf8, #eef7ef); }
+
+    .trust-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .72rem; margin: -.15rem 0 1.05rem; }
+    .trust-card { position: relative; overflow: hidden; min-height: 112px; padding: .85rem; border: 1px solid rgba(202, 222, 203, .92); border-radius: 20px; background: rgba(255,255,255,.82); box-shadow: 0 10px 22px rgba(13,63,41,.055); }
+    .trust-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, var(--green-700), var(--earth)); opacity: .75; }
+    .trust-logo-wrap { min-height: 48px; display: flex; align-items: center; justify-content: flex-start; margin-bottom: .55rem; }
+    .trust-logo-wrap img { display: block; max-height: 48px; max-width: 132px; width: auto; height: auto; object-fit: contain; }
+    .trust-card h3 { margin: 0; color: var(--green-950); font-size: .98rem; letter-spacing: -.02em; }
+    .trust-card p { margin: .22rem 0 0; color: var(--muted); font-size: .79rem; line-height: 1.35; }
+
 
     .flow-shell { padding: 1.2rem 0 4rem; }
     .progress-card { position: sticky; top: .75rem; z-index: 12; margin-bottom: 1rem; padding: .75rem; border: 1px solid rgba(220,232,220,.92); border-radius: 24px; background: rgba(255,255,255,.86); backdrop-filter: blur(14px); box-shadow: var(--shadow-soft); }
@@ -122,9 +134,13 @@
 
     .products-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1rem; }
     .productos-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
-    .product-card { display: grid; gap: .7rem; padding: 1rem; border: 1px solid #dce8dc; border-radius: 22px; background: linear-gradient(180deg, #fff 0%, #fbfdfb 100%); box-shadow: 0 10px 24px rgba(13,63,41,.06); }
-    .product-card h3 { margin: 0; color: var(--green-950); font-size: 1.04rem; line-height: 1.25; letter-spacing: -.02em; }
-    .product-meta { display: grid; gap: .42rem; color: var(--muted); font-size: .91rem; }
+    .product-card { display: grid; gap: .72rem; padding: .92rem; border: 1px solid #dce8dc; border-radius: 22px; background: linear-gradient(180deg, #fff 0%, #fbfdfb 100%); box-shadow: 0 10px 24px rgba(13,63,41,.06); }
+    .product-card-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .7rem; }
+    .product-card h3 { margin: 0; color: var(--green-950); font-size: 1.01rem; line-height: 1.24; letter-spacing: -.02em; }
+    .product-meta { display: grid; gap: .42rem; color: var(--muted); font-size: .9rem; }
+    .semillero-logo-badge { width: 84px; min-height: 42px; border: 1px solid rgba(207,224,209,.9); border-radius: 14px; background: #fff; display: flex; align-items: center; justify-content: center; padding: .28rem .42rem; box-shadow: 0 6px 14px rgba(13,63,41,.045); flex: 0 0 auto; }
+    .semillero-logo-badge img { display: block; max-height: 36px; max-width: 70px; width: auto; height: auto; object-fit: contain; }
+    .semillero-logo-badge--fallback { color: var(--green-850); background: #f4faf4; border-style: dashed; font-size: .68rem; font-weight: 950; text-align: center; letter-spacing: .07em; text-transform: uppercase; }
     .product-meta strong { color: var(--text); }
     .product-bottom { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding-top: .15rem; }
     .price-pill { color: var(--green-850); font-weight: 950; background: var(--green-100); border-radius: 999px; padding: .48rem .65rem; white-space: nowrap; }
@@ -160,6 +176,7 @@
       .quote-dock { position: static; }
       .quote-panel { max-height: none; }
       .productos-grid { grid-template-columns: 1fr; }
+      .trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .brands-band { grid-template-columns: 1fr; }
       .brand-cards { justify-content: stretch; }
       .brand-card { flex: 1; }
@@ -182,6 +199,8 @@
       .progress-steps { gap: .4rem; }
       .progress-step { padding: .55rem; font-size: .82rem; }
       .products-head { display: block; }
+      .trust-grid { grid-template-columns: 1fr; }
+      .product-card-head { grid-template-columns: 1fr; }
       .chat-fab { left: .75rem; right: .75rem; bottom: .75rem; width: auto; }
       .assistant-floating { left: .55rem; right: .55rem; bottom: 4.6rem; width: auto; }
       .chat-input-row { flex-direction: column; }
@@ -253,11 +272,39 @@
       </div>
     </section>
 
+    <section class="trust-grid" aria-label="Semilleros destacados">
+      <article class="trust-card">
+        <div class="trust-logo-wrap"><img src="/app/assets/semilleros/guasch.svg" alt="GUASCH" loading="lazy" /></div>
+        <h3>GUASCH</h3>
+        <p>Líneas hortícolas y forrajeras para cotizar con respaldo técnico.</p>
+      </article>
+      <article class="trust-card">
+        <div class="trust-logo-wrap"><img src="/app/assets/semilleros/caps.svg" alt="CAPS Semillas Hortícolas" loading="lazy" /></div>
+        <h3>CAPS</h3>
+        <p>Semillas hortícolas presentadas de forma clara y compacta.</p>
+      </article>
+      <article class="trust-card">
+        <div class="trust-logo-wrap"><img src="/app/assets/semilleros/florensa.svg" alt="Florensa" loading="lazy" /></div>
+        <h3>Florensa</h3>
+        <p>Portafolio profesional para decisiones de siembra más ágiles.</p>
+      </article>
+      <article class="trust-card">
+        <div class="trust-logo-wrap"><img src="/app/assets/semilleros/garden-gasty-chuchuy.svg" alt="Garden, Gasty y Chuchuy" loading="lazy" /></div>
+        <h3>Garden · Gasty · Chuchuy</h3>
+        <p>Marcas proveedoras integradas visualmente al flujo comercial.</p>
+      </article>
+    </section>
+
     <section class="brands-band" aria-label="Marcas disponibles">
-      <p>Marcas publicadas</p>
+      <p>Semilleros y proveedores</p>
       <div class="brand-cards" id="brandsTrack">
-        <div class="brand-card">CAPS</div>
-        <div class="brand-card">GUASCH</div>
+        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/caps.svg" alt="CAPS" loading="lazy" /></div>
+        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/guasch.svg" alt="GUASCH" loading="lazy" /></div>
+        <div class="brand-card brand-card--fallback">Picasso</div>
+        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/florensa.svg" alt="Florensa" loading="lazy" /></div>
+        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/garden-gasty-chuchuy.svg" alt="Garden" loading="lazy" /></div>
+        <div class="brand-card brand-card--fallback">Gasty</div>
+        <div class="brand-card brand-card--fallback">Chuchuy</div>
       </div>
     </section>
 
@@ -396,6 +443,35 @@
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     const cultivoProducto = (p) => p.cultivo || p.categoria || 'Otros';
     const marcaProducto = (p) => p.semilleroLaboratorio || p.marca || 'Semillero';
+    const SEMILLERO_LOGOS = {
+      CAPS: '/app/assets/semilleros/caps.svg',
+      GUASCH: '/app/assets/semilleros/guasch.svg',
+      FLORENSA: '/app/assets/semilleros/florensa.svg',
+      GARDEN: '/app/assets/semilleros/garden-gasty-chuchuy.svg',
+      GASTY: '/app/assets/semilleros/garden-gasty-chuchuy.svg',
+      CHUCHUY: '/app/assets/semilleros/garden-gasty-chuchuy.svg',
+      'G.G.CH': '/app/assets/semilleros/garden-gasty-chuchuy.svg',
+      GGCH: '/app/assets/semilleros/garden-gasty-chuchuy.svg',
+      RODEO: '/app/assets/semilleros/rodeo.svg'
+    };
+    function claveSemillero(nombre) {
+      return String(nombre || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9.]+/g, ' ')
+        .trim();
+    }
+    function logoSemillero(nombre) {
+      const clave = claveSemillero(nombre);
+      return Object.entries(SEMILLERO_LOGOS).find(([alias]) => clave.includes(alias))?.[1] || '';
+    }
+    function semilleroLogoHtml(nombre, extraClass = '') {
+      const marca = nombre || 'Semillero';
+      const logo = logoSemillero(marca);
+      if (!logo) return `<span class="semillero-logo-badge semillero-logo-badge--fallback ${extraClass}">${escapeHtml(marca)}</span>`;
+      return `<span class="semillero-logo-badge ${extraClass}"><img src="${escapeHtml(logo)}" alt="${escapeHtml(marca)}" loading="lazy" /></span>`;
+    }
     const presentacionProducto = (p) => p.presentacionEnvase || p.envase || p.unidad || 'Presentación a confirmar';
     const variedadProducto = (p) => p.nombre || 'Variedad sin nombre';
     const productoDisponiblePublico = (p) => Boolean(p?.activo && p?.visibleEnSemillasYa && p?.publicadoWeb);
@@ -468,13 +544,17 @@
       $('productosHint').textContent = list.length ? `${list.length} opciones disponibles para cotizar.` : 'No hay productos publicados para este cultivo.';
       $('catalog').innerHTML = list.length ? list.map((p) => {
         const precio = precioProducto(p);
+        const marca = marcaProducto(p);
         return `<article class="product-card">
-          <div>
-            <h3>${escapeHtml(variedadProducto(p))}</h3>
-            <div class="product-meta" style="margin-top:.6rem;">
-              <div>Semillero: <strong>${escapeHtml(marcaProducto(p))}</strong></div>
-              <div>Presentación: <strong>${escapeHtml(presentacionProducto(p))}</strong></div>
+          <div class="product-card-head">
+            <div>
+              <h3>${escapeHtml(variedadProducto(p))}</h3>
+              <div class="product-meta" style="margin-top:.6rem;">
+                <div>Semillero: <strong>${escapeHtml(marca)}</strong></div>
+                <div>Presentación: <strong>${escapeHtml(presentacionProducto(p))}</strong></div>
+              </div>
             </div>
+            ${semilleroLogoHtml(marca)}
           </div>
           <div class="product-bottom">
             <span class="price-pill">${precio == null ? 'Consultar' : escapeHtml(formatearPrecio(precio))}</span>
@@ -509,7 +589,10 @@
           <p class="cart-title">${escapeHtml(it.producto.nombre)}</p>
           <button class="btn btn-outline" type="button" data-rm="${idx}">Quitar</button>
         </div>
-        <div class="small" style="margin-top:.35rem;">${escapeHtml(marcaProducto(it.producto))} · ${escapeHtml(presentacionProducto(it.producto))}</div>
+        <div class="cart-row" style="margin-top:.5rem; align-items:center;">
+          <div class="small">${escapeHtml(marcaProducto(it.producto))} · ${escapeHtml(presentacionProducto(it.producto))}</div>
+          ${semilleroLogoHtml(marcaProducto(it.producto))}
+        </div>
         <div class="cart-row" style="margin-top:.65rem;">
           <label class="small" for="qty-${idx}" style="margin:0;">Cantidad</label>
           <input id="qty-${idx}" class="qty" type="number" min="1" value="${it.cantidad}" data-qty="${idx}" />
