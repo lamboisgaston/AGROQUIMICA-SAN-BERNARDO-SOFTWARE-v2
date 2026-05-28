@@ -254,10 +254,8 @@ function normalizarItemConDescuento(item = {}) {
   const cantidad = Math.max(0, Number(item.cantidad || 0));
   const precioUnitario = Math.max(0, Number(item.precioUnitario || 0));
   const subtotalBruto = Number((precioUnitario * cantidad).toFixed(2));
-  const descuentoPorcentaje = Math.max(0, Number(item.descuentoPorcentaje || 0));
-  const descuentoMontoManual = Math.max(0, Number(item.descuentoMonto || 0));
-  const descuentoCalculadoPorcentaje = Number((subtotalBruto * (descuentoPorcentaje / 100)).toFixed(2));
-  const descuentoMonto = Math.min(subtotalBruto, Math.max(descuentoCalculadoPorcentaje, descuentoMontoManual));
+  const descuentoPorcentaje = Math.min(100, Math.max(0, Number(item.descuentoPorcentaje || 0)));
+  const descuentoMonto = Number((subtotalBruto * (descuentoPorcentaje / 100)).toFixed(2));
   const subtotalFinal = Math.max(0, Number((subtotalBruto - descuentoMonto).toFixed(2)));
   return { ...item, cantidad, precioUnitario, descuentoPorcentaje, descuentoMonto, subtotalBruto, subtotalFinal, subtotal: subtotalFinal };
 }
@@ -1599,7 +1597,7 @@ async function guardarPresupuesto(req, res, id = null) {
     const producto = await prisma.producto.findUnique({ where: { id: productoId } });
     if (!producto) return res.status(404).json({ error: `Producto ${productoId} no encontrado` });
     const precioUnitario = calcularPrecioFinalPesos(producto, tipoCambioActual).precioVentaPesos;
-    itemsCalculados.push(normalizarItemConDescuento({ productoId, cantidad, precioUnitario, descuentoPorcentaje: Number(item.descuentoPorcentaje || 0), descuentoMonto: Number(item.descuentoMonto || 0) }));
+    itemsCalculados.push(normalizarItemConDescuento({ productoId, cantidad, precioUnitario, descuentoPorcentaje: Number(item.descuentoPorcentaje || 0) }));
   }
   const totales = calcularTotalesConDescuento(itemsCalculados, descuentoTipo || null, descuentoValor || 0, ajusteRedondeo || 0);
   const payload = {
@@ -2794,15 +2792,17 @@ app.post('/mostrador/ventas/:id/items', asyncHandler(async (req, res) => {
     create: {
       ventaId,
       productoId: productoIdParsed,
-      cantidad: cantidadParsed,
-      precioUnitario: precioPesosCalculado,
-      subtotalBruto: precioPesosCalculado * cantidadParsed, subtotalFinal: precioPesosCalculado * cantidadParsed, subtotal: precioPesosCalculado * cantidadParsed
+      ...normalizarItemConDescuento({
+        cantidad: cantidadParsed,
+        precioUnitario: precioPesosCalculado,
+        descuentoPorcentaje: 0
+      })
     },
-    update: {
+    update: normalizarItemConDescuento({
       cantidad: cantidadFinal,
       precioUnitario: precioPesosCalculado,
-      subtotalBruto: precioPesosCalculado * cantidadFinal, subtotalFinal: precioPesosCalculado * cantidadFinal, subtotal: precioPesosCalculado * cantidadFinal
-    }
+      descuentoPorcentaje: existente?.descuentoPorcentaje || 0
+    })
   });
 
   const items = await prisma.ventaItem.findMany({ where: { ventaId } });
@@ -2846,7 +2846,7 @@ app.put('/mostrador/ventas/:id/items/:productoId', asyncHandler(async (req, res)
     if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
     await prisma.ventaItem.update({
       where: { id: existente.id },
-      data: normalizarItemConDescuento({ cantidad, precioUnitario: existente.precioUnitario, descuentoPorcentaje: descuentoPorcentaje == null ? existente.descuentoPorcentaje : descuentoPorcentaje, descuentoMonto: descuentoMonto == null ? existente.descuentoMonto : descuentoMonto })
+      data: normalizarItemConDescuento({ cantidad, precioUnitario: existente.precioUnitario, descuentoPorcentaje: descuentoPorcentaje == null ? existente.descuentoPorcentaje : descuentoPorcentaje })
     });
   }
 

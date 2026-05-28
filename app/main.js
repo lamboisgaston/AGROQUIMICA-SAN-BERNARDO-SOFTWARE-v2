@@ -1,5 +1,6 @@
 const $ = (s) => document.querySelector(s);
 const money = (v) => '$' + Number(v || 0).toFixed(2);
+const clampPorcentaje = (v) => Math.min(100, Math.max(0, Number(v || 0)));
 
 let ventaId = null;
 let venta = null;
@@ -621,17 +622,26 @@ function calcularItemConDescuento(item = {}) {
   const cantidad = Math.max(0, Number(item.cantidad || 0));
   const precioUnitario = Math.max(0, Number(item.precioUnitario || 0));
   const subtotalBruto = precioUnitario * cantidad;
-  const descuentoPorcentaje = Math.max(0, Number(item.descuentoPorcentaje || 0));
-  const descuentoMonto = Math.min(subtotalBruto, Math.max(subtotalBruto * (descuentoPorcentaje / 100), Math.max(0, Number(item.descuentoMonto || 0))));
+  const descuentoPorcentaje = clampPorcentaje(item.descuentoPorcentaje);
+  const descuentoMonto = subtotalBruto * (descuentoPorcentaje / 100);
   const subtotalFinal = Math.max(0, subtotalBruto - descuentoMonto);
   return { ...item, descuentoPorcentaje, descuentoMonto, subtotalBruto, subtotalFinal, subtotal: subtotalFinal };
+}
+
+function renderControlDescuentoItem(productoId, descuentoPorcentaje, prefijo = 'item') {
+  const porcentaje = clampPorcentaje(descuentoPorcentaje);
+  return `<div class="item-discount-control" aria-label="Descuento por ítem">
+    <button type="button" data-${prefijo}-desc-ajustar="-1" data-${prefijo}-desc-producto="${productoId}" aria-label="Restar 1% de descuento">-</button>
+    <span class="item-discount-value">${porcentaje.toFixed(0)}%</span>
+    <button type="button" data-${prefijo}-desc-ajustar="1" data-${prefijo}-desc-producto="${productoId}" aria-label="Sumar 1% de descuento">+</button>
+  </div>`;
 }
 
 function renderCarrito() {
   const items = venta?.items || [];
   $('#carrito').innerHTML = items.length
-    ? items.map(raw => { const i = calcularItemConDescuento(raw); return `<tr><td>${i.producto.nombre}</td><td>${i.cantidad}</td><td>${money(i.precioUnitario)}</td><td><input type="number" min="0" step="0.01" data-item-desc-pct="${i.productoId}" value="${Number(i.descuentoPorcentaje||0).toFixed(2)}" style="width:82px"></td><td><input type="number" min="0" step="0.01" data-item-desc-monto="${i.productoId}" value="${Number(i.descuentoMonto||0).toFixed(2)}" style="width:100px"></td><td>${money(i.subtotalFinal)}</td><td><button data-accion="menos" data-producto="${i.productoId}">-</button> <button data-accion="mas" data-producto="${i.productoId}">+</button> <button data-accion="quitar" data-producto="${i.productoId}">Quitar</button></td></tr>`; }).join('')
-    : '<tr><td colspan="7">Sin productos</td></tr>'; 
+    ? items.map(raw => { const i = calcularItemConDescuento(raw); return `<tr><td>${i.producto.nombre}</td><td>${money(i.precioUnitario)}</td><td>${i.cantidad}</td><td>${renderControlDescuentoItem(i.productoId, i.descuentoPorcentaje, 'item')}</td><td>${money(i.subtotalFinal)}</td><td><button data-accion="menos" data-producto="${i.productoId}">-</button> <button data-accion="mas" data-producto="${i.productoId}">+</button> <button data-accion="quitar" data-producto="${i.productoId}">Quitar</button></td></tr>`; }).join('')
+    : '<tr><td colspan="6">Sin productos</td></tr>'; 
 
   const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(calcularItemConDescuento(i).subtotalFinal || 0), 0));
   const descuento = Math.max(0, Number($('#descuento').value || 0));
@@ -937,8 +947,8 @@ function renderPresupuestoProductos() {
     .slice(0, 8);
   presupuestoItems = presupuestoItems.map((it) => {
     const base = Number(it.precioUnitario || 0) * Number(it.cantidad || 0);
-    const descPct = Math.max(0, Number(it.descuentoPorcentaje || 0));
-    const descMonto = Math.min(base, Math.max(base * (descPct / 100), Math.max(0, Number(it.descuentoMonto || 0))));
+    const descPct = clampPorcentaje(it.descuentoPorcentaje);
+    const descMonto = base * (descPct / 100);
     return { ...it, descuentoPorcentaje: descPct, descuentoMonto: descMonto, subtotalBruto: base, subtotalFinal: Math.max(0, base - descMonto), subtotal: Math.max(0, base - descMonto) };
   });
   const subtotal = presupuestoItems.reduce((acc, it) => acc + Number(it.subtotal || 0), 0);
@@ -970,13 +980,12 @@ function renderPresupuestoProductos() {
 
   const resultados = lista.map(p => renderProductoCard(p, { accion: 'data-pres-agregar', accionLabel: 'Agregar', accionClass: 'btn-accion-agregar' })).join('');
   const tabla = presupuestoItems.length
-    ? `<table style="width:100%;margin-top:8px;"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Desc. %</th><th>Desc. $</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>${
+    ? `<table style="width:100%;margin-top:8px;"><thead><tr><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Descuento %</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>${
       presupuestoItems.map(it => `<tr>
         <td>${it.nombre}</td>
-        <td><button data-pres-menos="${it.productoId}">-</button> ${it.cantidad} <button data-pres-mas="${it.productoId}">+</button></td>
         <td>${money(it.precioUnitario)}</td>
-        <td><input type="number" min="0" step="0.01" data-pres-desc-pct="${it.productoId}" value="${Number(it.descuentoPorcentaje || 0).toFixed(2)}" style="width:82px"></td>
-        <td><input type="number" min="0" step="0.01" data-pres-desc-monto="${it.productoId}" value="${Number(it.descuentoMonto || 0).toFixed(2)}" style="width:95px"></td>
+        <td><button data-pres-menos="${it.productoId}">-</button> ${it.cantidad} <button data-pres-mas="${it.productoId}">+</button></td>
+        <td>${renderControlDescuentoItem(it.productoId, it.descuentoPorcentaje, 'pres')}</td>
         <td>${money(it.subtotal)}</td>
         <td><button data-pres-quitar="${it.productoId}">Quitar</button></td>
       </tr>`).join('')
@@ -2107,22 +2116,17 @@ $('#carrito').addEventListener('click', async (e) => {
   } catch (err) { setMsg(err.message); }
 });
 
-$('#carrito').addEventListener('input', async (e) => {
-  const pct = e.target.closest('input[data-item-desc-pct]');
-  const monto = e.target.closest('input[data-item-desc-monto]');
-  const input = pct || monto;
-  if (!input || !ventaId) return;
-  const productoId = Number(input.dataset.itemDescPct || input.dataset.itemDescMonto);
+$('#carrito').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-item-desc-ajustar]');
+  if (!b || !ventaId) return;
+  const productoId = Number(b.dataset.itemDescProducto);
   const item = (venta?.items || []).find((i) => i.productoId === productoId);
   if (!item) return;
+  const descuentoPorcentaje = clampPorcentaje(Number(item.descuentoPorcentaje || 0) + Number(b.dataset.itemDescAjustar || 0));
   try {
     await api(`/mostrador/ventas/${ventaId}/items/${productoId}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        cantidad: item.cantidad,
-        descuentoPorcentaje: pct ? Number(pct.value || 0) : Number(item.descuentoPorcentaje || 0),
-        descuentoMonto: monto ? Number(monto.value || 0) : Number(item.descuentoMonto || 0)
-      })
+      body: JSON.stringify({ cantidad: item.cantidad, descuentoPorcentaje })
     });
     await refreshVenta();
   } catch (err) { setMsg(err.message); }
@@ -2838,16 +2842,13 @@ $('#pres-productos').addEventListener('click', (e) => {
   console.log('Items presupuesto:', presupuestoItems);
   renderPresupuestoProductos();
 });
-$('#pres-productos').addEventListener('input', (e) => {
-  const pct = e.target.closest('input[data-pres-desc-pct]');
-  const monto = e.target.closest('input[data-pres-desc-monto]');
-  const input = pct || monto;
-  if (!input) return;
-  const id = Number(input.dataset.presDescPct || input.dataset.presDescMonto || 0);
+$('#pres-productos').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-pres-desc-ajustar]');
+  if (!b) return;
+  const id = Number(b.dataset.presDescProducto || 0);
   const it = presupuestoItems.find((x) => x.productoId === id);
   if (!it) return;
-  if (pct) it.descuentoPorcentaje = Math.max(0, Number(pct.value || 0));
-  if (monto) it.descuentoMonto = Math.max(0, Number(monto.value || 0));
+  it.descuentoPorcentaje = clampPorcentaje(Number(it.descuentoPorcentaje || 0) + Number(b.dataset.presDescAjustar || 0));
   renderPresupuestoProductos();
 });
 async function buscarProductoPresupuesto() {
@@ -2899,7 +2900,7 @@ $('#pres-guardar').addEventListener('click', async () => {
     const ajusteRedondeo = Number($('#pres-ajuste-redondeo').value || 0);
     const condicionPagoPrevista = $('#pres-condicion-pago-prevista').value || null;
     if ((descuentoValor > 0 || ajusteRedondeo !== 0) && !condicionPagoPrevista) throw new Error('Si hay descuento o ajuste de redondeo, debe indicar condicionPagoPrevista');
-    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, descuentoPorcentaje, descuentoMonto }) => ({ productoId, cantidad, descuentoPorcentaje, descuentoMonto })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value, origen: presupuestoModuloActivo === 'SEMILLASYA' ? 'SEMILLASYA' : 'MOSTRADOR', tipoOperacion: presupuestoModuloActivo === 'SEMILLASYA' ? 'PRECAMPAÑA' : 'MOSTRADOR' }) });
+    const creado = await api('/presupuestos', { method: 'POST', body: JSON.stringify({ tipoDestinatario: presupuestoTipoDestinatario, clienteId: presupuestoTipoDestinatario === 'EXISTENTE' ? presupuestoClienteId : null, nombreLibre: presupuestoTipoDestinatario === 'LIBRE' ? presupuestoNombreLibre : null, items: presupuestoItems.map(({ productoId, cantidad, descuentoPorcentaje }) => ({ productoId, cantidad, descuentoPorcentaje })), descuentoTipo: 'PORCENTAJE', descuentoValor, ajusteRedondeo, condicionPagoPrevista, observaciones: $('#pres-observaciones').value, validez: $('#pres-validez').value, aliasTransferencia: $('#pres-alias').value, datosBancarios: $('#pres-banco').value, origen: presupuestoModuloActivo === 'SEMILLASYA' ? 'SEMILLASYA' : 'MOSTRADOR', tipoOperacion: presupuestoModuloActivo === 'SEMILLASYA' ? 'PRECAMPAÑA' : 'MOSTRADOR' }) });
     presupuestoItems = [];
     presupuestoClienteId = null;
     presupuestoNombreLibre = '';

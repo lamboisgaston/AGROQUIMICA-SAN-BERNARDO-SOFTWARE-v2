@@ -219,13 +219,13 @@
           <section class="side-card">
             <h3>Carrito</h3>
             <table class="table-compact">
-              <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
+              <thead><tr><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Descuento %</th><th>Subtotal</th><th>Acción</th></tr></thead>
               <tbody id="carrito"></tbody>
             </table>
             <p>Cliente seleccionado: <strong id="carrito-cliente">Consumidor final</strong></p>
             <p>Subtotal: <span id="subtotal">$0.00</span></p>
-            <p>Descuento %: <span id="resumen-descuento-pct">0.00%</span></p>
-            <p>Importe descontado: <span id="importe-descuento">$0.00</span></p>
+            <p>Descuento: <span id="resumen-descuento-pct">0.00%</span></p>
+            <p>Descuento aplicado: <span id="importe-descuento">$0.00</span></p>
             <p>Ajuste redondeo: <span id="monto-ajuste">$0.00</span></p>
             <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
           </section>
@@ -558,8 +558,8 @@
     <aside class="workbench-side sticky-summary presupuesto-side-panel">
   <h3>Resumen final</h3>
   <p>Subtotal: <strong id="pres-subtotal">$0.00</strong></p>
-  <p>Descuento %: <strong id="pres-resumen-descuento-pct">0%</strong></p>
-  <p>Importe descontado: <strong id="pres-importe-descuento">$0.00</strong></p>
+  <p>Descuento: <strong id="pres-resumen-descuento-pct">0%</strong></p>
+  <p>Descuento aplicado: <strong id="pres-importe-descuento">$0.00</strong></p>
   <p>Ajuste redondeo: <strong id="pres-resumen-ajuste">$0.00</strong></p>
   <p>Total final: <strong id="pres-total">$0.00</strong></p>
   <p>Condición prevista: <strong id="pres-resumen-condicion">No requerida</strong></p>

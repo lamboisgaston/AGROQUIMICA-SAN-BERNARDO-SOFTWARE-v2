@@ -128,6 +128,10 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .compact-cierre-grid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:8px; }
 .compact-redondeo { margin-top: 6px; }
 
+.item-discount-control { display:inline-flex; align-items:center; gap:4px; padding:2px; border:1px solid #cbd5e1; border-radius:999px; background:#f8fafc; white-space:nowrap; }
+.item-discount-control button { width:26px; height:26px; min-height:26px; padding:0; border-radius:999px; font-weight:800; line-height:1; }
+.item-discount-value { min-width:42px; text-align:center; font-weight:800; font-variant-numeric: tabular-nums; }
+
 .presupuestos-workbench .workbench-grid { grid-template-columns: minmax(0, 1.55fr) minmax(390px, 1fr); gap: 12px; }
 .presupuesto-side-panel { gap: 8px; }
 .presupuesto-side-panel > p { font-size: 13px; }
