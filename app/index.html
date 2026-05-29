@@ -49,7 +49,7 @@
         <article class="dashboard-card" data-module-card="presupuestos-semillasya" data-business-card="SEMILLASYA"><h3>Presupuestos SemillasYa</h3><p>Cotizaciones web recibidas y seguimiento comercial.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="operaciones-semillasya" data-business-card="SEMILLASYA"><h3>Operaciones SemillasYa</h3><p>Panel comercial y logístico de solicitudes SemillasYa.</p><button data-abrir-modulo="operaciones-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="territorios-semillasya" data-business-card="SEMILLASYA"><h3>Territorios SemillasYa</h3><p>Gestión territorial de zonas y provincias SemillasYa.</p><button data-abrir-modulo="territorios-semillasya">Entrar</button></article>
-        <article class="dashboard-card" data-module-card="configuracion-ia-lambois" data-business-card="SEMILLASYA"><h3>Configuración IA / Ing. Lambois IA</h3><p>Instrucciones técnicas del asesor agronómico de SemillasYa.</p><button data-abrir-modulo="configuracion-ia-lambois">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="configuracion-ia-lambois" data-business-card="SEMILLASYA"><h3>Configuración IA</h3><p>Flujo editable del Ing. Lambois IA.</p><button data-abrir-modulo="configuracion-ia-lambois">Configuración IA</button></article>
         <article class="dashboard-card" data-module-card="pedidos" data-business-card="AGROQUIMICA"><h3>Pedidos</h3><p>Gestión de pedidos y solicitudes a proveedores.</p><button data-abrir-modulo="pedidos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas" data-business-card="AGROQUIMICA"><h3>Ventas / Mostrador</h3><p>Flujo de venta, cobro y facturación interna.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja" data-business-card="AGROQUIMICA"><h3>Caja</h3><p>Cobros, cierres y movimientos de caja.</p><button data-abrir-modulo="caja">Entrar</button></article>
@@ -692,17 +692,21 @@
 
 
     <section class="bloque app-shell compact-form" data-modulo="configuracion-ia-lambois">
-      <h2>Configuración IA / Ing. Lambois IA</h2>
-      <p class="helper-text">Editá cómo responde el asesor técnico agronómico público de SemillasYa. No está orientado a cerrar ventas ni armar carrito automáticamente.</p>
+      <h2>Flujo del Ing. Lambois IA</h2>
+      <p class="helper-text">Configuración editable para definir cómo debe comportarse el chatbot, qué debe preguntar, qué debe responder y qué límites debe respetar.</p>
       <div class="form-grid">
-        <label>Nombre funcional <input id="chatbot-nombre" placeholder="Ing. Lambois IA" /></label>
-        <label>Tono de respuesta <input id="chatbot-tono" placeholder="Técnico, claro y prudente" /></label>
+        <label>Nombre del asistente <input id="chatbot-nombre" placeholder="Ing. Lambois IA" /></label>
+        <label>Rol principal <textarea id="chatbot-rol-principal" rows="3" placeholder="Asesor técnico agronómico especializado en horticultura, semillas, suelos y agua."></textarea></label>
       </div>
-      <label>Instrucciones base <textarea id="chatbot-instrucciones" rows="6"></textarea></label>
-      <label>Objetivo del asesor <textarea id="chatbot-objetivo" rows="4"></textarea></label>
-      <label>Reglas de trabajo / restricciones <textarea id="chatbot-restricciones" rows="5"></textarea></label>
+      <label>Instrucciones base <textarea id="chatbot-instrucciones" rows="5" placeholder="No actuar como vendedor. Primero entender el problema productivo..."></textarea></label>
+      <label>Flujo de preguntas obligatorias <textarea id="chatbot-flujo-preguntas" rows="7" placeholder="- ¿En qué zona o provincia estás?&#10;- ¿Qué cultivo querés sembrar?"></textarea></label>
+      <label>Criterios técnicos de respuesta <textarea id="chatbot-criterios-tecnicos" rows="4" placeholder="Debe analizar época de siembra, ciclo, destino, tolerancias..."></textarea></label>
+      <label>Frases permitidas <textarea id="chatbot-frases-permitidas" rows="4" placeholder="Con los datos que me das, técnicamente miraría estas opciones…"></textarea></label>
+      <label>Frases prohibidas <textarea id="chatbot-frases-prohibidas" rows="4" placeholder="No decir: comprá este producto ya.&#10;No inventar datos técnicos."></textarea></label>
+      <label>Estilo de respuesta <textarea id="chatbot-estilo-respuesta" rows="3" placeholder="Claro, técnico, amable, explicado para productor común."></textarea></label>
+      <label>Cierre sugerido <textarea id="chatbot-cierre-sugerido" rows="3" placeholder="Estas opciones pueden servir técnicamente. Si querés, podés avanzar a una cotización."></textarea></label>
       <label class="inline-check"><input id="chatbot-activo" type="checkbox" /> Chatbot activo</label>
-      <button id="btn-guardar-chatbot-config" class="btn-primary" type="button">Guardar configuración IA</button>
+      <button id="btn-guardar-chatbot-config" class="btn-primary" type="button">Guardar cambios</button>
       <p id="chatbot-config-estado" class="helper-text"></p>
     </section>
 

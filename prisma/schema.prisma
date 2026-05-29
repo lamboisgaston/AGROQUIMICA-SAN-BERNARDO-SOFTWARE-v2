@@ -155,15 +155,22 @@ enum TipoMovimientoStock {
 
 
 model ChatbotConfig {
-  id                 Int      @id @default(1)
-  nombre             String   @default("Ing. Lambois IA")
-  instruccionesBase  String
-  tono               String
-  objetivo           String
-  restricciones      String
-  activo             Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                          Int      @id @default(1)
+  nombre                      String   @default("Ing. Lambois IA")
+  rolPrincipal                String   @default("Asesor técnico agronómico especializado en horticultura, semillas, suelos y agua.")
+  instruccionesBase           String
+  flujoPreguntasObligatorias  String   @default("")
+  criteriosTecnicosRespuesta  String   @default("")
+  frasesPermitidas            String   @default("")
+  frasesProhibidas            String   @default("")
+  estiloRespuesta             String   @default("Claro, técnico, amable, explicado para productor común.")
+  cierreSugerido              String   @default("")
+  tono                        String
+  objetivo                    String
+  restricciones               String
+  activo                      Boolean  @default(true)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 }
 
 model ConfiguracionGlobal {
