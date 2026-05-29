@@ -75,6 +75,7 @@
 
     .btn { border: 0; border-radius: 999px; padding: .74rem 1.08rem; cursor: pointer; font: inherit; font-weight: 900; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
     .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { cursor: not-allowed; opacity: .55; transform: none; box-shadow: none; }
     .btn-primary { color: #fff; background: linear-gradient(135deg, #238158, var(--green-950)); box-shadow: 0 11px 22px rgba(15, 67, 46, .20); }
     .btn-outline { color: var(--green-850); background: #fff; border: 1px solid var(--line); box-shadow: none; }
     .btn-block { width: 100%; }
@@ -223,7 +224,7 @@
         <div class="hero-actions">
           <button class="btn btn-primary" id="iniciarCotizacionBtn" type="button">Cotizar semillas</button>
         </div>
-        <p class="hero-microcopy">Elegí localidad, cultivo y productos. Nosotros revisamos disponibilidad y logística antes de responder.</p>
+        <p class="hero-microcopy">Ingresá tus datos, elegí localidad, cultivo y productos. Nosotros revisamos disponibilidad y logística antes de responder.</p>
         <div class="hero-detail-grid" aria-label="Beneficios SemillasYa">
           <div class="hero-detail"><span>✦</span>Semillas seleccionadas</div>
           <div class="hero-detail"><span>⌁</span>Ruta logística clara</div>
@@ -311,7 +312,7 @@
     <section class="flow-shell" id="cotizacion">
       <div class="progress-card" aria-label="Progreso de cotización">
         <div class="progress-steps">
-          <div class="progress-step is-active" data-step="1"><span>1</span>Localidad</div>
+          <div class="progress-step is-active" data-step="1"><span>1</span>Datos</div>
           <div class="progress-step" data-step="2"><span>2</span>Cultivo</div>
           <div class="progress-step" data-step="3"><span>3</span>Productos</div>
           <div class="progress-step" data-step="4"><span>4</span>Pedido</div>
@@ -319,8 +320,8 @@
       </div>
 
       <section class="panel step-card hidden" id="ubicacionGate">
-        <h2>Paso 1 · Localidad</h2>
-        <p class="hint">Necesitamos tu localidad para preparar una cotización con precio final puesto en destino.</p>
+        <h2>Paso 1 · Datos del solicitante</h2>
+        <p class="hint">Alta rápida pública: no necesitás usuario ni contraseña. Estos datos mínimos nos permiten preparar una cotización con precio final puesto en destino.</p>
         <div class="row">
           <label for="provinciaSelect">Provincia</label>
           <select id="provinciaSelect">
@@ -334,14 +335,18 @@
           <p class="small" id="localidadAyuda">Las opciones se filtran por provincia y se guardan vinculadas.</p>
         </div>
         <div class="row">
-          <label for="nombreIngreso">Nombre</label>
-          <input id="nombreIngreso" placeholder="Tu nombre o empresa" />
+          <label for="nombreIngreso">Nombre / razón social</label>
+          <input id="nombreIngreso" placeholder="Tu nombre o empresa" autocomplete="name" />
         </div>
         <div class="row">
           <label for="telefonoIngreso">Teléfono</label>
-          <input id="telefonoIngreso" placeholder="Ej: 549..." inputmode="tel" />
+          <input id="telefonoIngreso" placeholder="Ej: 549..." inputmode="tel" autocomplete="tel" />
         </div>
-        <button class="btn btn-primary" id="confirmarUbicacion" type="button">Continuar al cultivo</button>
+        <div class="row">
+          <label for="cuitDniIngreso">CUIT/DNI <span class="small">(opcional)</span></label>
+          <input id="cuitDniIngreso" placeholder="CUIT o DNI, si querés informarlo" inputmode="numeric" autocomplete="off" />
+        </div>
+        <button class="btn btn-primary" id="confirmarUbicacion" type="button" disabled>Continuar a cultivos</button>
       </section>
 
       <section id="catalogoWrap" class="hidden">
@@ -455,6 +460,7 @@
     const LOCALIDADES_ARGENTINA = UBICACIONES_AR.LOCALIDADES_ARGENTINA || [];
     const localidadesDeProvincia = UBICACIONES_AR.localidadesDeProvincia || ((provinciaId) => LOCALIDADES_ARGENTINA.filter((l) => l.provinciaId === provinciaId));
     const buscarLocalidadExacta = UBICACIONES_AR.buscarLocalidadExacta || (() => null);
+    const normalizarTextoUbicacion = (valor) => String(valor || '').trim().replace(/\s+/g, ' ');
 
     function renderProvincias() {
       $('provinciaSelect').innerHTML = '<option value="">Seleccioná una provincia</option>' + PROVINCIAS_ARGENTINA
@@ -478,15 +484,26 @@
         ? localidadesDeProvincia(provincia.id).map((l) => `<option value="${escapeHtml(l.nombre)}" label="${escapeHtml(l.nombre)} — Provincia de ${escapeHtml(provincia.nombre)}" data-localidad-id="${escapeHtml(l.id)}"></option>`).join('')
         : '';
       $('localidadAyuda').textContent = provincia
-        ? `Localidades disponibles para ${provincia.nombre}. Seleccioná una opción de la lista.`
-        : 'Primero seleccioná una provincia para ver localidades reales.';
+        ? `Localidades disponibles para ${provincia.nombre}. Podés elegir una opción o escribir tu localidad.`
+        : 'Primero seleccioná una provincia para cargar la localidad.';
+      actualizarEstadoBotonSolicitante();
     }
 
     function localidadSeleccionada() {
       const provincia = provinciaSeleccionada();
       if (!provincia) return null;
-      const nombre = $('ciudadIngreso').value.trim();
-      return buscarLocalidadExacta(nombre, provincia.id);
+      const nombre = normalizarTextoUbicacion($('ciudadIngreso').value);
+      if (!nombre) return null;
+      const exacta = buscarLocalidadExacta(nombre, provincia.id);
+      return exacta || { id: '', nombre, provinciaId: provincia.id, provinciaNombre: provincia.nombre, esManual: true };
+    }
+
+    function actualizarEstadoBotonSolicitante() {
+      const provincia = provinciaSeleccionada();
+      const localidad = localidadSeleccionada();
+      const nombre = $('nombreIngreso').value.trim();
+      const telefono = $('telefonoIngreso').value.trim();
+      $('confirmarUbicacion').disabled = !(provincia && localidad?.nombre && nombre && telefono);
     }
 
     function claveSemillero(nombre) {
@@ -683,14 +700,14 @@
     function cargarClientePersistido() {
       try {
         const cliente = JSON.parse(localStorage.getItem('semillasyaCliente') || 'null');
-        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.provinciaId && cliente?.localidadId && (cliente?.ciudad || cliente?.localidad)) state.cliente = { ...cliente, ciudad: cliente.ciudad || cliente.localidad, localidad: cliente.localidad || cliente.ciudad, pais: 'Argentina' };
+        if (cliente?.personaId && cliente?.nombre && cliente?.telefono && cliente?.provinciaId && (cliente?.ciudad || cliente?.localidad)) state.cliente = { ...cliente, ciudad: cliente.ciudad || cliente.localidad, localidad: cliente.localidad || cliente.ciudad, localidadId: cliente.localidadId || '', pais: 'Argentina' };
       } catch (_e) {}
     }
 
     function mostrarCatalogoConUbicacion() {
       $('ubicacionGate').classList.add('hidden');
       $('catalogoWrap').classList.remove('hidden');
-      $('ubicacionActualTexto').textContent = `Localidad: ${state.cliente.localidad || state.cliente.ciudad}, ${state.cliente.provincia}`;
+      $('ubicacionActualTexto').textContent = `Solicitante: ${state.cliente.nombre} · ${state.cliente.telefono} · ${state.cliente.localidad || state.cliente.ciudad}, ${state.cliente.provincia}`;
       setPaso(2);
     }
 
@@ -702,7 +719,7 @@
       const telefono = $('telefonoIngreso').value.trim();
       if (!provincia) return 'Completá la provincia.';
       if (!ciudad) return 'Completá la ciudad/localidad.';
-      if (!localidad) return 'Seleccioná una localidad válida de la provincia elegida.';
+      if (!localidad?.nombre) return 'Completá la localidad de la provincia elegida.';
       if (!nombre) return 'Completá tu nombre.';
       if (!telefono) return 'Completá tu teléfono.';
       return null;
@@ -723,9 +740,10 @@
       const ciudad = localidad.nombre;
       const nombre = $('nombreIngreso').value.trim();
       const telefono = $('telefonoIngreso').value.trim();
+      const cuitDni = $('cuitDniIngreso').value.trim();
       const pais = 'Argentina';
-      const data = await crearOActualizarClienteWeb({ nombre, telefono, pais, provincia: provincia.nombre, provinciaId: provincia.id, ciudad, localidad: ciudad, localidadId: localidad.id });
-      state.cliente = { personaId: data.personaId, pais, provincia: data.provincia, provinciaId: data.provinciaId, ciudad: data.localidad, localidad: data.localidad, localidadId: data.localidadId, nombre, telefono };
+      const data = await crearOActualizarClienteWeb({ nombre, telefono, cuitDni, pais, provincia: provincia.nombre, provinciaId: provincia.id, ciudad, localidad: ciudad, localidadId: localidad.id || '' });
+      state.cliente = { personaId: data.personaId, pais, provincia: data.provincia, provinciaId: data.provinciaId, ciudad: data.localidad, localidad: data.localidad, localidadId: data.localidadId || '', nombre, telefono, cuitDni: data.cuitDni || cuitDni };
       localStorage.setItem('semillasyaCliente', JSON.stringify(state.cliente));
       mostrarCatalogoConUbicacion();
       if (!state.catalogoCargado) await cargarProductos();
@@ -746,6 +764,7 @@
         ciudad: state.cliente.ciudad,
         localidad: state.cliente.localidad || state.cliente.ciudad,
         localidadId: state.cliente.localidadId,
+        cuitDni: state.cliente.cuitDni || '',
         observaciones: $('obs').value.trim(),
         origen: 'SEMILLASYA_WEB',
         estadoSolicitado: 'BORRADOR',
@@ -801,8 +820,12 @@
     $('ciudadIngreso').addEventListener('input', () => {
       const loc = localidadSeleccionada();
       $('ciudadIngreso').dataset.localidadId = loc?.id || '';
-      $('localidadAyuda').textContent = loc ? `${loc.nombre} — Provincia de ${loc.provinciaNombre}` : 'Elegí una localidad de la lista filtrada por provincia.';
+      $('localidadAyuda').textContent = loc?.esManual ? `Localidad cargada para ${loc.provinciaNombre}.` : (loc ? `${loc.nombre} — Provincia de ${loc.provinciaNombre}` : 'Completá una localidad para la provincia seleccionada.');
+      actualizarEstadoBotonSolicitante();
     });
+    $('nombreIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
+    $('telefonoIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
+    $('cuitDniIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
     $('cambiarProvincia').addEventListener('click', () => { $('catalogoWrap').classList.add('hidden'); $('ubicacionGate').classList.remove('hidden'); setPaso(1); });
@@ -825,10 +848,12 @@
     if (state.cliente?.personaId) {
       $('nombreIngreso').value = state.cliente.nombre;
       $('telefonoIngreso').value = state.cliente.telefono;
+      $('cuitDniIngreso').value = state.cliente.cuitDni || '';
       $('provinciaSelect').value = state.cliente.provinciaId;
       renderLocalidadesProvincia();
       $('ciudadIngreso').value = state.cliente.localidad || state.cliente.ciudad;
-      $('ciudadIngreso').dataset.localidadId = state.cliente.localidadId;
+      $('ciudadIngreso').dataset.localidadId = state.cliente.localidadId || '';
+      actualizarEstadoBotonSolicitante();
       mostrarCatalogoConUbicacion();
       cargarProductos().catch(() => setCatalogoErrorVisible(true));
     }
