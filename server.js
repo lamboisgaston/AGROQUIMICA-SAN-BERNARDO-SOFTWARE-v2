@@ -2,7 +2,7 @@ const express = require('express');
 const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido, TipoOperacionVenta, TipoReglaComercial } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
-const { obtenerConfiguracionChatbot, actualizarConfiguracionChatbot, buscarContextoSemillasYa, generarRespuestaTecnica } = require('./services/chatbotService');
+const { obtenerConfiguracionChatbot, actualizarConfiguracionChatbot, buscarContextoSemillasYa, generarRespuestaTecnica, sanitizarMensajeUsuario } = require('./services/chatbotService');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -2452,48 +2452,68 @@ app.put('/api/chatbot/config', asyncHandler(async (req, res) => {
   res.json({ ok: true, config });
 }));
 
-app.post('/api/chatbot/semillasya', asyncHandler(async (req, res) => {
-  const mensaje = normalizarTexto(req.body?.mensaje);
-  if (!mensaje) return res.status(400).json({ ok: false, error: 'Mensaje obligatorio' });
+app.post('/api/chatbot/semillasya', async (req, res) => {
+  try {
+    const mensaje = sanitizarMensajeUsuario(req.body?.mensaje);
+    if (!normalizarTexto(mensaje)) return res.status(400).json({ ok: false, error: 'Mensaje obligatorio' });
 
-  const entrada = {
-    mensaje,
-    contexto: normalizarTexto(req.body?.contexto),
-    cultivo: normalizarTexto(req.body?.cultivo),
-    zona: normalizarTexto(req.body?.zona || req.body?.provincia),
-    provincia: normalizarTexto(req.body?.provincia || req.body?.zona),
-    superficie: normalizarTexto(req.body?.superficie),
-    tipoProduccion: normalizarTexto(req.body?.tipoProduccion || req.body?.tipoProducción),
-    destino: normalizarTexto(req.body?.destino),
-    fecha: normalizarTexto(req.body?.fecha)
-  };
+    const entrada = {
+      mensaje,
+      contexto: sanitizarMensajeUsuario(req.body?.contexto),
+      cultivo: sanitizarMensajeUsuario(req.body?.cultivo),
+      zona: sanitizarMensajeUsuario(req.body?.zona || req.body?.provincia),
+      provincia: sanitizarMensajeUsuario(req.body?.provincia || req.body?.zona),
+      superficie: sanitizarMensajeUsuario(req.body?.superficie),
+      tipoProduccion: sanitizarMensajeUsuario(req.body?.tipoProduccion || req.body?.tipoProducción),
+      destino: sanitizarMensajeUsuario(req.body?.destino),
+      fecha: sanitizarMensajeUsuario(req.body?.fecha)
+    };
 
-  const config = await obtenerConfiguracionChatbot(prisma);
-  if (!config.activo) return res.status(503).json({ ok: false, error: 'Ing. Lambois IA está desactivado temporalmente.' });
+    const config = await obtenerConfiguracionChatbot(prisma);
+    if (!config.activo) return res.status(503).json({ ok: false, error: 'Ing. Lambois IA está desactivado temporalmente.' });
 
-  const contextoSemillasYa = await buscarContextoSemillasYa(prisma, entrada);
-  const resultado = generarRespuestaTecnica(mensaje, contextoSemillasYa, config, entrada);
+    const contextoSemillasYa = await buscarContextoSemillasYa(prisma, entrada);
+    const resultado = generarRespuestaTecnica(mensaje, contextoSemillasYa, config, entrada);
 
-  res.json({
-    ok: true,
-    respuestaTecnica: resultado.respuestaTecnica,
-    respuesta: resultado.respuestaTecnica,
-    productosRelacionados: resultado.productosRelacionados,
-    productosSugeridos: resultado.productosRelacionados,
-    analisisAgronomico: resultado.analisisAgronomico,
-    advertencias: resultado.advertencias,
-    contextoSemillasYa: {
-      terminos: contextoSemillasYa.terminos,
-      totalProductosRelacionados: contextoSemillasYa.productosRelacionados.length
-    },
-    reglas: {
-      noCerrarVentasAutomaticamente: true,
-      noArmarCarritoComoFuncionPrincipal: true,
-      noInventarDatosTecnicos: true,
-      noPrometerStockPrecioFinal: true
-    }
-  });
-}));
+    res.json({
+      ok: true,
+      respuestaTecnica: resultado.respuestaTecnica,
+      respuesta: resultado.respuestaTecnica,
+      productosRelacionados: resultado.productosRelacionados,
+      productosSugeridos: resultado.productosRelacionados,
+      analisisAgronomico: resultado.analisisAgronomico,
+      advertencias: resultado.advertencias,
+      contextoSemillasYa: {
+        terminos: contextoSemillasYa.terminos,
+        totalProductosRelacionados: contextoSemillasYa.productosRelacionados.length
+      },
+      reglas: {
+        noCerrarVentasAutomaticamente: true,
+        noArmarCarritoComoFuncionPrincipal: true,
+        noInventarDatosTecnicos: true,
+        noPrometerStockPrecioFinal: true
+      }
+    });
+  } catch (error) {
+    console.error('[chatbot][semillasya] error interno', { message: error?.message });
+    res.status(200).json({
+      ok: true,
+      respuestaTecnica: 'No encontré información técnica cargada para esa consulta.',
+      respuesta: 'No encontré información técnica cargada para esa consulta.',
+      productosRelacionados: [],
+      productosSugeridos: [],
+      analisisAgronomico: { fuentePrincipal: 'Respuesta segura sin detalles técnicos internos' },
+      advertencias: [],
+      contextoSemillasYa: { terminos: [], totalProductosRelacionados: 0 },
+      reglas: {
+        noCerrarVentasAutomaticamente: true,
+        noArmarCarritoComoFuncionPrincipal: true,
+        noInventarDatosTecnicos: true,
+        noPrometerStockPrecioFinal: true
+      }
+    });
+  }
+});
 
 app.get('/api/debug/semillasya-catalogo', asyncHandler(async (_req, res) => {
   const activos = await prisma.productoPrecampania.findMany({

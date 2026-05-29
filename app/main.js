@@ -1409,6 +1409,7 @@ const HOME_MODULES_BASE = [
   'operaciones-semillasya',
   'territorios-semillasya',
   'configuracion-ia-lambois',
+  'semillasya-publico',
   'usuarios',
   'configuracion'
 ];
@@ -1422,7 +1423,7 @@ let activeRole = null;
 let activeRoleName = '';
 let activeBusiness = null;
 const BUSINESS_MODULES = {
-  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema', 'usuarios', 'configuracion'],
+  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema', 'semillasya-publico', 'configuracion-ia-lambois', 'usuarios', 'configuracion'],
   SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya', 'territorios-semillasya', 'configuracion-ia-lambois']
 };
 
@@ -1957,6 +1958,9 @@ function volverInicio() {
 
 document.querySelectorAll('[data-abrir-modulo]').forEach((btn) => {
   btn.addEventListener('click', () => abrirModulo(btn.dataset.abrirModulo));
+});
+document.querySelectorAll('[data-abrir-semillasya-publica]').forEach((btn) => {
+  btn.addEventListener('click', () => { window.location.href = '/semillasya'; });
 });
 document.querySelectorAll('[data-select-role]').forEach((btn) => {
   btn.addEventListener('click', () => seleccionarRol(btn.dataset.selectRole, btn.dataset.roleName || btn.dataset.selectRole));

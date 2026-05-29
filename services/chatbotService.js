@@ -29,8 +29,17 @@ const STOPWORDS = new Set([
   'quiero', 'sembrar', 'semilla', 'semillas', 'variedad', 'variedades', 'conviene', 'comparame', 'comparar', 'para', 'con', 'que', 'qué', 'cual', 'cuál', 'me', 'en', 'de', 'la', 'el', 'los', 'las', 'una', 'uno', 'dos', 'tres', 'tengo', 'agua', 'suelo', 'salina', 'invierno', 'verano', 'otoño', 'primavera', 'fresco', 'media', 'hectarea', 'hectárea', 'vender', 'produccion', 'producción'
 ]);
 
-function normalizarTexto(valor = '') {
+function sanitizarMensajeUsuario(valor = '') {
   return String(valor || '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/[<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 800);
+}
+
+function normalizarTexto(valor = '') {
+  return sanitizarMensajeUsuario(valor)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -51,77 +60,21 @@ function limpiarConfig(row) {
   };
 }
 
-async function asegurarTablaChatbotConfig(prisma) {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "ChatbotConfig" (
-      "id" INTEGER PRIMARY KEY DEFAULT 1,
-      "nombre" TEXT NOT NULL DEFAULT 'Ing. Lambois IA',
-      "rolPrincipal" TEXT NOT NULL DEFAULT 'Asesor técnico agronómico especializado en horticultura, semillas, suelos y agua.',
-      "instruccionesBase" TEXT NOT NULL,
-      "flujoPreguntasObligatorias" TEXT NOT NULL DEFAULT '',
-      "criteriosTecnicosRespuesta" TEXT NOT NULL DEFAULT '',
-      "frasesPermitidas" TEXT NOT NULL DEFAULT '',
-      "frasesProhibidas" TEXT NOT NULL DEFAULT '',
-      "estiloRespuesta" TEXT NOT NULL DEFAULT 'Claro, técnico, amable, explicado para productor común.',
-      "cierreSugerido" TEXT NOT NULL DEFAULT '',
-      "tono" TEXT NOT NULL,
-      "objetivo" TEXT NOT NULL,
-      "restricciones" TEXT NOT NULL,
-      "activo" BOOLEAN NOT NULL DEFAULT true,
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  const columnas = [
-    ['rolPrincipal', DEFAULT_CHATBOT_CONFIG.rolPrincipal],
-    ['flujoPreguntasObligatorias', DEFAULT_CHATBOT_CONFIG.flujoPreguntasObligatorias],
-    ['criteriosTecnicosRespuesta', DEFAULT_CHATBOT_CONFIG.criteriosTecnicosRespuesta],
-    ['frasesPermitidas', DEFAULT_CHATBOT_CONFIG.frasesPermitidas],
-    ['frasesProhibidas', DEFAULT_CHATBOT_CONFIG.frasesProhibidas],
-    ['estiloRespuesta', DEFAULT_CHATBOT_CONFIG.estiloRespuesta],
-    ['cierreSugerido', DEFAULT_CHATBOT_CONFIG.cierreSugerido]
-  ];
-
-  for (const [columna, valorDefault] of columnas) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "ChatbotConfig" ADD COLUMN IF NOT EXISTS "${columna}" TEXT NOT NULL DEFAULT '${String(valorDefault).replace(/'/g, "''")}'`);
-  }
-}
-
 async function obtenerConfiguracionChatbot(prisma) {
-  await asegurarTablaChatbotConfig(prisma);
-  const rows = await prisma.$queryRawUnsafe('SELECT * FROM "ChatbotConfig" WHERE "id" = 1 LIMIT 1');
-  if (rows?.[0]) return limpiarConfig(rows[0]);
+  const config = await prisma.chatbotConfig.findFirst({
+    where: { id: DEFAULT_CHATBOT_CONFIG.id }
+  });
 
-  const cfg = DEFAULT_CHATBOT_CONFIG;
-  const inserted = await prisma.$queryRawUnsafe(
-    `INSERT INTO "ChatbotConfig" (
-       "id", "nombre", "rolPrincipal", "instruccionesBase", "flujoPreguntasObligatorias",
-       "criteriosTecnicosRespuesta", "frasesPermitidas", "frasesProhibidas", "estiloRespuesta",
-       "cierreSugerido", "tono", "objetivo", "restricciones", "activo"
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-     ON CONFLICT ("id") DO UPDATE SET "updatedAt" = CURRENT_TIMESTAMP
-     RETURNING *`,
-    cfg.id,
-    cfg.nombre,
-    cfg.rolPrincipal,
-    cfg.instruccionesBase,
-    cfg.flujoPreguntasObligatorias,
-    cfg.criteriosTecnicosRespuesta,
-    cfg.frasesPermitidas,
-    cfg.frasesProhibidas,
-    cfg.estiloRespuesta,
-    cfg.cierreSugerido,
-    cfg.tono,
-    cfg.objetivo,
-    cfg.restricciones,
-    cfg.activo
-  );
-  return limpiarConfig(inserted?.[0]);
+  if (config) return limpiarConfig(config);
+
+  const creada = await prisma.chatbotConfig.create({
+    data: { ...DEFAULT_CHATBOT_CONFIG }
+  });
+
+  return limpiarConfig(creada);
 }
 
 async function actualizarConfiguracionChatbot(prisma, payload = {}) {
-  await asegurarTablaChatbotConfig(prisma);
   const actual = await obtenerConfiguracionChatbot(prisma);
   const next = {
     nombre: texto(payload.nombre) || actual.nombre,
@@ -138,43 +91,14 @@ async function actualizarConfiguracionChatbot(prisma, payload = {}) {
     restricciones: texto(payload.restricciones || payload.frasesProhibidas) || actual.restricciones,
     activo: typeof payload.activo === 'boolean' ? payload.activo : actual.activo
   };
-  const rows = await prisma.$queryRawUnsafe(
-    `INSERT INTO "ChatbotConfig" (
-       "id", "nombre", "rolPrincipal", "instruccionesBase", "flujoPreguntasObligatorias",
-       "criteriosTecnicosRespuesta", "frasesPermitidas", "frasesProhibidas", "estiloRespuesta",
-       "cierreSugerido", "tono", "objetivo", "restricciones", "activo"
-     ) VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-     ON CONFLICT ("id") DO UPDATE SET
-       "nombre" = EXCLUDED."nombre",
-       "rolPrincipal" = EXCLUDED."rolPrincipal",
-       "instruccionesBase" = EXCLUDED."instruccionesBase",
-       "flujoPreguntasObligatorias" = EXCLUDED."flujoPreguntasObligatorias",
-       "criteriosTecnicosRespuesta" = EXCLUDED."criteriosTecnicosRespuesta",
-       "frasesPermitidas" = EXCLUDED."frasesPermitidas",
-       "frasesProhibidas" = EXCLUDED."frasesProhibidas",
-       "estiloRespuesta" = EXCLUDED."estiloRespuesta",
-       "cierreSugerido" = EXCLUDED."cierreSugerido",
-       "tono" = EXCLUDED."tono",
-       "objetivo" = EXCLUDED."objetivo",
-       "restricciones" = EXCLUDED."restricciones",
-       "activo" = EXCLUDED."activo",
-       "updatedAt" = CURRENT_TIMESTAMP
-     RETURNING *`,
-    next.nombre,
-    next.rolPrincipal,
-    next.instruccionesBase,
-    next.flujoPreguntasObligatorias,
-    next.criteriosTecnicosRespuesta,
-    next.frasesPermitidas,
-    next.frasesProhibidas,
-    next.estiloRespuesta,
-    next.cierreSugerido,
-    next.tono,
-    next.objetivo,
-    next.restricciones,
-    next.activo
-  );
-  return limpiarConfig(rows?.[0]);
+
+  const config = await prisma.chatbotConfig.upsert({
+    where: { id: DEFAULT_CHATBOT_CONFIG.id },
+    create: { id: DEFAULT_CHATBOT_CONFIG.id, ...next },
+    update: next
+  });
+
+  return limpiarConfig(config);
 }
 
 function extraerTerminosBusqueda({ mensaje = '', cultivo = '', contexto = '', zona = '' } = {}) {
@@ -280,8 +204,28 @@ function primeraLinea(valor = '') {
   return texto(valor).split('\n').map((v) => v.trim()).filter(Boolean)[0] || '';
 }
 
+function esSaludoSimple(mensaje = '') {
+  return ['hola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches'].includes(normalizarTexto(mensaje));
+}
+
 function generarRespuestaTecnica(mensaje = '', contexto = {}, config = DEFAULT_CHATBOT_CONFIG, entrada = {}) {
   const cfg = limpiarConfig(config);
+  if (esSaludoSimple(mensaje)) {
+    return {
+      respuestaTecnica: 'Hola, soy el Ing. Lambois IA. Para orientarte técnicamente necesito saber cultivo, zona, fecha de siembra, suelo, agua y destino productivo.',
+      productosRelacionados: [],
+      analisisAgronomico: {
+        fuentePrincipal: 'Saludo inicial',
+        variablesConsideradas: ['cultivo', 'zona', 'fecha de siembra', 'suelo', 'agua', 'destino productivo'],
+        instruccionesAplicadas: cfg.instruccionesBase,
+        flujoPreguntasObligatorias: cfg.flujoPreguntasObligatorias,
+        criteriosTecnicosRespuesta: cfg.criteriosTecnicosRespuesta,
+        frasesProhibidas: cfg.frasesProhibidas,
+        estiloRespuesta: cfg.estiloRespuesta
+      },
+      advertencias: []
+    };
+  }
   const productos = contexto.productosRelacionados || [];
   const advertencias = detectarAdvertencias({ ...entrada, mensaje }, contexto);
   const lineas = [];
@@ -294,7 +238,7 @@ function generarRespuestaTecnica(mensaje = '', contexto = {}, config = DEFAULT_C
   if (texto(entrada.zona || entrada.provincia)) lineas.push(`Zona/provincia indicada: ${texto(entrada.zona || entrada.provincia)}.`);
 
   if (!productos.length) {
-    lineas.push('Revisé la base SemillasYa y no encontré variedades/productos relacionados suficientes para esta consulta. No voy a inventar una ficha técnica.');
+    lineas.push('No encontré información técnica cargada para esa consulta.');
   } else {
     lineas.push('Según los criterios técnicos configurados y la base SemillasYa, estas opciones aparecen relacionadas técnicamente:');
     productos.slice(0, 4).forEach((p, idx) => {
@@ -346,5 +290,6 @@ module.exports = {
   obtenerConfiguracionChatbot,
   actualizarConfiguracionChatbot,
   buscarContextoSemillasYa,
-  generarRespuestaTecnica
+  generarRespuestaTecnica,
+  sanitizarMensajeUsuario
 };
