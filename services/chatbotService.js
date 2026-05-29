@@ -122,7 +122,8 @@ function mapProductoTecnico(p = {}) {
     id: p.id,
     nombre: p.nombre,
     cultivo: p.cultivo || p.categoria || 'Cultivo no especificado',
-    semillero: p.semilleroLaboratorio || 'Semillero no especificado',
+    marca: p.marcaComercial || p.marcaRelacion?.nombre || p.semilleroLaboratorio || 'Marca no especificada',
+    semillero: p.semillero?.nombre || p.semilleroLaboratorio || 'Semillero no especificado',
     presentacion: p.presentacionEnvase || 'Presentación no cargada',
     fichaTecnica: p.descripcionTecnica || p.descripcion || '',
     ciclo: '',
@@ -147,6 +148,17 @@ async function buscarContextoSemillasYa(prisma, entrada = {}) {
       id: true,
       nombre: true,
       semilleroLaboratorio: true,
+      semillero: true,
+      marcaRelacion: true,
+      marcaComercial: true,
+      origen: true,
+      unidad: true,
+      tipoEnvase: true,
+      precioUsd: true,
+      agotado: true,
+      novedad: true,
+      hibrido: true,
+      tags: true,
       categoria: true,
       cultivo: true,
       presentacionEnvase: true,
@@ -168,7 +180,7 @@ async function buscarContextoSemillasYa(prisma, entrada = {}) {
   const productosMapeados = productosRaw.map(mapProductoTecnico);
   const productosRelacionados = productosMapeados
     .map((p) => {
-      const haystack = normalizarTexto([p.nombre, p.cultivo, p.semillero, p.presentacion, p.fichaTecnica, p.destino, p.epocaSiembra, p.observacionesTecnicas].join(' '));
+      const haystack = normalizarTexto([p.nombre, p.cultivo, p.marca, p.semillero, p.presentacion, p.fichaTecnica, p.destino, p.epocaSiembra, p.observacionesTecnicas].join(' '));
       const score = terminos.reduce((acc, t) => acc + (haystack.includes(t) ? 1 : 0), 0);
       const cultivoEntrada = normalizarTexto(entrada.cultivo || '');
       const bonusCultivo = cultivoEntrada && normalizarTexto(p.cultivo).includes(cultivoEntrada) ? 3 : 0;
@@ -183,7 +195,8 @@ async function buscarContextoSemillasYa(prisma, entrada = {}) {
     terminos,
     productosRelacionados,
     cultivos: [...new Set(productosMapeados.map((p) => p.cultivo).filter(Boolean))].sort(),
-    semilleros: [...new Set(productosMapeados.map((p) => p.semillero).filter(Boolean))].sort()
+    semilleros: [...new Set(productosMapeados.map((p) => p.semillero).filter(Boolean))].sort(),
+    marcas: [...new Set(productosMapeados.map((p) => p.marca).filter(Boolean))].sort()
   };
 }
 
@@ -245,7 +258,8 @@ function generarRespuestaTecnica(mensaje = '', contexto = {}, config = DEFAULT_C
       const partes = [
         `${idx + 1}. ${p.nombre}`,
         `cultivo: ${p.cultivo}`,
-        `semillero: ${p.semillero}`,
+        `marca: ${p.marca}`,
+        `semillero/logística: ${p.semillero}`,
         `presentación: ${p.presentacion}`
       ];
       if (p.epocaSiembra) partes.push(`época de siembra cargada: ${p.epocaSiembra}`);

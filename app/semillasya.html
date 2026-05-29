@@ -416,7 +416,8 @@
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
     const cultivoProducto = (p) => p.cultivo || p.categoria || 'Otros';
-    const marcaProducto = (p) => p.semilleroLaboratorio || p.marca || 'Semillero';
+    const marcaProducto = (p) => p.marcaComercial || p.marca || p.semilleroLaboratorio || 'Marca';
+    const semilleroProducto = (p) => p.semilleroNombre || p.semilleroLaboratorio || '';
     const SEMILLERO_LOGOS = {
       CAPS: '/app/assets/semilleros/caps.svg',
       GUASCH: '/app/assets/semilleros/guasch.svg',
@@ -565,8 +566,10 @@
             <div>
               <h3>${escapeHtml(variedadProducto(p))}</h3>
               <div class="product-meta" style="margin-top:.6rem;">
-                <div>Semillero: <strong>${escapeHtml(marca)}</strong></div>
+                <div>Marca: <strong>${escapeHtml(marca)}</strong></div>
+                ${semilleroProducto(p) ? `<div>Logística: <strong>${escapeHtml(semilleroProducto(p))}</strong></div>` : ''}
                 <div>Presentación: <strong>${escapeHtml(presentacionProducto(p))}</strong></div>
+                ${Array.isArray(p.tags) && p.tags.length ? `<div>Tags: <strong>${escapeHtml(p.tags.join(' · '))}</strong></div>` : ''}
               </div>
             </div>
             ${semilleroLogoHtml(marca)}

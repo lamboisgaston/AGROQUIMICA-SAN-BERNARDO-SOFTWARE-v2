@@ -889,6 +889,18 @@ function normalizarPayloadProductoPrecampania(payload = {}, tipoCambioActual = 1
   const base = {
     nombre: String(payload.nombre || '').trim(),
     semilleroLaboratorio: normalizarSemilleroPrecampania(payload.semilleroLaboratorio),
+    semilleroId: payload.semilleroId == null || payload.semilleroId === '' ? null : Number(payload.semilleroId),
+    marcaId: payload.marcaId == null || payload.marcaId === '' ? null : Number(payload.marcaId),
+    marcaComercial: String(payload.marcaComercial || payload.marca || payload.semilleroLaboratorio || '').trim(),
+    unidad: String(payload.unidad || '').trim(),
+    tipoEnvase: String(payload.tipoEnvase || '').trim(),
+    origen: String(payload.origen || '').trim(),
+    precioUsd: payload.precioUsd == null || payload.precioUsd === '' ? null : Number(payload.precioUsd),
+    agotado: Boolean(payload.agotado),
+    novedad: Boolean(payload.novedad),
+    hibrido: Boolean(payload.hibrido),
+    tags: Array.isArray(payload.tags) ? JSON.stringify(payload.tags) : String(payload.tags || '[]'),
+    metadataTecnica: typeof payload.metadataTecnica === 'object' ? JSON.stringify(payload.metadataTecnica) : String(payload.metadataTecnica || '{}'),
     categoria: String(payload.categoria || '').trim(),
     cultivo: String(payload.cultivo || '').trim() || String(payload.categoria || '').trim() || 'Otro',
     presentacionEnvase: String(payload.presentacionEnvase || '').trim(),
@@ -2163,11 +2175,11 @@ app.get('/api/listas-comerciales/:id/productos', asyncHandler(async (req, res) =
   res.json(productos);
 }));
 
-const SEMILLEROS_PRECAMPAÑA = ['CAPS', 'GUASCH'];
+const SEMILLEROS_PRECAMPAÑA = ['CAPS', 'GUASCH', 'G.G.CH.'];
 const CULTIVOS_PRECAMPAÑA = [
   'Alfalfa', 'Cebolla', 'Bermuda', 'Rye Grass', 'Maíz', 'Sorgo', 'Trigo', 'Avena', 'Pasturas', 'Césped', 'Hortícolas', 'Otro',
   'Acelga', 'Achicoria', 'Albahaca', 'Apio', 'Arveja', 'Berenjena', 'Brócoli', 'Calabaza', 'Choclo', 'Coliflor', 'Espinaca',
-  'Lechuga', 'Melón', 'Pepino', 'Perejil', 'Pimiento', 'Poroto', 'Radicheta', 'Remolacha', 'Repollo', 'Rúcula', 'Tomate', 'Zanahoria'
+  'Lechuga', 'Maíz', 'Melón', 'Pepino', 'Perejil', 'Pimiento', 'Poroto', 'Puerro', 'Rabanito', 'Radicheta', 'Remolacha', 'Repollo', 'Rúcula', 'Sandía', 'Tomate', 'Zanahoria', 'Zapallo', 'Zucchini', 'Aromáticas', 'Flores'
 ];
 const CULTIVOS_PRECAMPAÑA_MAP = new Map(CULTIVOS_PRECAMPAÑA.map((cultivo) => [String(cultivo).trim().toUpperCase(), cultivo]));
 const PATRONES_BASURA_PRECAMPAÑA = [
@@ -2188,7 +2200,51 @@ function normalizarSemilleroPrecampania(valor = '') {
   const base = normalizarSimple(valor).toUpperCase();
   if (base === 'GUASCH') return 'GUASCH';
   if (base === 'CAPS') return 'CAPS';
+  if (['G G CH', 'GGCH', 'G.G.CH', 'G.G.CH.', 'GARDE GIUSTI Y CHUCHUY', 'GARDEN GASTY CHUCHUY'].includes(base.replace(/\.+$/g, ''))) return 'G.G.CH.';
+  if (base.includes('GARDE') && base.includes('CHUCHUY')) return 'G.G.CH.';
   return String(valor || '').trim();
+}
+
+function marcaComercialProductoPrecampania(producto = {}) {
+  return String(producto.marcaComercial || producto.marcaRelacion?.nombre || producto.marca || producto.semilleroLaboratorio || '').trim();
+}
+
+function semilleroComercialProductoPrecampania(producto = {}) {
+  return String(producto.semillero?.nombre || producto.semilleroLaboratorio || '').trim();
+}
+
+function extraerTagsProductoPrecampania(producto = {}) {
+  const partes = [producto.nombre, producto.descripcion, producto.descripcionTecnica, producto.observacionesComerciales, producto.presentacionEnvase].join(' ');
+  const texto = normalizarSimple(partes);
+  const tags = new Set();
+  if (/\bagotad[oa]s?\b/i.test(partes) || producto.estado === 'AGOTADO' || producto.agotado) tags.add('AGOTADO');
+  if (/\bnovedad(?:es)?\b/i.test(partes) || producto.novedad) tags.add('NOVEDAD');
+  if (/\bf\s*1\b/i.test(partes) || /\bhibrid[oa]s?\b/i.test(partes) || producto.hibrido) tags.add('F1');
+  if (texto.includes('resistente') || texto.includes('resistencia')) tags.add('RESISTENTE');
+  if (texto.includes('tolerancia') || texto.includes('tolerante')) tags.add('TOLERANCIA');
+  if (texto.includes('hidropon')) tags.add('HIDROPÓNICA');
+  try {
+    for (const tag of JSON.parse(producto.tags || '[]')) if (tag) tags.add(String(tag).toUpperCase());
+  } catch {}
+  return [...tags];
+}
+
+function enriquecerProductoPrecampania(producto = {}) {
+  const marcaComercial = marcaComercialProductoPrecampania(producto);
+  const semilleroNombre = semilleroComercialProductoPrecampania(producto);
+  const tags = extraerTagsProductoPrecampania(producto);
+  return {
+    ...producto,
+    marcaComercial,
+    marca: marcaComercial,
+    semilleroNombre,
+    semilleroLaboratorio: normalizarSemilleroPrecampania(semilleroNombre || producto.semilleroLaboratorio),
+    cultivo: normalizarCultivoPrecampania(producto.cultivo, producto.categoria),
+    agotado: Boolean(producto.agotado || producto.estado === 'AGOTADO' || tags.includes('AGOTADO')),
+    novedad: Boolean(producto.novedad || tags.includes('NOVEDAD')),
+    hibrido: Boolean(producto.hibrido || tags.includes('F1')),
+    tags
+  };
 }
 
 function normalizarCultivoPrecampania(valorCultivo = '', valorCategoria = '') {
@@ -2407,11 +2463,20 @@ app.get('/api/semillasya/productos', asyncHandler(async (_req, res) => {
   res.json(productos.filter((p) => !esProductoBasuraPrecampania(p)).map((p) => ({ ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio) })));
 }));
 
+
+app.get('/api/semillasya/marcas', asyncHandler(async (_req, res) => {
+  const [semilleros, marcas] = await Promise.all([
+    prisma.semillero.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' }, include: { marcas: { where: { activo: true }, orderBy: { nombre: 'asc' } } } }),
+    prisma.marca.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' }, include: { semillero: true } })
+  ]);
+  res.json({ ok: true, semilleros, marcas });
+}));
+
 app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
   const productosRaw = await prisma.productoPrecampania.findMany({
     where: { activo: true, visibleEnSemillasYa: true, publicadoWeb: true },
     orderBy: [{ cultivo: 'asc' }, { nombre: 'asc' }, { createdAt: 'asc' }],
-    select: { id: true, nombre: true, semilleroLaboratorio: true, categoria: true, cultivo: true, presentacionEnvase: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true, precioInternoManual: true, costoCompra: true, porcentajeFlete: true, porcentajeIva: true, monedaCompra: true, precioVentaFinal: true }
+    select: { id: true, nombre: true, semilleroLaboratorio: true, semillero: true, marcaRelacion: true, marcaComercial: true, marcaId: true, semilleroId: true, categoria: true, cultivo: true, presentacionEnvase: true, unidad: true, tipoEnvase: true, origen: true, precioUsd: true, agotado: true, novedad: true, hibrido: true, tags: true, metadataTecnica: true, descripcion: true, descripcionTecnica: true, recomendacionesUso: true, epocaSiembra: true, dosisOrientativa: true, imagenUrl: true, publicadoWeb: true, visibleEnSemillasYa: true, activo: true, createdAt: true, precioInternoManual: true, costoCompra: true, porcentajeFlete: true, porcentajeIva: true, monedaCompra: true, precioVentaFinal: true, estado: true }
   });
   const productos = productosRaw
     .map((p) => {
@@ -2422,23 +2487,17 @@ app.get('/api/semillasya/catalogo', asyncHandler(async (_req, res) => {
           precioInternoManual: p.precioInternoManual,
           porcentajeFlete: p.porcentajeFlete
         }, tipoCambioActual);
-        return { ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), tienePrecio: Boolean(calculo.tienePrecio), precioFinalConIva: calculo.tienePrecio ? Number(calculo.precioFinalConIva.toFixed(2)) : null, precioMostrar: calculo.mostrar || 'Consultar' };
+        return { ...enriquecerProductoPrecampania(p), tienePrecio: Boolean(calculo.tienePrecio), precioFinalConIva: calculo.tienePrecio ? Number(calculo.precioFinalConIva.toFixed(2)) : null, precioMostrar: calculo.mostrar || 'Consultar' };
       } catch {
-        return { ...p, cultivo: normalizarCultivoPrecampania(p.cultivo, p.categoria), semilleroLaboratorio: normalizarSemilleroPrecampania(p.semilleroLaboratorio), tienePrecio: false, precioFinalConIva: null, precioMostrar: 'Consultar' };
+        return { ...enriquecerProductoPrecampania(p), tienePrecio: false, precioFinalConIva: null, precioMostrar: 'Consultar' };
       }
     })
     .filter((p) => SEMILLEROS_PRECAMPAÑA.includes(p.semilleroLaboratorio))
     .filter((p) => !esProductoBasuraPrecampania(p));
 
-  const cultivos = [...new Set(productos.map((p) => p.cultivo).filter(Boolean))];
-  const semilleros = [...new Set(productos.map((p) => p.semilleroLaboratorio).filter(Boolean))];
-  const catalogoPorCultivo = cultivos.map((cultivo) => ({
-    cultivo,
-    total: productos.filter((p) => p.cultivo === cultivo).length,
-    productos: productos.filter((p) => p.cultivo === cultivo)
-  }));
-
-  res.status(200).json({ ok: true, productos });
+  const marcas = [...new Set(productos.map((p) => p.marcaComercial).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const semilleros = [...new Set(productos.map((p) => p.semilleroLaboratorio).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  res.status(200).json({ ok: true, productos, marcas, semilleros });
 }));
 
 
