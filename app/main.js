@@ -1433,10 +1433,14 @@ async function cargarConfiguracionChatbot() {
   const data = await api('/api/chatbot/config');
   const cfg = data?.config || data;
   $('#chatbot-nombre').value = cfg.nombre || 'Ing. Lambois IA';
+  $('#chatbot-rol-principal').value = cfg.rolPrincipal || cfg.objetivo || '';
   $('#chatbot-instrucciones').value = cfg.instruccionesBase || '';
-  $('#chatbot-tono').value = cfg.tono || '';
-  $('#chatbot-objetivo').value = cfg.objetivo || '';
-  $('#chatbot-restricciones').value = cfg.restricciones || '';
+  $('#chatbot-flujo-preguntas').value = cfg.flujoPreguntasObligatorias || '';
+  $('#chatbot-criterios-tecnicos').value = cfg.criteriosTecnicosRespuesta || '';
+  $('#chatbot-frases-permitidas').value = cfg.frasesPermitidas || '';
+  $('#chatbot-frases-prohibidas').value = cfg.frasesProhibidas || cfg.restricciones || '';
+  $('#chatbot-estilo-respuesta').value = cfg.estiloRespuesta || cfg.tono || '';
+  $('#chatbot-cierre-sugerido').value = cfg.cierreSugerido || '';
   $('#chatbot-activo').checked = cfg.activo !== false;
   if (estado) estado.textContent = 'Configuración cargada.';
 }
@@ -1445,10 +1449,14 @@ async function guardarConfiguracionChatbot() {
   const estado = $('#chatbot-config-estado');
   const payload = {
     nombre: $('#chatbot-nombre').value.trim(),
+    rolPrincipal: $('#chatbot-rol-principal').value.trim(),
     instruccionesBase: $('#chatbot-instrucciones').value.trim(),
-    tono: $('#chatbot-tono').value.trim(),
-    objetivo: $('#chatbot-objetivo').value.trim(),
-    restricciones: $('#chatbot-restricciones').value.trim(),
+    flujoPreguntasObligatorias: $('#chatbot-flujo-preguntas').value.trim(),
+    criteriosTecnicosRespuesta: $('#chatbot-criterios-tecnicos').value.trim(),
+    frasesPermitidas: $('#chatbot-frases-permitidas').value.trim(),
+    frasesProhibidas: $('#chatbot-frases-prohibidas').value.trim(),
+    estiloRespuesta: $('#chatbot-estilo-respuesta').value.trim(),
+    cierreSugerido: $('#chatbot-cierre-sugerido').value.trim(),
     activo: $('#chatbot-activo').checked
   };
   await api('/api/chatbot/config', { method: 'PUT', body: JSON.stringify(payload) });
