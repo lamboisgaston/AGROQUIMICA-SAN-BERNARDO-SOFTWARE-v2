@@ -56,18 +56,18 @@
 
     .hero {
       display: grid;
-      grid-template-columns: minmax(0, 1.02fr) minmax(340px, .9fr);
+      grid-template-columns: minmax(0, 1.08fr) minmax(340px, .82fr);
       align-items: center;
       gap: clamp(1.25rem, 3.5vw, 2.9rem);
-      padding: clamp(1.45rem, 4.6vw, 3.5rem) 0 1.35rem;
+      padding: clamp(1.45rem, 4.6vw, 3.2rem) 0 1.35rem;
     }
     .hero-copy { position: relative; z-index: 1; }
     .kicker { margin: 0 0 .65rem; color: var(--green-700); text-transform: uppercase; letter-spacing: .14em; font-weight: 900; font-size: .75rem; }
     .hero h1 { margin: 0; color: var(--green-950); font-size: clamp(2.25rem, 4.8vw, 3.5rem); letter-spacing: -.058em; line-height: .98; max-width: 720px; }
-    .hero-subtitle { margin: .9rem 0 0; max-width: 560px; font-size: clamp(1.05rem, 1.7vw, 1.26rem); color: #25483a; line-height: 1.42; }
-    .hero-price { display: inline-flex; align-items: center; gap: .5rem; margin: .95rem 0 0; padding: .62rem .82rem; border: 1px solid #cfe0d1; border-radius: 999px; background: rgba(255,255,255,.78); color: var(--green-850); font-weight: 900; box-shadow: var(--shadow-soft); }
-    .hero-actions { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-top: 1.1rem; }
-    .hero-microcopy { margin: .75rem 0 0; color: var(--muted); max-width: 560px; }
+    .hero-subtitle { margin: .9rem 0 0; max-width: 600px; font-size: clamp(1.25rem, 2vw, 1.55rem); color: #25483a; line-height: 1.28; font-weight: 900; letter-spacing: -.025em; }
+    .hero-price { display: inline-flex; align-items: center; gap: .5rem; margin: 1rem 0 0; padding: .78rem 1rem; border: 1px solid #bfd8c5; border-radius: 999px; background: #fff; color: var(--green-950); font-weight: 950; box-shadow: 0 14px 28px rgba(15,67,46,.12); font-size: clamp(1rem, 1.45vw, 1.16rem); }
+    .hero-actions { display: grid; justify-items: start; gap: .68rem; margin-top: 1.35rem; }
+    .hero-microcopy { margin: .9rem 0 0; color: #456456; max-width: 590px; font-size: 1.02rem; line-height: 1.55; }
     .hero-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; margin-top: 1.1rem; max-width: 620px; }
     .hero-detail { display: flex; align-items: center; gap: .5rem; min-height: 54px; padding: .65rem .72rem; border: 1px solid rgba(220,232,220,.88); border-radius: 17px; background: rgba(255,255,255,.64); box-shadow: 0 8px 18px rgba(13,63,41,.045); color: #315447; font-size: .86rem; font-weight: 800; }
     .hero-detail span { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 10px; background: #edf6ef; color: var(--green-700); }
@@ -77,14 +77,20 @@
     .btn:disabled { cursor: not-allowed; opacity: .55; transform: none; box-shadow: none; }
     .btn-primary { color: #fff; background: linear-gradient(135deg, #238158, var(--green-950)); box-shadow: 0 11px 22px rgba(15, 67, 46, .20); }
     .btn-outline { color: var(--green-850); background: #fff; border: 1px solid var(--line); box-shadow: none; }
+    .hero-cta { min-width: min(100%, 380px); padding: 1.05rem 1.45rem; font-size: clamp(1.02rem, 1.6vw, 1.2rem); box-shadow: 0 18px 36px rgba(15,67,46,.28); }
+    .hero-secondary { padding: .92rem 1.15rem; background: rgba(255,255,255,.92); }
     .btn-block { width: 100%; }
 
-    .hero-visual-card { position: relative; min-height: 330px; border: 1px solid #d9e6d8; border-radius: var(--radius-xl); background: linear-gradient(160deg, rgba(255,255,255,.96), rgba(232,243,234,.9)); box-shadow: var(--shadow); overflow: hidden; }
-    .hero-visual-card::before { content: ""; position: absolute; z-index: 0; inset: 11% 8% 16%; border-radius: 999px; background: radial-gradient(circle, rgba(31,122,80,.13), transparent 68%); filter: blur(2px); }
-    .hero-visual-card::after { content: ""; position: absolute; z-index: 0; inset: auto -10% -24% 18%; height: 48%; background: repeating-linear-gradient(166deg, rgba(31,122,80,.12) 0 2px, transparent 2px 20px); opacity: .7; transform: rotate(-2deg); pointer-events: none; }
-    .hero-visual { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; }
-    .map-chip { position: absolute; z-index: 2; left: 1rem; top: 1rem; display: flex; align-items: center; gap: .5rem; padding: .54rem .74rem; border-radius: 999px; background: rgba(255,255,255,.84); border: 1px solid #d9e6d8; color: var(--green-850); font-weight: 900; font-size: .88rem; box-shadow: var(--shadow-soft); }
-    .delivery-note { position: absolute; z-index: 2; right: 1rem; bottom: 1rem; max-width: 194px; padding: .72rem .78rem; border-radius: 16px; background: rgba(11,47,34,.9); color: #fff; box-shadow: var(--shadow-soft); font-weight: 800; font-size: .88rem; line-height: 1.25; }
+    .hero-visual-card { position: relative; min-height: 330px; padding: clamp(1rem, 2.6vw, 1.45rem); border: 1px solid #d9e6d8; border-radius: var(--radius-xl); background: linear-gradient(160deg, rgba(255,255,255,.98), rgba(241,248,242,.95)); box-shadow: var(--shadow); overflow: hidden; }
+    .hero-visual-card::before { content: ""; position: absolute; z-index: 0; inset: 12% -8% 18% 8%; border-radius: 999px; background: radial-gradient(circle, rgba(31,122,80,.10), transparent 66%); }
+    .hero-visual-card::after { content: ""; position: absolute; z-index: 0; left: 8%; right: 8%; top: 44%; height: 80px; border-top: 2px dashed rgba(115,151,125,.30); border-radius: 50%; transform: rotate(-7deg); pointer-events: none; }
+    .visual-content { position: relative; z-index: 1; display: grid; gap: 1rem; height: 100%; }
+    .map-chip { display: inline-flex; width: fit-content; align-items: center; gap: .5rem; padding: .54rem .74rem; border-radius: 999px; background: rgba(255,255,255,.88); border: 1px solid #d9e6d8; color: var(--green-850); font-weight: 900; font-size: .88rem; box-shadow: var(--shadow-soft); }
+    .visual-title { margin: 0; color: var(--green-950); font-size: clamp(1.25rem, 2.2vw, 1.7rem); line-height: 1.08; letter-spacing: -.04em; max-width: 390px; }
+    .visual-logo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-top: .25rem; }
+    .visual-logo-card { min-height: 72px; display: grid; place-items: center; padding: .72rem; border: 1px solid rgba(207,224,209,.9); border-radius: 18px; background: rgba(255,255,255,.88); box-shadow: 0 10px 20px rgba(13,63,41,.055); }
+    .visual-logo-card img { display: block; max-width: 142px; max-height: 50px; width: auto; height: auto; object-fit: contain; }
+    .delivery-note { margin-top: auto; padding: .82rem .88rem; border-radius: 18px; background: rgba(11,47,34,.92); color: #fff; box-shadow: var(--shadow-soft); font-weight: 850; font-size: .92rem; line-height: 1.3; }
 
     .brands-band { margin: .45rem 0 1rem; padding: .78rem .88rem; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .75rem; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.68); box-shadow: var(--shadow-soft); overflow: hidden; }
     .brands-band p { margin: 0; color: var(--muted); font-weight: 800; font-size: .9rem; }
@@ -92,9 +98,8 @@
     .brand-card { min-width: 112px; min-height: 52px; border: 1px solid rgba(188, 211, 190, .84); border-radius: 16px; background: rgba(255,255,255,.9); display: grid; place-items: center; color: var(--green-850); font-size: .78rem; letter-spacing: .11em; font-weight: 950; box-shadow: 0 9px 18px rgba(13,63,41,.055); padding: .45rem .7rem; }
     .brand-card--logo { min-width: 122px; background: linear-gradient(145deg, #fff, #f7fbf7); }
     .brand-card img { display: block; max-height: 46px; max-width: 118px; width: auto; height: auto; object-fit: contain; }
-    .brand-card--fallback { border-style: dashed; background: linear-gradient(145deg, #f9fcf8, #eef7ef); }
 
-    .trust-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .72rem; margin: -.15rem 0 1.05rem; }
+    .trust-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .72rem; margin: .2rem 0 1.05rem; }
     .trust-card { position: relative; overflow: hidden; min-height: 112px; padding: .85rem; border: 1px solid rgba(202, 222, 203, .92); border-radius: 20px; background: rgba(255,255,255,.82); box-shadow: 0 10px 22px rgba(13,63,41,.055); }
     .trust-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, var(--green-700), var(--earth)); opacity: .75; }
     .trust-logo-wrap { min-height: 48px; display: flex; align-items: center; justify-content: flex-start; margin-bottom: .55rem; }
@@ -155,8 +160,8 @@
     .cart-title { margin: 0; color: var(--green-950); font-weight: 950; line-height: 1.25; }
     .qty { max-width: 92px; padding: .58rem .7rem; }
 
-    .chat-fab { position: fixed; right: 1.05rem; bottom: 1.05rem; z-index: 40; border: 0; border-radius: 999px; background: linear-gradient(135deg, var(--green-600), var(--green-950)); color: #fff; padding: .88rem 1rem; font: inherit; font-weight: 950; box-shadow: 0 16px 32px rgba(11,47,34,.22); cursor: pointer; }
-    .assistant-floating { position: fixed; right: 1.05rem; bottom: 4.95rem; z-index: 41; width: min(420px, calc(100vw - 1.4rem)); padding: .95rem; }
+    .chat-fab { position: fixed; right: .65rem; bottom: .65rem; z-index: 30; border: 0; border-radius: 999px; background: linear-gradient(135deg, var(--green-600), var(--green-950)); color: #fff; padding: .68rem .82rem; font: inherit; font-size: .92rem; font-weight: 950; box-shadow: 0 12px 24px rgba(11,47,34,.20); cursor: pointer; }
+    .assistant-floating { position: fixed; right: .65rem; bottom: 3.9rem; z-index: 31; width: min(390px, calc(100vw - 1.4rem)); padding: .85rem; }
     .assistant-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; margin-bottom: .75rem; }
     .assistant-card-head h3 { margin: 0; color: var(--green-950); }
     .chat-box { display: grid; gap: .55rem; max-height: 310px; overflow: auto; padding: .75rem; border: 1px solid var(--line); border-radius: 18px; background: #f8fbf8; }
@@ -191,18 +196,17 @@
       .hero { padding-top: 1.2rem; gap: 1rem; }
       .hero h1 { font-size: clamp(2rem, 10vw, 2.375rem); letter-spacing: -.052em; }
       .hero-subtitle { font-size: 1.02rem; }
-      .hero-actions .btn { width: 100%; padding: .9rem; }
+      .hero-actions .btn { width: 100%; padding: .95rem; }
       .hero-detail-grid { margin-top: .85rem; gap: .45rem; }
       .hero-visual-card { min-height: 232px; border-radius: 22px; }
-      .delivery-note { left: .75rem; right: .75rem; bottom: .75rem; max-width: none; }
-      .map-chip { left: .75rem; top: .75rem; }
+      .visual-logo-grid { grid-template-columns: 1fr; }
       .progress-steps { gap: .4rem; }
       .progress-step { padding: .55rem; font-size: .82rem; }
       .products-head { display: block; }
       .trust-grid { grid-template-columns: 1fr; }
       .product-card-head { grid-template-columns: 1fr; }
-      .chat-fab { left: .75rem; right: .75rem; bottom: .75rem; width: auto; }
-      .assistant-floating { left: .55rem; right: .55rem; bottom: 4.6rem; width: auto; }
+      .chat-fab { right: .55rem; bottom: .55rem; max-width: calc(100vw - 1.1rem); padding: .62rem .72rem; font-size: .86rem; }
+      .assistant-floating { left: .55rem; right: .55rem; bottom: 3.55rem; width: auto; }
       .chat-input-row { flex-direction: column; }
     }
   </style>
@@ -216,14 +220,15 @@
 
     <section class="hero" id="inicio">
       <div class="hero-copy">
-        <p class="kicker">Plataforma tecnológica de semillas</p>
+        <p class="kicker">Cotización y logística agrícola profesional</p>
         <h1>www.semillasya.com</h1>
-        <p class="hero-subtitle">Tecnología de cotización, compra y envío de semillas a todo el país.</p>
+        <p class="hero-subtitle">Cotizá semillas con envío a tu localidad.</p>
         <div class="hero-price">✓ Precios finales puestos en tu localidad.</div>
         <div class="hero-actions">
-          <button class="btn btn-primary" id="iniciarCotizacionBtn" type="button">Cotizar semillas</button>
+          <button class="btn btn-primary hero-cta" id="iniciarCotizacionBtn" type="button">Cotizar envío de semillas en mi localidad</button>
+          <button class="btn btn-outline hero-secondary" id="consultarLamboisBtn" type="button">Consultar al Ing. Lambois IA</button>
         </div>
-        <p class="hero-microcopy">Ingresá tus datos, elegí localidad, cultivo y productos. Nosotros revisamos disponibilidad y logística antes de responder.</p>
+        <p class="hero-microcopy">Ingresás tu localidad, cultivo y productos.<br>Nosotros revisamos disponibilidad, precio final y logística antes de responder.</p>
         <div class="hero-detail-grid" aria-label="Beneficios SemillasYa">
           <div class="hero-detail"><span>✦</span>Semillas seleccionadas</div>
           <div class="hero-detail"><span>⌁</span>Ruta logística clara</div>
@@ -231,44 +236,18 @@
         </div>
       </div>
 
-      <div class="hero-visual-card" aria-label="Envíos SemillasYa a todo el país">
-        <div class="map-chip">Argentina · envío nacional</div>
-        <svg class="hero-visual" viewBox="0 0 760 470" role="img" aria-label="Furgón y moto ploteados con semillasya.com">
-          <defs>
-            <linearGradient id="road" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8f3e9"/><stop offset="1" stop-color="#d6e6d7"/></linearGradient>
-            <linearGradient id="vehicle" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f7a50"/><stop offset="1" stop-color="#0b2f22"/></linearGradient>
-          </defs>
-          <path d="M46 318 C166 252 250 346 380 292 C514 236 606 310 724 252" fill="none" stroke="#d7e4d6" stroke-width="34" stroke-linecap="round" opacity=".78"/>
-          <path d="M56 314 C174 258 256 336 384 286 C512 238 606 304 716 258" fill="none" stroke="url(#road)" stroke-width="19" stroke-linecap="round"/>
-          <path d="M92 166 C164 130 220 155 292 118 C345 91 400 95 456 62" fill="none" stroke="#9fbda8" stroke-width="3" stroke-dasharray="9 13" stroke-linecap="round" opacity=".72"/>
-          <path d="M510 356 C574 316 616 334 682 292" fill="none" stroke="#9fbda8" stroke-width="3" stroke-dasharray="8 12" stroke-linecap="round" opacity=".62"/>
-          <g opacity=".22" stroke="#17623f" stroke-width="2">
-            <path d="M78 374c42-22 94-26 156-12"/><path d="M75 396c58-27 126-31 205-9"/><path d="M92 417c73-27 150-28 230-4"/>
-          </g>
-          <g transform="translate(382 184) scale(.78)">
-            <rect x="15" y="54" width="250" height="88" rx="20" fill="url(#vehicle)"/>
-            <path d="M240 80h72c15 0 32 27 32 44v18H240z" fill="#124832"/>
-            <rect x="260" y="91" width="40" height="25" rx="7" fill="#cdebd7"/>
-            <rect x="40" y="75" width="166" height="38" rx="11" fill="rgba(255,255,255,.13)"/>
-            <text x="54" y="101" fill="#f4fff7" font-size="22" font-weight="900" font-family="Inter, system-ui, sans-serif">semillasya.com</text>
-            <circle cx="82" cy="151" r="24" fill="#17271f"/><circle cx="82" cy="151" r="10" fill="#f7fbf8"/>
-            <circle cx="274" cy="151" r="24" fill="#17271f"/><circle cx="274" cy="151" r="10" fill="#f7fbf8"/>
-          </g>
-          <g transform="translate(108 252) scale(.74)">
-            <path d="M44 70h178" stroke="#183529" stroke-width="9" stroke-linecap="round"/>
-            <rect x="52" y="31" width="124" height="40" rx="13" fill="url(#vehicle)"/>
-            <rect x="182" y="19" width="52" height="34" rx="9" fill="#15533a"/>
-            <path d="M176 34l40-39" stroke="#1a6043" stroke-width="8" stroke-linecap="round"/>
-            <rect x="190" y="-1" width="36" height="17" rx="6" fill="#246b4c"/>
-            <text x="63" y="56" fill="#f4fff7" font-size="12" font-weight="900" font-family="Inter, system-ui, sans-serif">semillasya.com</text>
-            <circle cx="60" cy="88" r="23" fill="#17271f"/><circle cx="60" cy="88" r="9" fill="#f7fbf8"/>
-            <circle cx="209" cy="88" r="23" fill="#17271f"/><circle cx="209" cy="88" r="9" fill="#f7fbf8"/>
-          </g>
-          <g fill="#b68d57" opacity=".34">
-            <ellipse cx="116" cy="126" rx="8" ry="5" transform="rotate(-24 116 126)"/><ellipse cx="146" cy="102" rx="6" ry="4" transform="rotate(-24 146 102)"/><ellipse cx="642" cy="118" rx="7" ry="5" transform="rotate(-24 642 118)"/><ellipse cx="584" cy="79" rx="5" ry="3.5" transform="rotate(-24 584 79)"/>
-          </g>
-        </svg>
-        <div class="delivery-note">Logística clara para recibir semillas donde producís.</div>
+      <div class="hero-visual-card" aria-label="Cotización profesional de semillas con envío local">
+        <div class="visual-content">
+          <div class="map-chip">Argentina · cotización por localidad</div>
+          <h2 class="visual-title">Semilleros reales, disponibilidad revisada y logística antes de responder.</h2>
+          <div class="visual-logo-grid" aria-label="Logos de semilleros disponibles">
+            <div class="visual-logo-card"><img src="/app/assets/semilleros/guasch.svg" alt="GUASCH" loading="lazy" /></div>
+            <div class="visual-logo-card"><img src="/app/assets/semilleros/caps.svg" alt="CAPS Semillas Hortícolas" loading="lazy" /></div>
+            <div class="visual-logo-card"><img src="/app/assets/semilleros/florensa.svg" alt="Florensa" loading="lazy" /></div>
+            <div class="visual-logo-card"><img src="/app/assets/semilleros/garden-gasty-chuchuy.svg" alt="Garden, Gasty y Chuchuy" loading="lazy" /></div>
+          </div>
+          <div class="delivery-note">Foco en cotización, precio final y entrega posible en tu zona.</div>
+        </div>
       </div>
     </section>
 
@@ -300,11 +279,9 @@
       <div class="brand-cards" id="brandsTrack">
         <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/caps.svg" alt="CAPS" loading="lazy" /></div>
         <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/guasch.svg" alt="GUASCH" loading="lazy" /></div>
-        <div class="brand-card brand-card--fallback">Picasso</div>
         <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/florensa.svg" alt="Florensa" loading="lazy" /></div>
-        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/garden-gasty-chuchuy.svg" alt="Garden" loading="lazy" /></div>
-        <div class="brand-card brand-card--fallback">Gasty</div>
-        <div class="brand-card brand-card--fallback">Chuchuy</div>
+        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/garden-gasty-chuchuy.svg" alt="Garden, Gasty y Chuchuy" loading="lazy" /></div>
+        <div class="brand-card brand-card--logo"><img src="/app/assets/semilleros/rodeo.svg" alt="Rodeo" loading="lazy" /></div>
       </div>
     </section>
 
@@ -824,6 +801,10 @@
     $('iniciarCotizacionBtn').addEventListener('click', () => {
       state.modoCotizacion = true;
       renderFormularioDatos();
+    });
+    $('consultarLamboisBtn').addEventListener('click', () => {
+      $('assistantFloating').classList.remove('hidden');
+      $('chatInput').focus();
     });
     $('provinciaSelect').addEventListener('input', actualizarEstadoBotonSolicitante);
     $('ciudadIngreso').addEventListener('input', detectarProvinciaDesdeLocalidad);
