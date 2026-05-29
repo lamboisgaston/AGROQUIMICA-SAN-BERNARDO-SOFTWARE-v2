@@ -30,24 +30,28 @@ function resolverUbicacionSemillasYa({ provinciaId, provincia, localidadId, loca
   const validada = validarUbicacion({ provinciaId, provincia, localidadId, localidad: textoLocalidad });
   if (validada.ok) return validada;
 
-  const claveProvincia = normalizarUbicacion(provincia);
+  const textoProvincia = String(provincia || provinciaId || '').trim().replace(/\s+/g, ' ');
+  const claveProvincia = normalizarUbicacion(textoProvincia);
   const provinciaValida = PROVINCIAS_ARGENTINA.find((p) => p.id === provinciaId || normalizarUbicacion(p.nombre) === claveProvincia);
-  if (!provinciaValida) return validada;
-  if (!textoLocalidad) return { ok: false, error: 'Localidad obligatoria para la provincia seleccionada', provincia: provinciaValida, localidad: null };
+  const provinciaResuelta = provinciaValida || (textoProvincia ? { id: '', nombre: textoProvincia, esManual: true } : null);
+  if (!provinciaResuelta) return validada;
+  if (!textoLocalidad) return { ok: false, error: 'Localidad obligatoria para la provincia/zona ingresada', provincia: provinciaResuelta, localidad: null };
 
-  const localidadExacta = buscarLocalidades('', provinciaValida.id).find((l) => normalizarUbicacion(l.nombre) === normalizarUbicacion(textoLocalidad));
+  const localidadExacta = provinciaValida
+    ? buscarLocalidades('', provinciaValida.id).find((l) => normalizarUbicacion(l.nombre) === normalizarUbicacion(textoLocalidad))
+    : null;
   if (localidadId && localidadExacta && localidadExacta.id !== localidadId) {
-    return { ok: false, error: 'La localidad no pertenece a la provincia seleccionada', provincia: provinciaValida, localidad: null };
+    return { ok: false, error: 'La localidad no pertenece a la provincia seleccionada', provincia: provinciaResuelta, localidad: null };
   }
 
   return {
     ok: true,
-    provincia: provinciaValida,
+    provincia: provinciaResuelta,
     localidad: localidadExacta || {
       id: '',
       nombre: textoLocalidad,
-      provinciaId: provinciaValida.id,
-      provinciaNombre: provinciaValida.nombre,
+      provinciaId: provinciaResuelta.id,
+      provinciaNombre: provinciaResuelta.nombre,
       esManual: true
     }
   };
