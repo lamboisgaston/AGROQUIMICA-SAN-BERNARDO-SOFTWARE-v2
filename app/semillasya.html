@@ -323,16 +323,16 @@
         <h2>Paso 1 · Datos del solicitante</h2>
         <p class="hint">Alta rápida pública: no necesitás usuario ni contraseña. Estos datos mínimos nos permiten preparar una cotización con precio final puesto en destino.</p>
         <div class="row">
+          <label for="ciudadIngreso">Ciudad / localidad</label>
+          <input id="ciudadIngreso" placeholder="Escribí tu localidad" list="localidadesDatalist" autocomplete="off" />
+          <datalist id="localidadesDatalist"></datalist>
+          <p class="small" id="localidadAyuda">Al elegir una localidad de la lista detectamos la provincia automáticamente.</p>
+        </div>
+        <div class="row">
           <label for="provinciaSelect">Provincia</label>
           <select id="provinciaSelect">
             <option value="">Seleccioná una provincia</option>
           </select>
-        </div>
-        <div class="row">
-          <label for="ciudadIngreso">Ciudad / localidad</label>
-          <input id="ciudadIngreso" placeholder="Primero elegí provincia" list="localidadesDatalist" autocomplete="off" disabled />
-          <datalist id="localidadesDatalist"></datalist>
-          <p class="small" id="localidadAyuda">Las opciones se filtran por provincia y se guardan vinculadas.</p>
         </div>
         <div class="row">
           <label for="nombreIngreso">Nombre / razón social</label>
@@ -459,8 +459,22 @@
     const PROVINCIAS_ARGENTINA = UBICACIONES_AR.PROVINCIAS_ARGENTINA || [];
     const LOCALIDADES_ARGENTINA = UBICACIONES_AR.LOCALIDADES_ARGENTINA || [];
     const localidadesDeProvincia = UBICACIONES_AR.localidadesDeProvincia || ((provinciaId) => LOCALIDADES_ARGENTINA.filter((l) => l.provinciaId === provinciaId));
-    const buscarLocalidadExacta = UBICACIONES_AR.buscarLocalidadExacta || (() => null);
+    const buscarLocalidades = UBICACIONES_AR.buscarLocalidades || ((texto = '', provinciaId = '') => {
+      const q = String(texto || '').trim().toLowerCase();
+      const base = provinciaId ? localidadesDeProvincia(provinciaId) : LOCALIDADES_ARGENTINA;
+      return q ? base.filter((l) => String(l.nombre || '').toLowerCase().includes(q)) : base;
+    });
+    const buscarLocalidadExacta = UBICACIONES_AR.buscarLocalidadExacta || ((nombre = '', provinciaId = '') => {
+      const clave = normalizarTextoUbicacion(nombre).toLowerCase();
+      return buscarLocalidades('', provinciaId).find((l) => normalizarTextoUbicacion(l.nombre).toLowerCase() === clave) || null;
+    });
     const normalizarTextoUbicacion = (valor) => String(valor || '').trim().replace(/\s+/g, ' ');
+    const normalizarClaveUbicacion = UBICACIONES_AR.normalizar || ((valor) => normalizarTextoUbicacion(valor).toLowerCase());
+    function localidadesExactas(nombre, provinciaId = '') {
+      const clave = normalizarClaveUbicacion(nombre);
+      if (!clave) return [];
+      return buscarLocalidades('', provinciaId).filter((l) => normalizarClaveUbicacion(l.nombre) === clave);
+    }
 
     function renderProvincias() {
       $('provinciaSelect').innerHTML = '<option value="">Seleccioná una provincia</option>' + PROVINCIAS_ARGENTINA
@@ -472,30 +486,75 @@
       return PROVINCIAS_ARGENTINA.find((p) => p.id === $('provinciaSelect').value) || null;
     }
 
-    function renderLocalidadesProvincia() {
+    function localidadOptionHtml(localidad, provinciaFallback = null) {
+      const provinciaNombre = localidad.provinciaNombre || provinciaFallback?.nombre || '';
+      return `<option value="${escapeHtml(localidad.nombre)}" label="${escapeHtml(localidad.nombre)}${provinciaNombre ? ` — Provincia de ${escapeHtml(provinciaNombre)}` : ''}" data-localidad-id="${escapeHtml(localidad.id)}"></option>`;
+    }
+
+    function renderLocalidadesProvincia({ preservarCiudad = false } = {}) {
       const provincia = provinciaSeleccionada();
       const input = $('ciudadIngreso');
       const datalist = $('localidadesDatalist');
-      input.value = '';
-      input.dataset.localidadId = '';
-      input.disabled = !provincia;
-      input.placeholder = provincia ? 'Ej: Rosario de la Frontera' : 'Primero elegí provincia';
-      datalist.innerHTML = provincia
-        ? localidadesDeProvincia(provincia.id).map((l) => `<option value="${escapeHtml(l.nombre)}" label="${escapeHtml(l.nombre)} — Provincia de ${escapeHtml(provincia.nombre)}" data-localidad-id="${escapeHtml(l.id)}"></option>`).join('')
-        : '';
+      const ciudadActual = normalizarTextoUbicacion(input.value);
+      const localidadActual = ciudadActual ? buscarLocalidadExacta(ciudadActual, provincia?.id || '') : null;
+      const debeLimpiarCiudad = !preservarCiudad && ciudadActual && provincia && localidadActual?.provinciaId && localidadActual.provinciaId !== provincia.id;
+
+      if (debeLimpiarCiudad) input.value = '';
+      input.dataset.localidadId = localidadActual?.provinciaId === provincia?.id ? localidadActual.id : '';
+      input.disabled = false;
+      input.placeholder = provincia ? 'Ej: Rosario de la Frontera' : 'Escribí tu localidad y detectamos la provincia';
+      const localidades = provincia ? localidadesDeProvincia(provincia.id) : LOCALIDADES_ARGENTINA;
+      datalist.innerHTML = localidades.map((l) => localidadOptionHtml(l, provincia)).join('');
       $('localidadAyuda').textContent = provincia
-        ? `Localidades disponibles para ${provincia.nombre}. Podés elegir una opción o escribir tu localidad.`
-        : 'Primero seleccioná una provincia para cargar la localidad.';
+        ? `Provincia detectada/seleccionada: ${provincia.nombre}. Podés elegir una localidad sugerida o escribirla manualmente.`
+        : 'Empezá por la localidad: si coincide con nuestra base, detectamos la provincia automáticamente.';
       actualizarEstadoBotonSolicitante();
     }
 
     function localidadSeleccionada() {
       const provincia = provinciaSeleccionada();
-      if (!provincia) return null;
       const nombre = normalizarTextoUbicacion($('ciudadIngreso').value);
       if (!nombre) return null;
-      const exacta = buscarLocalidadExacta(nombre, provincia.id);
-      return exacta || { id: '', nombre, provinciaId: provincia.id, provinciaNombre: provincia.nombre, esManual: true };
+      const exactas = localidadesExactas(nombre, provincia?.id || '');
+      if (exactas.length === 1) return exactas[0];
+      if (!provincia) return null;
+      return { id: '', nombre, provinciaId: provincia.id, provinciaNombre: provincia.nombre, esManual: true };
+    }
+
+    function detectarProvinciaDesdeLocalidad() {
+      const input = $('ciudadIngreso');
+      const nombre = normalizarTextoUbicacion(input.value);
+      input.dataset.localidadId = '';
+      if (!nombre) {
+        actualizarEstadoBotonSolicitante();
+        return null;
+      }
+
+      const provincia = provinciaSeleccionada();
+      const exactaEnProvincia = provincia ? buscarLocalidadExacta(nombre, provincia.id) : null;
+      if (exactaEnProvincia) {
+        input.dataset.localidadId = exactaEnProvincia.id;
+        $('localidadAyuda').textContent = `${exactaEnProvincia.nombre} — Provincia de ${exactaEnProvincia.provinciaNombre}`;
+        actualizarEstadoBotonSolicitante();
+        return exactaEnProvincia;
+      }
+
+      const exactasArgentina = localidadesExactas(nombre, '');
+      if (!provincia && exactasArgentina.length === 1 && exactasArgentina[0]?.provinciaId) {
+        const exactaArgentina = exactasArgentina[0];
+        $('provinciaSelect').value = exactaArgentina.provinciaId;
+        input.dataset.localidadId = exactaArgentina.id;
+        renderLocalidadesProvincia({ preservarCiudad: true });
+        $('localidadAyuda').textContent = `${exactaArgentina.nombre} — Provincia de ${exactaArgentina.provinciaNombre}`;
+        actualizarEstadoBotonSolicitante();
+        return exactaArgentina;
+      }
+
+      $('localidadAyuda').textContent = provincia
+        ? `Localidad cargada manualmente para ${provincia.nombre}.`
+        : (exactasArgentina.length > 1 ? 'Hay más de una localidad con ese nombre: elegí la provincia para continuar.' : 'Elegí una provincia para continuar con esta localidad manual.');
+      actualizarEstadoBotonSolicitante();
+      return null;
     }
 
     function actualizarEstadoBotonSolicitante() {
@@ -814,15 +873,11 @@
       $('ubicacionGate').classList.remove('hidden');
       setPaso(1);
       $('cotizacion').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      $('provinciaSelect').focus();
+      $('ciudadIngreso').focus();
     });
-    $('provinciaSelect').addEventListener('change', renderLocalidadesProvincia);
-    $('ciudadIngreso').addEventListener('input', () => {
-      const loc = localidadSeleccionada();
-      $('ciudadIngreso').dataset.localidadId = loc?.id || '';
-      $('localidadAyuda').textContent = loc?.esManual ? `Localidad cargada para ${loc.provinciaNombre}.` : (loc ? `${loc.nombre} — Provincia de ${loc.provinciaNombre}` : 'Completá una localidad para la provincia seleccionada.');
-      actualizarEstadoBotonSolicitante();
-    });
+    $('provinciaSelect').addEventListener('change', () => renderLocalidadesProvincia({ preservarCiudad: false }));
+    $('ciudadIngreso').addEventListener('input', detectarProvinciaDesdeLocalidad);
+    $('ciudadIngreso').addEventListener('change', detectarProvinciaDesdeLocalidad);
     $('nombreIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
     $('telefonoIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
     $('cuitDniIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
