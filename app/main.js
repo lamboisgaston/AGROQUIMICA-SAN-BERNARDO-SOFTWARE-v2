@@ -1408,6 +1408,7 @@ const HOME_MODULES_BASE = [
   'clientes-semillasya',
   'operaciones-semillasya',
   'territorios-semillasya',
+  'configuracion-ia-lambois',
   'usuarios',
   'configuracion'
 ];
@@ -1422,8 +1423,38 @@ let activeRoleName = '';
 let activeBusiness = null;
 const BUSINESS_MODULES = {
   AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema', 'usuarios', 'configuracion'],
-  SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya', 'territorios-semillasya']
+  SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya', 'territorios-semillasya', 'configuracion-ia-lambois']
 };
+
+
+async function cargarConfiguracionChatbot() {
+  const estado = $('#chatbot-config-estado');
+  if (estado) estado.textContent = 'Cargando configuración...';
+  const data = await api('/api/chatbot/config');
+  const cfg = data?.config || data;
+  $('#chatbot-nombre').value = cfg.nombre || 'Ing. Lambois IA';
+  $('#chatbot-instrucciones').value = cfg.instruccionesBase || '';
+  $('#chatbot-tono').value = cfg.tono || '';
+  $('#chatbot-objetivo').value = cfg.objetivo || '';
+  $('#chatbot-restricciones').value = cfg.restricciones || '';
+  $('#chatbot-activo').checked = cfg.activo !== false;
+  if (estado) estado.textContent = 'Configuración cargada.';
+}
+
+async function guardarConfiguracionChatbot() {
+  const estado = $('#chatbot-config-estado');
+  const payload = {
+    nombre: $('#chatbot-nombre').value.trim(),
+    instruccionesBase: $('#chatbot-instrucciones').value.trim(),
+    tono: $('#chatbot-tono').value.trim(),
+    objetivo: $('#chatbot-objetivo').value.trim(),
+    restricciones: $('#chatbot-restricciones').value.trim(),
+    activo: $('#chatbot-activo').checked
+  };
+  await api('/api/chatbot/config', { method: 'PUT', body: JSON.stringify(payload) });
+  if (estado) estado.textContent = 'Configuración guardada. El chat público leerá estas instrucciones en la próxima consulta.';
+  setMsg('Configuración IA guardada');
+}
 
 function renderUsuarioActivo() {
   const el = $('#usuario-activo');
@@ -1520,6 +1551,9 @@ async function abrirModulo(modulo) {
   }
   if (modulo === 'productos-precampania') {
     await loadProductosPrecampania();
+  }
+  if (modulo === 'configuracion-ia-lambois') {
+    await cargarConfiguracionChatbot();
   }
   if (modulo === 'presupuestos' || modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya' || modulo === 'territorios-semillasya') {
     const esSemillasYa = modulo === 'presupuestos-semillasya' || modulo === 'operaciones-semillasya' || modulo === 'territorios-semillasya';
@@ -2832,6 +2866,8 @@ $('#btn-ventas-cobradas-buscar').addEventListener('click', async () => {
     renderResumenPreciosProducto();
   });
 });
+
+$('#btn-guardar-chatbot-config')?.addEventListener('click', () => guardarConfiguracionChatbot().catch((err) => { setMsg(err.message, 'error'); const estado = $('#chatbot-config-estado'); if (estado) estado.textContent = err.message; }));
 
 $('#btn-guardar-tipo-cambio').addEventListener('click', async () => {
   try {

@@ -399,21 +399,21 @@
     </section>
   </main>
 
-  <button class="chat-fab" id="chatToggleBtn" type="button" aria-label="Abrir chat con Ing. Lambois">💬 Ing. Lambois</button>
+  <button class="chat-fab" id="chatToggleBtn" type="button" aria-label="Abrir chat con Ing. Lambois IA">💬 Ing. Lambois IA</button>
   <section class="panel assistant-floating hidden" id="assistantFloating" aria-label="Chat Ing. Lambois">
     <div class="assistant-card-head">
       <div>
-        <h3>Ing. Lambois</h3>
-        <p class="small" style="margin:.2rem 0 0;">Ayuda opcional para orientar la cotización.</p>
+        <h3>Consultar al Ing. Lambois IA</h3>
+        <p class="small" style="margin:.2rem 0 0;">Consultá qué variedad conviene según tu zona, fecha, suelo, agua y destino productivo.</p>
       </div>
       <button class="btn btn-outline" id="chatCloseBtn" type="button">Cerrar</button>
     </div>
     <div id="chatBox" class="chat-box"></div>
     <div class="chat-input-row">
-      <input id="chatInput" placeholder="Escribí tu consulta..." />
+      <input id="chatInput" placeholder="Ej: Quiero sembrar lechuga en Salta en invierno" />
       <button class="btn btn-primary" id="chatSend" type="button">Enviar</button>
     </div>
-    <p class="small" style="margin:.65rem 0 0;">La cotización final siempre queda sujeta a revisión comercial.</p>
+    <p class="small" style="margin:.65rem 0 0;">Asesor técnico: no arma carrito ni cierra ventas automáticamente. Puede orientar y sugerir avanzar a cotización.</p>
   </section>
 
   <script>
@@ -660,25 +660,26 @@
         historial: state.chat.historial.slice(-14),
         estadoChat: state.chat.estadoChat,
         cliente: state.cliente?.nombre || null,
-        provincia: state.cliente?.provincia || null,
         provinciaId: state.cliente?.provinciaId || null,
         ciudad: state.cliente?.ciudad || null,
         localidad: state.cliente?.localidad || state.cliente?.ciudad || null,
         localidadId: state.cliente?.localidadId || null,
-        pedidoActual: state.carrito.map((it) => ({ productoPrecampaniaId: it.id, nombre: it.producto.nombre, cantidad: it.cantidad }))
+        pedidoActual: state.carrito.map((it) => ({ productoPrecampaniaId: it.producto.id, nombre: it.producto.nombre, cantidad: it.cantidad })),
+        cultivo: state.cultivoSeleccionado || state.chat.estadoChat.cultivo || null,
+        provincia: state.cliente?.provincia || $('provinciaSelect')?.value || null,
+        zona: state.cliente?.provincia || $('provinciaSelect')?.value || null,
+        superficie: $('obs')?.value || null,
+        tipoProduccion: null,
+        fecha: null
       };
-      const r = await fetch('/api/ia/ing-lambois/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const r = await fetch('/api/chatbot/semillasya', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || 'No se pudo procesar el chat');
       state.chat.historial = Array.isArray(data.historial) ? data.historial : state.chat.historial;
       if (data?.estadoChat && typeof data.estadoChat === 'object') state.chat.estadoChat = { ...state.chat.estadoChat, ...data.estadoChat };
-      if (Array.isArray(data.productosSugeridos) && data.productosSugeridos.length) addBotMsg(data.respuesta, data.productosSugeridos.slice(0, 3).map((p) => `Agregar este producto: ${p.nombre}`));
-      else if (Array.isArray(data.opcionesRapidas) && data.opcionesRapidas.length) addBotMsg(data.respuesta, data.opcionesRapidas);
-      else addBotMsg(data.respuesta || 'Decime el cultivo que te interesa.');
-      if (data.agregarProducto) {
-        const encontrado = state.productos.find((p) => Number(p.id) === Number(data.agregarProducto.productoPrecampaniaId));
-        if (encontrado) agregarCarrito(encontrado);
-      }
+      if (Array.isArray(data.productosRelacionados) && data.productosRelacionados.length) addBotMsg(data.respuesta || data.respuestaTecnica, data.productosRelacionados.slice(0, 3).map((p) => `Ver ficha: ${p.nombre}`));
+      else if (Array.isArray(data.opcionesRapidas) && data.opcionesRapidas.length) addBotMsg(data.respuesta || data.respuestaTecnica, data.opcionesRapidas);
+      else addBotMsg(data.respuesta || data.respuestaTecnica || 'Decime el cultivo, zona, fecha o condición de suelo/agua que te interesa.');
     }
 
     function manejarOpcionRapida(opcion) { $('chatInput').value = opcion; $('chatSend').click(); }
@@ -845,7 +846,7 @@
     $('reintentarCatalogo').addEventListener('click', () => cargarProductos().catch(() => setCatalogoErrorVisible(true)));
 
     renderCarrito();
-    addBotMsg('Hola, soy el Ing. Lambois. El chat es opcional: puedo orientarte por cultivo o necesidad.', ['Lechuga', 'Cebolla', 'Alfalfa', 'No sé el cultivo']);
+    addBotMsg('Hola, soy el Ing. Lambois IA. Puedo orientarte técnicamente por cultivo, zona, fecha, suelo, agua y destino productivo. No cierro ventas ni invento fichas técnicas.', ['Quiero sembrar lechuga en Salta en invierno', 'Qué cebolla me conviene para vender en fresco', 'Tengo agua salina, qué debería tener en cuenta']);
     mostrarLanding();
     renderProvincias();
     renderLocalidadesProvincia();
