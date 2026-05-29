@@ -49,6 +49,7 @@
         <article class="dashboard-card" data-module-card="presupuestos-semillasya" data-business-card="SEMILLASYA"><h3>Presupuestos SemillasYa</h3><p>Cotizaciones web recibidas y seguimiento comercial.</p><button data-abrir-modulo="presupuestos-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="operaciones-semillasya" data-business-card="SEMILLASYA"><h3>Operaciones SemillasYa</h3><p>Panel comercial y logístico de solicitudes SemillasYa.</p><button data-abrir-modulo="operaciones-semillasya">Entrar</button></article>
         <article class="dashboard-card" data-module-card="territorios-semillasya" data-business-card="SEMILLASYA"><h3>Territorios SemillasYa</h3><p>Gestión territorial de zonas y provincias SemillasYa.</p><button data-abrir-modulo="territorios-semillasya">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="configuracion-ia-lambois" data-business-card="SEMILLASYA"><h3>Configuración IA / Ing. Lambois IA</h3><p>Instrucciones técnicas del asesor agronómico de SemillasYa.</p><button data-abrir-modulo="configuracion-ia-lambois">Entrar</button></article>
         <article class="dashboard-card" data-module-card="pedidos" data-business-card="AGROQUIMICA"><h3>Pedidos</h3><p>Gestión de pedidos y solicitudes a proveedores.</p><button data-abrir-modulo="pedidos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas" data-business-card="AGROQUIMICA"><h3>Ventas / Mostrador</h3><p>Flujo de venta, cobro y facturación interna.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja" data-business-card="AGROQUIMICA"><h3>Caja</h3><p>Cobros, cierres y movimientos de caja.</p><button data-abrir-modulo="caja">Entrar</button></article>
@@ -687,6 +688,22 @@
       <p class="helper-text">Panel territorial centralizado de SemillasYa.</p>
       <div id="pres-provincias-standalone" class="lista"></div>
       <div id="pres-operaciones-provincia-standalone" class="lista"></div>
+    </section>
+
+
+    <section class="bloque app-shell compact-form" data-modulo="configuracion-ia-lambois">
+      <h2>Configuración IA / Ing. Lambois IA</h2>
+      <p class="helper-text">Editá cómo responde el asesor técnico agronómico público de SemillasYa. No está orientado a cerrar ventas ni armar carrito automáticamente.</p>
+      <div class="form-grid">
+        <label>Nombre funcional <input id="chatbot-nombre" placeholder="Ing. Lambois IA" /></label>
+        <label>Tono de respuesta <input id="chatbot-tono" placeholder="Técnico, claro y prudente" /></label>
+      </div>
+      <label>Instrucciones base <textarea id="chatbot-instrucciones" rows="6"></textarea></label>
+      <label>Objetivo del asesor <textarea id="chatbot-objetivo" rows="4"></textarea></label>
+      <label>Reglas de trabajo / restricciones <textarea id="chatbot-restricciones" rows="5"></textarea></label>
+      <label class="inline-check"><input id="chatbot-activo" type="checkbox" /> Chatbot activo</label>
+      <button id="btn-guardar-chatbot-config" class="btn-primary" type="button">Guardar configuración IA</button>
+      <p id="chatbot-config-estado" class="helper-text"></p>
     </section>
 
     <section class="bloque app-shell compact-form" data-modulo="usuarios">
