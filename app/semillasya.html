@@ -27,7 +27,6 @@
     }
 
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -273,7 +272,7 @@
       </div>
     </section>
 
-    <section class="trust-grid" aria-label="Semilleros destacados">
+    <section class="trust-grid" id="landingSemilleros" aria-label="Semilleros destacados">
       <article class="trust-card">
         <div class="trust-logo-wrap"><img src="/app/assets/semilleros/guasch.svg" alt="GUASCH" loading="lazy" /></div>
         <h3>GUASCH</h3>
@@ -337,7 +336,7 @@
           </select>
         </div>
         <div class="row">
-          <label for="ciudadIngreso">Ciudad / localidad</label>
+          <label for="ciudadIngreso">Localidad</label>
           <input id="ciudadIngreso" placeholder="Primero seleccioná una provincia" list="localidadesDatalist" autocomplete="address-level2" disabled />
           <datalist id="localidadesDatalist"></datalist>
           <p class="small" id="localidadAyuda">Seleccioná una provincia y después elegí o escribí tu localidad.</p>
@@ -423,6 +422,7 @@
   <script src="/data/argentina-ubicaciones.js"></script>
   <script>
     const state = {
+      modoCotizacion: false,
       productos: [],
       carrito: [],
       cliente: null,
@@ -768,7 +768,32 @@
       } catch (_e) {}
     }
 
+    function mostrarLanding() {
+      state.modoCotizacion = false;
+      $('inicio').classList.remove('hidden');
+      $('landingSemilleros').classList.remove('hidden');
+      $('cotizacion').classList.add('hidden');
+      $('ubicacionGate').classList.add('hidden');
+      $('catalogoWrap').classList.add('hidden');
+      setPaso(1);
+    }
+
+    function renderFormularioDatos() {
+      state.modoCotizacion = true;
+      $('inicio').classList.add('hidden');
+      $('landingSemilleros').classList.add('hidden');
+      $('cotizacion').classList.remove('hidden');
+      $('catalogoWrap').classList.add('hidden');
+      $('ubicacionGate').classList.remove('hidden');
+      setPaso(1);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
     function mostrarCatalogoConUbicacion() {
+      state.modoCotizacion = true;
+      $('inicio').classList.add('hidden');
+      $('landingSemilleros').classList.add('hidden');
+      $('cotizacion').classList.remove('hidden');
       $('ubicacionGate').classList.add('hidden');
       $('catalogoWrap').classList.remove('hidden');
       $('ubicacionActualTexto').textContent = `Solicitante: ${state.cliente.nombre} · ${state.cliente.telefono} · ${state.cliente.localidad || state.cliente.ciudad}, ${state.cliente.provincia}`;
@@ -875,11 +900,8 @@
     }
 
     $('iniciarCotizacionBtn').addEventListener('click', () => {
-      $('catalogoWrap').classList.add('hidden');
-      $('ubicacionGate').classList.remove('hidden');
-      setPaso(1);
-      $('cotizacion').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      $('nombreIngreso').focus();
+      state.modoCotizacion = true;
+      renderFormularioDatos();
     });
     $('provinciaSelect').addEventListener('change', () => renderLocalidadesProvincia({ preservarCiudad: false }));
     $('ciudadIngreso').addEventListener('input', detectarProvinciaDesdeLocalidad);
@@ -889,7 +911,7 @@
     $('cuitDniIngreso').addEventListener('input', actualizarEstadoBotonSolicitante);
     $('confirmarUbicacion').addEventListener('click', () => guardarYContinuarUbicacion().catch((e) => alert(e.message)));
     $('enviar').addEventListener('click', () => enviarSolicitud().catch((e) => alert(e.message)));
-    $('cambiarProvincia').addEventListener('click', () => { $('catalogoWrap').classList.add('hidden'); $('ubicacionGate').classList.remove('hidden'); setPaso(1); });
+    $('cambiarProvincia').addEventListener('click', renderFormularioDatos);
     $('cultivoInput').addEventListener('input', (e) => { const val = e.target.value.trim(); $('cultivoClear').classList.toggle('hidden-soft', !val); renderCultivoDropdown(filtrarCultivos(val)); });
     $('cultivoInput').addEventListener('focus', () => renderCultivoDropdown(filtrarCultivos($('cultivoInput').value)));
     $('cultivoClear').addEventListener('click', () => { $('cultivoInput').value = ''; $('cultivoClear').classList.add('hidden-soft'); state.cultivoSeleccionado = ''; $('pantallaProductos').classList.add('hidden'); renderCultivoDropdown(state.cultivosFiltrados); setPaso(2); });
@@ -903,6 +925,7 @@
 
     renderCarrito();
     addBotMsg('Hola, soy el Ing. Lambois. El chat es opcional: puedo orientarte por cultivo o necesidad.', ['Lechuga', 'Cebolla', 'Alfalfa', 'No sé el cultivo']);
+    mostrarLanding();
     renderProvincias();
     renderLocalidadesProvincia();
     cargarClientePersistido();
@@ -915,6 +938,8 @@
       $('ciudadIngreso').value = state.cliente.localidad || state.cliente.ciudad;
       $('ciudadIngreso').dataset.localidadId = state.cliente.localidadId || '';
       actualizarEstadoBotonSolicitante();
+    }
+    if (state.modoCotizacion && state.cliente?.personaId) {
       mostrarCatalogoConUbicacion();
       cargarProductos().catch(() => setCatalogoErrorVisible(true));
     }
