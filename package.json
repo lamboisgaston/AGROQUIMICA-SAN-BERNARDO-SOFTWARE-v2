@@ -25,7 +25,8 @@
     "import:guasch:hortalizas": "node scripts/cargar-guasch-hortalizas.js",
     "import:guasch:cesped": "node scripts/cargar-guasch-cesped.js",
     "import:guasch:blends": "node scripts/cargar-guasch-blends-cesped.js",
-    "normalizar:guasch": "node scripts/normalizar-guasch-cultivos.js"
+    "normalizar:guasch": "node scripts/normalizar-guasch-cultivos.js",
+    "import:ggch:lista137": "node scripts/cargar-ggch-lista-137-semillasya.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",

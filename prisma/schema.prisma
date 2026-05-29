@@ -424,6 +424,20 @@ model ProductoPrecampania {
   precioVentaFinal     Float    @default(0)
   precioManual         Float?
   usaPrecioManual      Boolean  @default(false)
+  semilleroId          Int?
+  semillero            Semillero? @relation("ProductoPrecampaniaSemillero", fields: [semilleroId], references: [id])
+  marcaId              Int?
+  marcaRelacion        Marca? @relation(fields: [marcaId], references: [id])
+  marcaComercial       String   @default("")
+  unidad               String   @default("")
+  tipoEnvase           String   @default("")
+  origen               String   @default("")
+  precioUsd            Float?
+  agotado              Boolean  @default(false)
+  novedad              Boolean  @default(false)
+  hibrido              Boolean  @default(false)
+  tags                 String   @default("[]")
+  metadataTecnica      String   @default("{}")
   estado               EstadoProductoPrecampania @default(CONSULTAR)
   publicadoWeb         Boolean  @default(false)
   visibleEnSemillasYa  Boolean  @default(false)
@@ -431,7 +445,41 @@ model ProductoPrecampania {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   presupuestoItems     PresupuestoItem[]
+
+  @@index([semilleroId])
+  @@index([marcaId])
+  @@index([cultivo, marcaComercial, nombre, presentacionEnvase])
 }
+
+model Semillero {
+  id            Int      @id @default(autoincrement())
+  nombre        String   @unique
+  logo          String   @default("")
+  contacto      String   @default("")
+  observaciones String   @default("")
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  marcas        Marca[]
+  productos     ProductoPrecampania[] @relation("ProductoPrecampaniaSemillero")
+}
+
+model Marca {
+  id            Int      @id @default(autoincrement())
+  nombre        String   @unique
+  logo          String   @default("")
+  descripcion   String   @default("")
+  pais          String   @default("")
+  semilleroId   Int?
+  semillero     Semillero? @relation(fields: [semilleroId], references: [id])
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  productos     ProductoPrecampania[]
+
+  @@index([semilleroId])
+}
+
 model EmpresaComercial {
   id Int @id @default(autoincrement())
   nombre String
