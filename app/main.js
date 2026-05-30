@@ -2708,17 +2708,22 @@ async function abrirDetalleTicketEnModal(ventaId) {
     ? `${descuentos.tipo} ${Number(descuentos.valor || 0).toFixed(2)} (${money(descuentos.monto || 0)})`
     : 'Sin descuento';
 
+  const telefonoCliente = String(cliente.telefono || '').trim();
+  const direccionCliente = String(cliente.direccion || '').trim();
+  const cuitDniCliente = String(cliente.cuitDni || '').trim();
   $('#ticket-venta-contenido').innerHTML = `
     <div class="ticket-sb-logo"><div class="ticket-sb-marca">SAN BERNARDO</div><div class="ticket-sb-sub">AGROQUIMICA • FUMIGACIONES • RIEGO</div></div>
     <p><strong>Nº venta:</strong> #${escapeHtmlClient(venta.id || ventaTicketActualId)}</p>
     <p><strong>Fecha:</strong> ${venta.fecha ? new Date(venta.fecha).toLocaleString('es-AR') : '-'}</p>
-    <p><strong>Comprador:</strong> ${escapeHtmlClient(cliente.nombre || 'Consumidor final')}</p>
-    <p><strong>Teléfono:</strong> ${escapeHtmlClient(cliente.telefono || '-')}</p>
-    <p><strong>CUIT/DNI:</strong> ${escapeHtmlClient(cliente.cuitDni || '-')}</p>
+    <p><strong>Cliente:</strong> ${escapeHtmlClient(cliente.nombre || 'Consumidor final')}</p>
+    ${telefonoCliente ? `<p><strong>Teléfono:</strong> ${escapeHtmlClient(telefonoCliente)}</p>` : ''}
+    ${direccionCliente ? `<p><strong>Dirección:</strong> ${escapeHtmlClient(direccionCliente)}</p>` : ''}
+    ${cuitDniCliente ? `<p><strong>CUIT/DNI:</strong> ${escapeHtmlClient(cuitDniCliente)}</p>` : ''}
     <p><strong>Forma de pago:</strong> ${escapeHtmlClient(detalle?.formaPago || venta.formaPago || '-')}</p>
     <table>
-      <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Descuento</th><th>Subtotal</th></tr></thead>
-      <tbody>${items.length ? items.map(item => `<tr><td>${escapeHtmlClient(item.producto || '-')}</td><td>${item.cantidad || 0}</td><td>${money(item.precioUnitario || 0)}</td><td>${Number(item.descuentoMonto || 0) > 0 ? money(item.descuentoMonto) : '-'}</td><td>${money(item.subtotalFinal || item.subtotal || 0)}</td></tr>`).join('') : '<tr><td colspan="5">Sin productos</td></tr>'}</tbody>
+      <colgroup><col class="col-producto"><col class="col-cantidad"><col class="col-precio"><col class="col-descuento"><col class="col-subtotal"></colgroup>
+      <thead><tr><th class="col-producto">Producto</th><th class="col-cantidad">Cantidad</th><th class="col-precio">Precio unitario</th><th class="col-descuento">Descuento</th><th class="col-subtotal">Subtotal</th></tr></thead>
+      <tbody>${items.length ? items.map(item => `<tr><td class="col-producto">${escapeHtmlClient(item.producto || '-')}</td><td class="col-cantidad">${item.cantidad || 0}</td><td class="col-precio">${money(item.precioUnitario || 0)}</td><td class="col-descuento">${Number(item.descuentoMonto || 0) > 0 ? money(item.descuentoMonto) : '-'}</td><td class="col-subtotal">${money(item.subtotalFinal || item.subtotal || 0)}</td></tr>`).join('') : '<tr><td colspan="5">Sin productos</td></tr>'}</tbody>
     </table>
     <p><strong>Subtotal:</strong> ${money(venta.subtotal || 0)}</p>
     <p><strong>Descuento:</strong> ${descuento}</p>

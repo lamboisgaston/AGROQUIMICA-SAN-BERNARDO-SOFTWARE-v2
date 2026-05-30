@@ -177,8 +177,13 @@ th { background: #f8fafc; position: sticky; top: 0; }
 .ticket-sb-logo { text-align:center; margin-bottom:8px; }
 .ticket-sb-marca { font-size:30px; font-weight:900; letter-spacing:1.2px; color:#d4a106; -webkit-text-stroke:1px #111; line-height:1; }
 .ticket-sb-sub { font-size:10px; font-weight:700; letter-spacing:1px; color:#444; margin-top:2px; }
-.ticket-venta-contenido table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.ticket-venta-contenido th, .ticket-venta-contenido td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
+.ticket-venta-contenido table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 10px; }
+.ticket-venta-contenido th, .ticket-venta-contenido td { border-bottom: 1px solid #ddd; padding: 6px 4px; vertical-align: top; }
+.ticket-venta-contenido .col-producto { width: 38%; text-align: left; overflow-wrap: anywhere; word-break: normal; }
+.ticket-venta-contenido .col-cantidad { width: 12%; text-align: center; white-space: nowrap; }
+.ticket-venta-contenido .col-precio { width: 18%; text-align: right; white-space: nowrap; }
+.ticket-venta-contenido .col-descuento { width: 14%; text-align: right; white-space: nowrap; }
+.ticket-venta-contenido .col-subtotal { width: 18%; text-align: right; white-space: nowrap; }
 .resumen-cierre-lista { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 12px; }
 .resumen-cierre-lista p { margin: 0; }
 
