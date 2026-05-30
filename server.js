@@ -99,6 +99,29 @@ function parseJsonSafe(value, fallback = {}) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+function limpiarTextoOpcional(value) {
+  const texto = String(value ?? '').trim();
+  if (!texto || ['undefined', 'null', '-'].includes(texto.toLowerCase())) return '';
+  return texto;
+}
+
+function obtenerDireccionPersona(persona = {}) {
+  const metadata = parseJsonSafe(persona?.metadata, {});
+  return limpiarTextoOpcional(
+    persona?.direccion
+    || persona?.domicilio
+    || metadata.direccion
+    || metadata.domicilio
+    || metadata.localidad
+    || metadata.ciudad
+  );
+}
+
+function obtenerTelefonoPersona(persona = {}) {
+  return limpiarTextoOpcional(persona?.telefono || persona?.telefonoPrincipal || persona?.teléfono);
+}
+
+
 function armarMensajeWhatsAppSemillasYaInterno({ presupuestoId, nombre, pais, provincia, localidad, items }) {
   const resumenItems = items.slice(0, 6).map((it) => `${it.nombreProducto} x ${it.cantidad}`).join(', ');
   const extra = items.length > 6 ? ` (+${items.length - 6} más)` : '';
@@ -1831,6 +1854,9 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
   const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const nombreCliente = p.persona?.nombre || p.nombreLibre || (p.origen === 'SEMILLASYA' ? 'Cliente web SemillasYa' : (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-'));
+  const telefonoCliente = obtenerTelefonoPersona(p.persona);
+  const direccionCliente = obtenerDireccionPersona(p.persona);
+  const cuitDniCliente = limpiarTextoOpcional(p.persona?.cuitDni);
   const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
     ? p.items.reduce((acc, item) => acc + (Number(item.subtotal || 0) / 1.21), 0)
     : Number(p.subtotal || 0);
@@ -1846,7 +1872,7 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
       : '';
     const precioUnitarioMostrado = Number(i.precioUnitario || 0);
     const subtotalMostrado = Number(i.subtotal || 0);
-    return `<tr><td>${escapeHtml(nombreProducto)}${detalleSemillasYa}</td><td style="text-align:center">${i.cantidad}</td><td style="text-align:right">${moneda(precioUnitarioMostrado)}</td><td style="text-align:right">${moneda(subtotalMostrado)}</td></tr>`;
+    return `<tr><td class="col-descripcion">${escapeHtml(nombreProducto)}${detalleSemillasYa}</td><td class="col-cantidad">${i.cantidad}</td><td class="col-precio">${moneda(precioUnitarioMostrado)}</td><td class="col-subtotal">${moneda(subtotalMostrado)}</td></tr>`;
   }).join('');
   res.type('html').send(`<!doctype html>
 <html lang="es">
@@ -1866,9 +1892,13 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
     .head-grid > div:first-child { border-right:1px solid #b4b4b4; }
     .head-section-title { margin:-10px -10px 10px; padding:6px 10px; background:var(--sb-gold); font-weight:800; font-style:italic; border-bottom:1px solid var(--sb-black); }
     .head-row { margin:5px 0; }
-    table { width:100%; border-collapse: collapse; margin-top:12px; }
-    th, td { border:1px solid #bcbcbc; padding:7px; }
+    table { width:100%; border-collapse: collapse; table-layout: fixed; margin-top:12px; }
+    th, td { border:1px solid #bcbcbc; padding:7px; vertical-align: top; }
     th { background:var(--sb-gray); font-weight:800; }
+    .col-descripcion { width:52%; text-align:left; overflow-wrap:anywhere; word-break:normal; }
+    .col-cantidad { width:14%; text-align:center; white-space:nowrap; }
+    .col-precio { width:17%; text-align:right; white-space:nowrap; }
+    .col-subtotal { width:17%; text-align:right; white-space:nowrap; }
     .tot { margin-top:10px; text-align:right; border:1px solid #bcbcbc; padding:10px; background:#fafafa; }
     .box { margin-top:12px; border:1px solid #ccc; padding:10px; border-radius:4px; }
     .print { margin-top:18px; }
@@ -1890,12 +1920,14 @@ app.get('/presupuestos/:id/imprimir', asyncHandler(async (req, res) => {
       <div>
         <div class="head-section-title">DATOS DEL CLIENTE</div>
         <div class="head-row"><strong>Cliente:</strong> ${escapeHtml(nombreCliente)}</div>
-        <div class="head-row"><strong>Teléfono:</strong> ${escapeHtml(p.persona?.telefono || '-')}</div>
-        <div class="head-row"><strong>CUIT/DNI:</strong> ${escapeHtml(p.persona?.cuitDni || '-')}</div>
+        ${telefonoCliente ? `<div class="head-row"><strong>Teléfono:</strong> ${escapeHtml(telefonoCliente)}</div>` : ''}
+        ${direccionCliente ? `<div class="head-row"><strong>Dirección:</strong> ${escapeHtml(direccionCliente)}</div>` : ''}
+        ${cuitDniCliente ? `<div class="head-row"><strong>CUIT/DNI:</strong> ${escapeHtml(cuitDniCliente)}</div>` : ''}
       </div>
     </div>
     <table>
-      <thead><tr><th>DESCRIPCIÓN</th><th>UNIDADES</th><th>PRECIO $ final</th><th>TOTAL</th></tr></thead>
+      <colgroup><col class="col-descripcion"><col class="col-cantidad"><col class="col-precio"><col class="col-subtotal"></colgroup>
+      <thead><tr><th class="col-descripcion">DESCRIPCIÓN</th><th class="col-cantidad">UNIDADES</th><th class="col-precio">PRECIO $ final</th><th class="col-subtotal">TOTAL</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="tot">
@@ -1970,6 +2002,9 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
   const esPresupuestoSemillasYa = ['SEMILLASYA', 'SEMILLASYA_WEB', 'PRECAMPAÑA', 'PRECAMPANIA'].includes(String(p.origen || '').toUpperCase()) || p.tipoOperacion === 'PRECAMPAÑA';
   const ALICUOTA_IVA_SEMILLASYA = 0.21;
   const cliente = p.persona?.nombre || p.nombreLibre || (p.tipoDestinatario === 'A_QUIEN_CORRESPONDA' ? 'A quien corresponda' : '-');
+  const telefonoCliente = obtenerTelefonoPersona(p.persona);
+  const direccionCliente = obtenerDireccionPersona(p.persona);
+  const cuitDniCliente = limpiarTextoOpcional(p.persona?.cuitDni);
   const descuento = Number(p.descuentoValor || 0);
   const redondeo = Number(p.ajusteRedondeo || 0);
   const subtotalSinIvaSemillasYa = esPresupuestoSemillasYa
@@ -2030,33 +2065,42 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
 
   let y = drawPageHeader();
 
-  drawBox(y, 72);
   const { left, right } = getBounds();
+  const destinatarioLineas = [
+    `Cliente: ${cliente}`,
+    telefonoCliente ? `Teléfono: ${telefonoCliente}` : null,
+    direccionCliente ? `Dirección: ${direccionCliente}` : null,
+    cuitDniCliente ? `CUIT/DNI: ${cuitDniCliente}` : null
+  ].filter(Boolean);
+  const destinatarioHeight = Math.max(56, 26 + (destinatarioLineas.length * 14));
+  drawBox(y, destinatarioHeight);
   doc.font('Helvetica-Bold').fontSize(11).fillColor('#111').text('Destinatario', left + 10, y + 10);
-  doc.font('Helvetica').fontSize(10)
-    .text(`Cliente: ${cliente}`, left + 10, y + 28)
-    .text(`Teléfono: ${p.persona?.telefono || '-'}`, left + 10, y + 42)
-    .text(`CUIT/DNI: ${p.persona?.cuitDni || '-'}`, left + 10, y + 56);
+  doc.font('Helvetica').fontSize(10);
+  destinatarioLineas.forEach((linea, idx) => {
+    doc.text(linea, left + 10, y + 28 + (idx * 14), { width: right - left - 20, lineBreak: false });
+  });
 
-  y += 88;
+  y += destinatarioHeight + 16;
 
   const tableStartX = left;
   const tableWidth = right - left;
-  const colWidths = { producto: Math.round(tableWidth * 0.56), cantidad: 62, precio: 96, subtotal: 96 };
+  const colWidths = { cantidad: 62, precio: 104, subtotal: 104 };
+  colWidths.producto = tableWidth - colWidths.cantidad - colWidths.precio - colWidths.subtotal;
   const colX = {
-    producto: tableStartX + 8,
+    producto: tableStartX,
     cantidad: tableStartX + colWidths.producto,
     precio: tableStartX + colWidths.producto + colWidths.cantidad,
     subtotal: tableStartX + colWidths.producto + colWidths.cantidad + colWidths.precio
   };
+  const cellPad = 6;
 
   const drawItemsHeader = (startY) => {
     doc.rect(tableStartX, startY, tableWidth, 24).fill('#efefef');
     doc.fillColor('#111').font('Helvetica-Bold').fontSize(10)
-      .text('Producto', colX.producto, startY + 7, { width: colWidths.producto - 10 })
-      .text('Cant.', colX.cantidad, startY + 7, { width: colWidths.cantidad, align: 'center' })
-      .text('Precio unitario', colX.precio, startY + 7, { width: colWidths.precio - 8, align: 'right' })
-      .text('Subtotal', colX.subtotal, startY + 7, { width: colWidths.subtotal - 8, align: 'right' });
+      .text('Producto', colX.producto + cellPad, startY + 7, { width: colWidths.producto - (cellPad * 2), align: 'left' })
+      .text('Cant.', colX.cantidad + cellPad, startY + 7, { width: colWidths.cantidad - (cellPad * 2), align: 'center' })
+      .text('Precio unitario', colX.precio + cellPad, startY + 7, { width: colWidths.precio - (cellPad * 2), align: 'right' })
+      .text('Subtotal', colX.subtotal + cellPad, startY + 7, { width: colWidths.subtotal - (cellPad * 2), align: 'right' });
     return startY + 24;
   };
 
@@ -2069,7 +2113,7 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     const nombreProducto = esPresupuestoSemillasYa ? (nombreRealSemillasYa || item.producto?.nombre || 'Producto') : (item.producto?.nombre || 'Producto');
     const detalleSemillasYa = esPresupuestoSemillasYa ? [item.cultivo, item.semillero, item.presentacion].filter(Boolean).join(' · ') : '';
     const nombreConDetalle = detalleSemillasYa ? `${nombreProducto}\n${detalleSemillasYa}` : nombreProducto;
-    const productoHeight = doc.heightOfString(nombreConDetalle, { width: colWidths.producto - 10, align: 'left' });
+    const productoHeight = doc.heightOfString(nombreConDetalle, { width: colWidths.producto - (cellPad * 2), align: 'left' });
     const rowHeight = Math.max(22, Math.ceil(productoHeight) + 10);
 
     y = ensureSpace(y, rowHeight + 2, drawItemsHeader);
@@ -2079,10 +2123,10 @@ app.get('/presupuestos/:id/pdf', asyncHandler(async (req, res) => {
     }
 
     doc.fillColor('#111')
-      .text(nombreConDetalle, colX.producto, y + 5, { width: colWidths.producto - 10, lineBreak: true })
-      .text(String(item.cantidad), colX.cantidad, y + 5, { width: colWidths.cantidad, align: 'center' })
-      .text(formatMoney(Number(item.precioUnitario || 0)), colX.precio, y + 5, { width: colWidths.precio - 8, align: 'right' })
-      .text(formatMoney(Number(item.subtotal || 0)), colX.subtotal, y + 5, { width: colWidths.subtotal - 8, align: 'right' });
+      .text(nombreConDetalle, colX.producto + cellPad, y + 5, { width: colWidths.producto - (cellPad * 2), align: 'left', lineBreak: true })
+      .text(String(item.cantidad), colX.cantidad + cellPad, y + 5, { width: colWidths.cantidad - (cellPad * 2), align: 'center', lineBreak: false })
+      .text(formatMoney(Number(item.precioUnitario || 0)), colX.precio + cellPad, y + 5, { width: colWidths.precio - (cellPad * 2), align: 'right', lineBreak: false })
+      .text(formatMoney(Number(item.subtotal || 0)), colX.subtotal + cellPad, y + 5, { width: colWidths.subtotal - (cellPad * 2), align: 'right', lineBreak: false });
 
     y += rowHeight;
   });
@@ -3228,7 +3272,7 @@ app.get('/caja/ventas', asyncHandler(async (req, res) => {
   const ventas = await prisma.venta.findMany({
     where: { estado: EstadoVenta.PENDIENTE_CAJA },
     include: {
-      persona: { select: { id: true, nombre: true, telefono: true, cuitDni: true } },
+      persona: { select: { id: true, nombre: true, telefono: true, direccion: true, metadata: true, cuitDni: true } },
       items: { select: { id: true, cantidad: true, precioUnitario: true, subtotal: true } }
     },
     orderBy: { createdAt: 'asc' }
@@ -3398,13 +3442,15 @@ function armarPayloadTicketVenta(venta) {
     cliente: venta.persona ? {
       id: venta.persona.id,
       nombre: venta.persona.nombre,
-      telefono: venta.persona.telefono || '-',
-      cuitDni: venta.persona.cuitDni || '-'
+      telefono: obtenerTelefonoPersona(venta.persona),
+      direccion: obtenerDireccionPersona(venta.persona),
+      cuitDni: limpiarTextoOpcional(venta.persona.cuitDni)
     } : {
       id: null,
       nombre: 'Consumidor final',
-      telefono: '-',
-      cuitDni: '-'
+      telefono: '',
+      direccion: '',
+      cuitDni: ''
     },
     items,
     formaPago,
@@ -3425,13 +3471,16 @@ function renderHtmlTicketVenta(detalle, imprimirAutomaticamente = false) {
   const descuentoGeneral = descuentos?.tipo
     ? `${escapeHtml(descuentos.tipo)} ${Number(descuentos.valor || 0).toFixed(2)} (${formatMoney(descuentos.monto || 0)})`
     : 'Sin descuento';
+  const telefonoCliente = limpiarTextoOpcional(cliente.telefono);
+  const direccionCliente = limpiarTextoOpcional(cliente.direccion);
+  const cuitDniCliente = limpiarTextoOpcional(cliente.cuitDni);
   const rows = items.map(item => `
     <tr>
-      <td>${escapeHtml(item.producto || 'Producto')}</td>
-      <td>${item.cantidad}</td>
-      <td>${formatMoney(item.precioUnitario || 0)}</td>
-      <td>${Number(item.descuentoMonto || 0) > 0 ? formatMoney(item.descuentoMonto) : '-'}</td>
-      <td>${formatMoney(item.subtotalFinal || item.subtotal || 0)}</td>
+      <td class="col-producto">${escapeHtml(item.producto || 'Producto')}</td>
+      <td class="col-cantidad">${item.cantidad}</td>
+      <td class="col-precio">${formatMoney(item.precioUnitario || 0)}</td>
+      <td class="col-descuento">${Number(item.descuentoMonto || 0) > 0 ? formatMoney(item.descuentoMonto) : '-'}</td>
+      <td class="col-subtotal">${formatMoney(item.subtotalFinal || item.subtotal || 0)}</td>
     </tr>
   `).join('');
 
@@ -3450,9 +3499,16 @@ function renderHtmlTicketVenta(detalle, imprimirAutomaticamente = false) {
       p { margin: 4px 0; }
       .bloque { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; margin-top: 10px; }
       .bloque h2 { margin: 0 0 6px; font-size: 14px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-      th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
-      .total { font-size: 18px; margin-top: 10px; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 10px; font-size: 11px; }
+      th, td { border-bottom: 1px solid #ddd; padding: 6px 4px; vertical-align: top; }
+      th { font-weight: 800; }
+      .col-producto { width: 38%; text-align: left; overflow-wrap: anywhere; word-break: normal; }
+      .col-cantidad { width: 12%; text-align: center; white-space: nowrap; }
+      .col-precio { width: 18%; text-align: right; white-space: nowrap; }
+      .col-descuento { width: 14%; text-align: right; white-space: nowrap; }
+      .col-subtotal { width: 18%; text-align: right; white-space: nowrap; }
+      .totales p { text-align: right; }
+      .total { font-size: 18px; margin-top: 10px; text-align: right; }
       .mensaje-pago { margin-top: 12px; padding: 8px; background: #f8fafc; border-radius: 6px; font-size: 12px; }
       @media print { button { display: none; } body { border: 0; margin: 0; } }
     </style>
@@ -3464,17 +3520,21 @@ function renderHtmlTicketVenta(detalle, imprimirAutomaticamente = false) {
       <h2>Datos generales</h2>
       <p><strong>Nº venta:</strong> #${venta.id}</p>
       <p><strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
-      <p><strong>Comprador:</strong> ${escapeHtml(cliente.nombre || 'Consumidor final')}</p>
+      <p><strong>Cliente:</strong> ${escapeHtml(cliente.nombre || 'Consumidor final')}</p>
+      ${telefonoCliente ? `<p><strong>Teléfono:</strong> ${escapeHtml(telefonoCliente)}</p>` : ''}
+      ${direccionCliente ? `<p><strong>Dirección:</strong> ${escapeHtml(direccionCliente)}</p>` : ''}
+      ${cuitDniCliente ? `<p><strong>CUIT/DNI:</strong> ${escapeHtml(cuitDniCliente)}</p>` : ''}
       <p><strong>Forma de pago:</strong> ${escapeHtml(formaPago || 'PENDIENTE')}</p>
     </div>
     <div class="bloque">
       <h2>Productos</h2>
       <table>
-        <thead><tr><th>Producto</th><th>Cant.</th><th>Precio unit.</th><th>Desc.</th><th>Subtotal</th></tr></thead>
+        <colgroup><col class="col-producto"><col class="col-cantidad"><col class="col-precio"><col class="col-descuento"><col class="col-subtotal"></colgroup>
+        <thead><tr><th class="col-producto">Producto</th><th class="col-cantidad">Cant.</th><th class="col-precio">Precio unit.</th><th class="col-descuento">Desc.</th><th class="col-subtotal">Subtotal</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="5">Sin productos</td></tr>'}</tbody>
       </table>
     </div>
-    <div class="bloque">
+    <div class="bloque totales">
       <h2>Totales</h2>
       <p><strong>Subtotal:</strong> ${formatMoney(venta.subtotal || 0)}</p>
       <p><strong>Descuento:</strong> ${descuentoGeneral}</p>
@@ -3495,7 +3555,7 @@ app.get('/ventas/cobradas-recientes', asyncHandler(async (req, res) => {
   const ventas = await prisma.venta.findMany({
     where: { estado: EstadoVenta.COBRADA },
     include: {
-      persona: { select: { id: true, nombre: true, telefono: true, cuitDni: true } },
+      persona: { select: { id: true, nombre: true, telefono: true, direccion: true, metadata: true, cuitDni: true } },
       items: { select: { id: true } }
     },
     orderBy: { updatedAt: 'desc' },
@@ -3529,7 +3589,7 @@ app.get('/ventas/:id/detalle', asyncHandler(async (req, res) => {
   const venta = await prisma.venta.findUnique({
     where: { id: ventaId },
     include: {
-      persona: { select: { id: true, nombre: true, telefono: true, cuitDni: true } },
+      persona: { select: { id: true, nombre: true, telefono: true, direccion: true, metadata: true, cuitDni: true } },
       items: {
         include: { producto: { select: { id: true, nombre: true } } }
       }
@@ -3593,7 +3653,7 @@ app.get('/ventas/:id/ticket', asyncHandler(async (req, res) => {
   const venta = await prisma.venta.findUnique({
     where: { id: ventaId },
     include: {
-      persona: { select: { id: true, nombre: true, telefono: true, cuitDni: true } },
+      persona: { select: { id: true, nombre: true, telefono: true, direccion: true, metadata: true, cuitDni: true } },
       items: { include: { producto: { select: { id: true, nombre: true } } } }
     }
   });
