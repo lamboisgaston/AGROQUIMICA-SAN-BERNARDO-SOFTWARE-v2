@@ -37,6 +37,12 @@ model Producto {
   eliminadoPor      String?
   motivoEliminacion String?
   observaciones     String?
+  principioActivo   String?
+  resolucionSenasa  String?
+  fechaResolucionSenasa DateTime?
+  tipoSenasa        String?
+  usoSenasa         String?
+  senasaResoluciones SenasaResolucion[]
 }
 
 model Categoria {
@@ -196,6 +202,8 @@ model Persona {
   presupuestos    Presupuesto[]
   cuentaCorriente CuentaCorriente?
   recibosCuentaCorriente ReciboPagoCuentaCorriente[]
+  senasaDocumentos SenasaDocumento[]
+  senasaConfiguracion SenasaClienteConfig?
   activo            Boolean    @default(true)
   eliminado         Boolean    @default(false)
   eliminadoAt       DateTime?
@@ -392,6 +400,61 @@ enum TipoCliente {
   EMPRESA
 }
 
+
+
+model SenasaClienteConfig {
+  id                    Int      @id @default(autoincrement())
+  clienteId             Int      @unique
+  cliente               Persona  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  establecimientoOficial String?
+  supervisor            String?
+  responsableSiv        String?
+  departamentoPartido   String?
+  localidad             String?
+  provincia             String?
+  observaciones         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model SenasaResolucion {
+  id              Int       @id @default(autoincrement())
+  productoId      Int?
+  producto        Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+  productoNombre  String
+  principioActivo String?
+  resolucionNumero String?
+  fechaResolucion DateTime?
+  observaciones   String?
+  archivoAdjuntoUrl String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model SenasaDocumento {
+  id             Int      @id @default(autoincrement())
+  tipoDocumento  TipoDocumentoSenasa
+  clienteId      Int?
+  cliente        Persona? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  numeroCircular String?
+  fechaRecepcion DateTime?
+  periodoDesde   DateTime?
+  periodoHasta   DateTime?
+  datosJson      Json
+  esPlantilla    Boolean  @default(false)
+  nombrePlantilla String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tipoDocumento])
+  @@index([clienteId])
+  @@index([esPlantilla])
+}
+
+enum TipoDocumentoSenasa {
+  AVISO_MIP
+  INFORME_CONTROL_PLAGAS
+}
 
 
 enum EstadoProductoPrecampania {

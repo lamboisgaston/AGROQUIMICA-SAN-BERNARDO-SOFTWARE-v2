@@ -52,6 +52,7 @@
         <article class="dashboard-card" data-module-card="configuracion-ia-lambois" data-business-card="SEMILLASYA"><h3>Configuración IA</h3><p>Flujo editable del Ing. Lambois IA.</p><button data-abrir-modulo="configuracion-ia-lambois">Configuración IA</button></article>
         <article class="dashboard-card" data-module-card="semillasya-publico" data-business-card="AGROQUIMICA"><h3>SemillasYa</h3><p>Portal público de cotización asistida separado del dashboard general.</p><button data-abrir-semillasya-publica="true">Abrir SemillasYa</button></article>
         <article class="dashboard-card" data-module-card="pedidos" data-business-card="AGROQUIMICA"><h3>Pedidos</h3><p>Gestión de pedidos y solicitudes a proveedores.</p><button data-abrir-modulo="pedidos">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="senasa" data-business-card="AGROQUIMICA"><h3>SENASA</h3><p>Planillas MIP, avisos e informes de control de plagas.</p><button data-abrir-modulo="senasa">Entrar</button></article>
         <article class="dashboard-card" data-module-card="ventas" data-business-card="AGROQUIMICA"><h3>Mostrador</h3><p>Flujo de venta, cobro y facturación interna.</p><button data-abrir-modulo="ventas">Entrar</button></article>
         <article class="dashboard-card" data-module-card="caja" data-business-card="AGROQUIMICA"><h3>Caja</h3><p>Cobros, cierres y movimientos de caja.</p><button data-abrir-modulo="caja">Entrar</button></article>
         <article class="dashboard-card" data-module-card="cuenta-corriente" data-business-card="AGROQUIMICA"><h3>Cuenta corriente</h3><p>Saldos, movimientos y recibos.</p><button data-abrir-modulo="cuenta-corriente">Entrar</button></article>
@@ -359,7 +360,51 @@
       <div id="cc-recibo-view" class="lista"></div>
     </section>
 
-    
+
+    <section class="bloque app-shell compact-form senasa-modulo" data-modulo="senasa">
+      <div class="senasa-header no-print">
+        <div>
+          <h2>SENASA</h2>
+          <p>Planillas MIP, avisos e informes de control de plagas.</p>
+        </div>
+        <div class="action-row">
+          <button id="senasa-btn-nuevo-aviso" type="button">Nueva Planilla de Aviso MIP</button>
+          <button id="senasa-btn-nuevo-informe" type="button">Nuevo Informe Control de Plagas</button>
+          <button id="senasa-btn-guardar" class="btn-primary" type="button">Guardar documento</button>
+          <button id="senasa-btn-plantilla" type="button">Guardar como plantilla</button>
+          <button id="senasa-btn-imprimir" type="button">Imprimir</button>
+          <button id="senasa-btn-pdf" type="button">Descargar PDF</button>
+        </div>
+      </div>
+      <div class="senasa-layout no-print">
+        <aside class="senasa-panel">
+          <h3>Documentos guardados</h3>
+          <div id="senasa-documentos" class="lista">Cargando...</div>
+          <h3>Plantillas prefijadas</h3>
+          <div id="senasa-plantillas" class="lista">Cargando...</div>
+          <h3>Papeles / Resoluciones SENASA</h3>
+          <div class="senasa-grid-dos">
+            <select id="senasa-res-producto"></select>
+            <input id="senasa-res-producto-nombre" placeholder="Producto manual" />
+            <input id="senasa-res-principio" placeholder="Principio activo" />
+            <input id="senasa-res-numero" placeholder="Resolución Nº" />
+            <input id="senasa-res-fecha" type="date" />
+            <input id="senasa-res-observaciones" placeholder="Observaciones" />
+          </div>
+          <button id="senasa-btn-resolucion" type="button">Guardar resolución</button>
+          <div id="senasa-resoluciones" class="lista"></div>
+        </aside>
+        <main class="senasa-panel">
+          <h3>Formulario guiado</h3>
+          <div id="senasa-form"></div>
+          <h3>Formato editable</h3>
+          <textarea id="senasa-editable" rows="6" readonly></textarea>
+          <button id="senasa-btn-copiar" type="button">Copiar editable</button>
+        </main>
+      </div>
+      <article id="senasa-preview" class="senasa-documento-formal">Seleccione o cree un documento SENASA.</article>
+    </section>
+
     <section class="bloque app-shell compact-form" data-modulo="estado-sistema">
       <h2>Centro de Control</h2>
       <p>Panel visual rápido del estado operativo del sistema.</p>
@@ -455,6 +500,14 @@
       <div class="campo-producto">
         <label for="prod-proveedor">Proveedores (Ctrl/Cmd + click para múltiple)</label>
         <select id="prod-proveedor" multiple size="4"></select>
+      </div>
+      <div class="senasa-producto-tecnico">
+        <h3>Datos técnicos SENASA (opcionales)</h3>
+        <div class="campo-producto"><label for="prod-principio-activo">Principio activo</label><input id="prod-principio-activo" /></div>
+        <div class="campo-producto"><label for="prod-resolucion-senasa">Resolución SENASA</label><input id="prod-resolucion-senasa" /></div>
+        <div class="campo-producto"><label for="prod-fecha-resolucion-senasa">Fecha resolución SENASA</label><input id="prod-fecha-resolucion-senasa" type="date" /></div>
+        <div class="campo-producto"><label for="prod-tipo-senasa">Tipo SENASA</label><select id="prod-tipo-senasa"><option value="">Sin especificar</option><option value="rodenticida">Rodenticida</option><option value="insecticida">Insecticida</option><option value="desinfectante">Desinfectante</option><option value="otro">Otro</option></select></div>
+        <div class="campo-producto"><label for="prod-uso-senasa">Uso SENASA</label><input id="prod-uso-senasa" placeholder="interior, exterior, cebo, pulverización" /></div>
       </div>
       <p>Costo compra original: <strong id="prod-costo-original">$0.00</strong></p>
       <p>Moneda de compra: <strong id="prod-moneda-resumen">ARS</strong></p>
