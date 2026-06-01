@@ -3,6 +3,7 @@ const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupu
 const PDFDocument = require('pdfkit');
 const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
 const { obtenerConfiguracionChatbot, actualizarConfiguracionChatbot, buscarContextoSemillasYa, generarRespuestaTecnica, sanitizarMensajeUsuario } = require('./services/chatbotService');
+const { renderSenasaPdf } = require('./services/senasaPdfService');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -1202,28 +1203,14 @@ app.post('/api/senasa/documentos/:id/plantilla', asyncHandler(async (req, res) =
 app.get('/api/senasa/documentos/:id/pdf', asyncHandler(async (req, res) => {
   const id = parsePositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'id inválido' });
-  const documento = await prisma.senasaDocumento.findUnique({ where: { id }, include: { cliente: true } });
+  const documento = await prisma.senasaDocumento.findUnique({
+    where: { id },
+    include: { cliente: { include: { senasaConfiguracion: true } } }
+  });
   if (!documento) return res.status(404).json({ error: 'Documento no encontrado' });
-  const doc = new PDFDocument({ size: 'A4', margin: 42 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="senasa-${id}.pdf"`);
-  doc.pipe(res);
-  const datos = documento.datosJson || {};
-  doc.fontSize(15).font('Helvetica-Bold').text(documento.tipoDocumento === 'AVISO_MIP' ? 'PLANILLA DE AVISO' : 'INFORME', { align: 'center' });
-  doc.fontSize(13).text(documento.tipoDocumento === 'AVISO_MIP' ? 'PROGRAMA DE ACTIVIDADES MIP' : 'CONTROL DE PLAGAS', { align: 'center' });
-  doc.moveDown().fontSize(10).font('Helvetica').text(`CIRCULAR Nº ${documento.numeroCircular || '-'}`, { align: 'center' });
-  doc.text(`FECHA DE RECEPCIÓN: ${datos.fechaRecepcion || '-'}`, { align: 'right' });
-  doc.moveDown().font('Helvetica-Bold').text('ESTABLECIMIENTO');
-  doc.font('Helvetica').rect(42, doc.y + 4, 510, 76).stroke();
-  doc.moveDown(0.8).text(`Razón social: ${datos.cliente?.nombre || documento.cliente?.nombre || '-'}`);
-  doc.text(`Domicilio: ${datos.cliente?.direccion || documento.cliente?.direccion || '-'}    Tel/Fax: ${datos.cliente?.telefono || documento.cliente?.telefono || '-'}`);
-  doc.text(`Localidad: ${datos.cliente?.localidad || '-'}    Dpto/Partido: ${datos.establecimiento?.departamentoPartido || '-'}    Provincia: ${datos.cliente?.provincia || '-'}`);
-  doc.text(`Supervisor: ${datos.establecimiento?.supervisor || '-'}    Responsable por S.I.V.: ${datos.establecimiento?.responsableSiv || '-'}`);
-  doc.moveDown(2).font('Helvetica-Bold').text(documento.tipoDocumento === 'AVISO_MIP' ? 'SECCIONES DEL PROGRAMA' : 'RESULTADOS DEL CONTROL');
-  doc.font('Helvetica').fontSize(9);
-  const resumen = JSON.stringify(datos, null, 2).slice(0, 6500);
-  doc.text(resumen, { width: 510 });
-  doc.end();
+  renderSenasaPdf(documento, res);
 }));
 
 app.get('/productos', async (req, res) => {
