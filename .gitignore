@@ -11,3 +11,6 @@ prisma/*.db-journal
 # PR hygiene (evitar binarios/dependencias en commits)
 node_modules/
 prisma/dev.db
+
+# Backups locales
+backups/

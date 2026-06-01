@@ -13,7 +13,7 @@
     "prisma:migrate:dev": "prisma migrate dev --name init",
     "prisma:migrate:safe": "prisma db push",
     "db:status": "node scripts/db/status.js",
-    "db:backup": "node scripts/db/backup.js",
+    "db:backup": "node scripts/db/backup-postgres.js",
     "db:restore": "node scripts/db/restore.js",
     "import:guasch:precampania": "node scripts/import_guasch_precampania.js",
     "import:arg-agro": "node scripts/importar-arg-agro-precampania.js",
