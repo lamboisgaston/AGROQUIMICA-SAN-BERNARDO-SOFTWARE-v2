@@ -7,6 +7,15 @@ const { renderSenasaPdf } = require('./services/senasaPdfService');
 
 const app = express();
 const prisma = new PrismaClient();
+
+const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
+const PRODUCTO_SENASA_WHERE = {
+  OR: [
+    { aptoSenasaMip: true },
+    { categoria: CATEGORIA_AGROQUIMICOS_SENASA },
+    { categorias: { some: { nombre: CATEGORIA_AGROQUIMICOS_SENASA } } }
+  ]
+};
 const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
@@ -994,7 +1003,10 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     resolucionSenasa: payload.resolucionSenasa == null ? undefined : String(payload.resolucionSenasa || '').trim(),
     fechaResolucionSenasa: payload.fechaResolucionSenasa ? new Date(payload.fechaResolucionSenasa) : null,
     tipoSenasa: payload.tipoSenasa == null ? undefined : String(payload.tipoSenasa || '').trim(),
-    usoSenasa: payload.usoSenasa == null ? undefined : String(payload.usoSenasa || '').trim()
+    usoSenasa: payload.usoSenasa == null ? undefined : String(payload.usoSenasa || '').trim(),
+    concentracion: payload.concentracion == null ? undefined : String(payload.concentracion || '').trim(),
+    habilitacionHabitual: payload.habilitacionHabitual == null ? undefined : String(payload.habilitacionHabitual || '').trim(),
+    aptoSenasaMip: payload.aptoSenasaMip == null ? undefined : Boolean(payload.aptoSenasaMip)
   };
   const calculo = calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual);
   productoNormalizado.precioFinalPesos = calculo.precioVentaPesos;
@@ -1076,7 +1088,7 @@ function extraerSenasaResumen(payload = {}) {
 app.get('/api/senasa/bootstrap', asyncHandler(async (_req, res) => {
   const [clientes, productos, resoluciones, documentos, plantillas] = await Promise.all([
     prisma.persona.findMany({ where: { eliminado: false, activo: true, tipo: 'CLIENTE' }, include: { senasaConfiguracion: true }, orderBy: { nombre: 'asc' } }),
-    prisma.producto.findMany({ where: { eliminado: false, activo: true }, orderBy: { nombre: 'asc' } }),
+    prisma.producto.findMany({ where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE }, orderBy: { nombre: 'asc' } }),
     prisma.senasaResolucion.findMany({ orderBy: { updatedAt: 'desc' }, include: { producto: true } }),
     prisma.senasaDocumento.findMany({ where: { esPlantilla: false }, orderBy: { updatedAt: 'desc' }, take: 50, include: { cliente: true } }),
     prisma.senasaDocumento.findMany({ where: { esPlantilla: true }, orderBy: { updatedAt: 'desc' }, include: { cliente: true } })
