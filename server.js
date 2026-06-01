@@ -4,18 +4,11 @@ const PDFDocument = require('pdfkit');
 const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
 const { obtenerConfiguracionChatbot, actualizarConfiguracionChatbot, buscarContextoSemillasYa, generarRespuestaTecnica, sanitizarMensajeUsuario } = require('./services/chatbotService');
 const { renderSenasaPdf } = require('./services/senasaPdfService');
+const { PRODUCTO_SENASA_WHERE, bootstrapProductosSenasaMipSiVacio, mapearProductoSenasaApi, upsertProductosSenasaMip } = require('./services/senasaProductosService');
 
 const app = express();
 const prisma = new PrismaClient();
 
-const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
-const PRODUCTO_SENASA_WHERE = {
-  OR: [
-    { aptoSenasaMip: true },
-    { categoria: CATEGORIA_AGROQUIMICOS_SENASA },
-    { categorias: { some: { nombre: CATEGORIA_AGROQUIMICOS_SENASA } } }
-  ]
-};
 const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
@@ -1085,10 +1078,34 @@ function extraerSenasaResumen(payload = {}) {
   };
 }
 
+
+async function listarProductosSenasaMip() {
+  let productos = await prisma.producto.findMany({
+    where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE },
+    include: { categorias: true },
+    orderBy: { nombre: 'asc' }
+  });
+  if (!productos.length) {
+    await upsertProductosSenasaMip(prisma);
+    productos = await prisma.producto.findMany({
+      where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE },
+      include: { categorias: true },
+      orderBy: { nombre: 'asc' }
+    });
+  }
+  return productos;
+}
+
+app.get('/api/senasa/productos', asyncHandler(async (_req, res) => {
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  const productos = await listarProductosSenasaMip();
+  res.json(productos.map((producto) => mapearProductoSenasaApi(mapearProductoConPrecioPesos(producto, tipoCambioActual))));
+}));
+
 app.get('/api/senasa/bootstrap', asyncHandler(async (_req, res) => {
   const [clientes, productos, resoluciones, documentos, plantillas] = await Promise.all([
     prisma.persona.findMany({ where: { eliminado: false, activo: true, tipo: 'CLIENTE' }, include: { senasaConfiguracion: true }, orderBy: { nombre: 'asc' } }),
-    prisma.producto.findMany({ where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE }, orderBy: { nombre: 'asc' } }),
+    listarProductosSenasaMip(),
     prisma.senasaResolucion.findMany({ orderBy: { updatedAt: 'desc' }, include: { producto: true } }),
     prisma.senasaDocumento.findMany({ where: { esPlantilla: false }, orderBy: { updatedAt: 'desc' }, take: 50, include: { cliente: true } }),
     prisma.senasaDocumento.findMany({ where: { esPlantilla: true }, orderBy: { updatedAt: 'desc' }, include: { cliente: true } })
@@ -1096,7 +1113,7 @@ app.get('/api/senasa/bootstrap', asyncHandler(async (_req, res) => {
   const tipoCambioActual = await obtenerTipoCambioActual();
   res.json({
     clientes,
-    productos: productos.map((producto) => mapearProductoConPrecioPesos(producto, tipoCambioActual)),
+    productos: productos.map((producto) => mapearProductoSenasaApi(mapearProductoConPrecioPesos(producto, tipoCambioActual))),
     resoluciones,
     documentos,
     plantillas
@@ -4529,6 +4546,21 @@ app.use('/data', express.static(require('path').join(__dirname, 'data')));
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Servidor funcionando en puerto ${PORT}`);
-});
+async function iniciarServidor() {
+  try {
+    const resultadoBootstrap = await bootstrapProductosSenasaMipSiVacio(prisma);
+    if (resultadoBootstrap.ejecutado) {
+      console.log(`[senasa] Bootstrap automático de productos MIP ejecutado: ${resultadoBootstrap.creados} creados, ${resultadoBootstrap.actualizados} actualizados.`);
+    } else {
+      console.log(`[senasa] Bootstrap automático omitido: ${resultadoBootstrap.existentesAptos} productos aptos SENASA / MIP existentes.`);
+    }
+  } catch (error) {
+    console.warn('[senasa] No se pudo completar el bootstrap automático de productos MIP:', error.message);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Servidor funcionando en puerto ${PORT}`);
+  });
+}
+
+iniciarServidor();

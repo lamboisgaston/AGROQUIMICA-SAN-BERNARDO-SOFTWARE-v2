@@ -289,7 +289,7 @@ function signatures(doc) {
   const left = doc.page.margins.left;
   const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const col = width / 3;
-  ['Responsable Técnico MIP', 'Recibido SIV', 'Firma y sello'].forEach((label, index) => {
+  ['Responsable Técnico MIP', 'Recibido S.I.V.', 'Firma y sello'].forEach((label, index) => {
     const x = left + index * col + 12;
     doc.moveTo(x, y).lineTo(x + col - 24, y).strokeColor('#555').stroke();
     doc.font('Helvetica').fontSize(8.5).fillColor('black').text(label, x, y + 6, { width: col - 24, align: 'center' });
