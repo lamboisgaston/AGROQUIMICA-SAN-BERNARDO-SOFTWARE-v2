@@ -364,12 +364,14 @@
     <section class="bloque app-shell compact-form senasa-modulo" data-modulo="senasa">
       <div class="senasa-header no-print">
         <div>
-          <h2>SENASA</h2>
+          <h2>SENASA — Planillas MIP</h2>
           <p>Planillas MIP, avisos e informes de control de plagas.</p>
         </div>
-        <div class="action-row">
+        <div class="action-row senasa-menu-principal" aria-label="Menú interno SENASA">
           <button id="senasa-btn-nuevo-aviso" type="button">Nueva Planilla de Aviso MIP</button>
           <button id="senasa-btn-nuevo-informe" type="button">Nuevo Informe Control de Plagas</button>
+          <button type="button" data-senasa-scroll="senasa-documentos">Ver documentos guardados</button>
+          <button type="button" data-senasa-scroll="senasa-resoluciones-panel">Papeles / Resoluciones SENASA</button>
           <button id="senasa-btn-guardar" class="btn-primary" type="button">Guardar documento</button>
           <button id="senasa-btn-plantilla" type="button">Guardar como plantilla</button>
           <button id="senasa-btn-imprimir" type="button">Imprimir</button>
@@ -382,7 +384,7 @@
           <div id="senasa-documentos" class="lista">Cargando...</div>
           <h3>Plantillas prefijadas</h3>
           <div id="senasa-plantillas" class="lista">Cargando...</div>
-          <h3>Papeles / Resoluciones SENASA</h3>
+          <h3 id="senasa-resoluciones-panel">Papeles / Resoluciones SENASA</h3>
           <div class="senasa-grid-dos">
             <select id="senasa-res-producto"></select>
             <input id="senasa-res-producto-nombre" placeholder="Producto manual" />

@@ -4517,6 +4517,10 @@ app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
   })();
 }));
 
+app.get(['/senasa', '/dashboard/senasa'], (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
+});
+
 app.get('/app', (req, res) => {
   res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
 });

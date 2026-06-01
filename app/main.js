@@ -1429,6 +1429,7 @@ const ROLE_MODULES = {
 let activeRole = null;
 let activeRoleName = '';
 let activeBusiness = null;
+let moduloActivo = null;
 const BUSINESS_MODULES = {
   AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'senasa', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema', 'semillasya-publico', 'configuracion-ia-lambois', 'usuarios', 'configuracion'],
   SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya', 'territorios-semillasya', 'configuracion-ia-lambois']
@@ -1523,6 +1524,7 @@ function cambiarUsuario() {
 }
 async function abrirModulo(modulo) {
   if (!activeRole) return;
+  moduloActivo = modulo;
   const roleSelector = $('#role-selector');
   const businessSelector = $('#business-selector');
   const home = $('#home-dashboard');
@@ -1538,6 +1540,9 @@ async function abrirModulo(modulo) {
     el.classList.toggle('hidden', !grupos.includes(modulo));
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (moduloActivo === 'senasa' && !['/senasa', '/dashboard/senasa'].includes(window.location.pathname)) {
+    window.history.pushState({ modulo: 'senasa' }, '', '/senasa');
+  }
   if (modulo === 'clientes') {
     try {
       await buscarClienteMostrador();
@@ -1937,6 +1942,7 @@ async function loadEliminados() {
 }
 
 function volverInicio() {
+  moduloActivo = null;
   const roleSelector = $('#role-selector');
   const businessSelector = $('#business-selector');
   const home = $('#home-dashboard');
@@ -1963,11 +1969,29 @@ function volverInicio() {
   home.classList.remove('hidden');
   appShell.forEach((el) => el.classList.add('hidden'));
   modulos.forEach((el) => el.classList.add('hidden'));
+  if (['/senasa', '/dashboard/senasa'].includes(window.location.pathname)) {
+    window.history.pushState({}, '', '/app');
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function abrirRutaInicial() {
+  if (!['/senasa', '/dashboard/senasa'].includes(window.location.pathname)) return;
+  activeBusiness = 'AGROQUIMICA';
+  localStorage.setItem(BUSINESS_STORAGE_KEY, activeBusiness);
+  if (!activeRole) {
+    activeRole = 'ADMINISTRADOR_GENERAL';
+    activeRoleName = 'Administrador General';
+    localStorage.setItem(ROLE_STORAGE_KEY, activeRole);
+    localStorage.setItem(ROLE_NAME_STORAGE_KEY, activeRoleName);
+    renderUsuarioActivo();
+  }
+  applyRoleModules();
+  abrirModulo('senasa').catch((error) => setMsg(`Error al abrir SENASA: ${error.message || error}`, 'error'));
+}
+
 document.querySelectorAll('[data-abrir-modulo]').forEach((btn) => {
-  btn.addEventListener('click', () => abrirModulo(btn.dataset.abrirModulo));
+  btn.addEventListener('click', () => abrirModulo(btn.dataset.abrirModulo).catch((error) => setMsg(`Error al abrir ${btn.dataset.abrirModulo}: ${error.message || error}`, 'error')));
 });
 document.querySelectorAll('[data-abrir-semillasya-publica]').forEach((btn) => {
   btn.addEventListener('click', () => { window.location.href = '/semillasya'; });
@@ -1980,6 +2004,13 @@ document.querySelectorAll('[data-select-business]').forEach((btn) => {
 });
 $('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
+document.querySelectorAll('[data-senasa-scroll]').forEach((btn) => {
+  btn.addEventListener('click', () => document.getElementById(btn.dataset.senasaScroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+});
+window.addEventListener('popstate', () => {
+  if (['/senasa', '/dashboard/senasa'].includes(window.location.pathname)) abrirModulo('senasa').catch((error) => setMsg(`Error al abrir SENASA: ${error.message || error}`, 'error'));
+  else volverInicio();
+});
 const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
 const savedRoleName = localStorage.getItem(ROLE_NAME_STORAGE_KEY);
 const savedBusiness = localStorage.getItem(BUSINESS_STORAGE_KEY);
@@ -1990,7 +2021,11 @@ if (savedRole && ROLE_MODULES[savedRole]) {
   renderUsuarioActivo();
   applyRoleModules();
 }
-volverInicio();
+if (['/senasa', '/dashboard/senasa'].includes(window.location.pathname)) {
+  abrirRutaInicial();
+} else {
+  volverInicio();
+}
 
 $('#btn-nueva').addEventListener('click', async () => {
   try {
