@@ -387,3 +387,4 @@ details[open] { display: grid; gap: 5px; }
   #senasa-preview { position: absolute; inset: 0 auto auto 0; width: 100%; margin: 0; padding: 28px; box-shadow: none; border: 0; }
   .no-print { display: none !important; }
 }
+.pill.senasa { background: #dbeafe; color: #1d4ed8; margin-left: 6px; vertical-align: middle; }

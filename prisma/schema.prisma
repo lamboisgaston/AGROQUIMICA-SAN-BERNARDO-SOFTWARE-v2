@@ -42,6 +42,9 @@ model Producto {
   fechaResolucionSenasa DateTime?
   tipoSenasa        String?
   usoSenasa         String?
+  concentracion     String?
+  habilitacionHabitual String?
+  aptoSenasaMip     Boolean    @default(false)
   senasaResoluciones SenasaResolucion[]
 }
 

@@ -1,0 +1,3 @@
+ALTER TABLE "Producto" ADD COLUMN IF NOT EXISTS "concentracion" TEXT;
+ALTER TABLE "Producto" ADD COLUMN IF NOT EXISTS "habilitacionHabitual" TEXT;
+ALTER TABLE "Producto" ADD COLUMN IF NOT EXISTS "aptoSenasaMip" BOOLEAN NOT NULL DEFAULT false;

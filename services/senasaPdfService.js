@@ -85,6 +85,20 @@ function boxedRows(doc, rows) {
   doc.moveDown(0.3);
 }
 
+function productoTecnicoRows(datos = {}) {
+  return [
+    ['Producto', datos.productoNombre],
+    ['Principio activo', datos.principioActivo],
+    ['Concentración', datos.concentracion],
+    ['Habilitación', valueAt(datos.habilitacionHabitual, datos.resolucionSenasa)]
+  ].filter(([, value]) => !isBlank(value));
+}
+
+function productoTecnicoBox(doc, datos = {}) {
+  const rows = productoTecnicoRows(datos);
+  if (rows.length) boxedRows(doc, rows);
+}
+
 function paragraph(doc, text) {
   ensureSpace(doc, 45);
   doc.font('Helvetica').fontSize(10).text(clean(text), {
@@ -176,7 +190,8 @@ function renderAviso(documento, datos, doc) {
   sectionTitle(doc, 'Roedores');
   const desde = formatDate(valueAt(datos.roedores?.periodoDesde, datos.periodoDesde, documento.periodoDesde));
   const hasta = formatDate(valueAt(datos.roedores?.periodoHasta, datos.periodoHasta, documento.periodoHasta));
-  paragraph(doc, `En el periodo comprendido entre ${line(desde)} y ${line(hasta)}, se empleará como cebo rodenticida el producto ${line(datos.roedores?.productoNombre)}; cuyo principio activo es ${line(datos.roedores?.principioActivo)}, aprobado por SENASA por Resolución Nº ${line(datos.roedores?.resolucionSenasa)} del ${line(formatDate(datos.roedores?.fechaResolucionSenasa))}.`);
+  paragraph(doc, `En el periodo comprendido entre ${line(desde)} y ${line(hasta)}, se empleará como cebo rodenticida el producto ${line(datos.roedores?.productoNombre)}.`);
+  productoTecnicoBox(doc, datos.roedores);
   textBlock(doc, 'Frecuencia de verificación / reposición', [datos.roedores?.frecuenciaVerificacion]);
   textBlock(doc, 'Sectores grupo 1', [datos.roedores?.sectoresGrupo1, datos.roedores?.frecuenciaGrupo1]);
   textBlock(doc, 'Sectores grupo 2', [datos.roedores?.sectoresGrupo2, datos.roedores?.frecuenciaGrupo2]);
@@ -184,16 +199,17 @@ function renderAviso(documento, datos, doc) {
   sectionTitle(doc, 'Insectos');
   doc.font('Helvetica-Bold').fontSize(9.5).text('Sectores externos');
   textBlock(doc, 'Periodo', [formatDate(datos.insectosExternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosExternos?.periodoHasta || datos.periodoHasta)]);
-  textBlock(doc, 'Producto / principio activo / resolución', [datos.insectosExternos?.productoNombre, datos.insectosExternos?.principioActivo, datos.insectosExternos?.resolucionSenasa, formatDate(datos.insectosExternos?.fechaResolucionSenasa)]);
+  productoTecnicoBox(doc, datos.insectosExternos);
   textBlock(doc, 'Frecuencia y sectores', [datos.insectosExternos?.frecuenciaHoras ? `cada ${datos.insectosExternos.frecuenciaHoras} horas` : '', datos.insectosExternos?.sectoresGrupo1, datos.insectosExternos?.sectoresGrupo2]);
   doc.moveDown(0.3).font('Helvetica-Bold').fontSize(9.5).text('Sectores internos');
   textBlock(doc, 'Periodo', [formatDate(datos.insectosInternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosInternos?.periodoHasta || datos.periodoHasta)]);
-  textBlock(doc, 'Producto / principio activo / resolución', [datos.insectosInternos?.productoNombre, datos.insectosInternos?.principioActivo, datos.insectosInternos?.resolucionSenasa, formatDate(datos.insectosInternos?.fechaResolucionSenasa)]);
+  productoTecnicoBox(doc, datos.insectosInternos);
   textBlock(doc, 'Aplicación', [datos.insectosInternos?.colorSeccionPlano, datos.insectosInternos?.dia, datos.insectosInternos?.hora, datos.insectosInternos?.sectores, datos.insectosInternos?.observaciones]);
 
   sectionTitle(doc, 'Otras plagas');
   textBlock(doc, 'Especies / sectores', [datos.otrasPlagas?.especiesVoladoras, datos.otrasPlagas?.especiesCaminadoras, datos.otrasPlagas?.sectores]);
-  textBlock(doc, 'Producto / frecuencia', [datos.otrasPlagas?.productoNombre, datos.otrasPlagas?.principioActivo, datos.otrasPlagas?.frecuencia]);
+  productoTecnicoBox(doc, datos.otrasPlagas);
+  textBlock(doc, 'Frecuencia', [datos.otrasPlagas?.frecuencia]);
 
   sectionTitle(doc, 'Áreas externas y espacios verdes');
   textBlock(doc, 'Sectores', [datos.areasExternas?.sectores]);
