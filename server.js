@@ -987,7 +987,13 @@ function normalizarPayloadProducto(payload = {}, tipoCambioActual = 1) {
     porcentajeUva: Number(payload.ivaPorcentaje ?? payload.ivaMonto ?? payload.porcentajeUva ?? 0),
     porcentajeFlete: Number(payload.fletePorcentaje ?? payload.fleteMonto ?? payload.porcentajeFlete ?? 0),
     porcentajeGanancia: Number(payload.margenGananciaPorcentaje ?? payload.gananciaPorcentaje ?? payload.porcentajeGanancia ?? 0),
-    precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd)
+    precioUsd: payload.precioUsd == null ? (monedaCosto === 'USD' ? costoBase : null) : Number(payload.precioUsd),
+    observaciones: payload.observaciones == null ? undefined : String(payload.observaciones || '').trim(),
+    principioActivo: payload.principioActivo == null ? undefined : String(payload.principioActivo || '').trim(),
+    resolucionSenasa: payload.resolucionSenasa == null ? undefined : String(payload.resolucionSenasa || '').trim(),
+    fechaResolucionSenasa: payload.fechaResolucionSenasa ? new Date(payload.fechaResolucionSenasa) : null,
+    tipoSenasa: payload.tipoSenasa == null ? undefined : String(payload.tipoSenasa || '').trim(),
+    usoSenasa: payload.usoSenasa == null ? undefined : String(payload.usoSenasa || '').trim()
   };
   const calculo = calcularPrecioFinalPesos(productoNormalizado, tipoCambioActual);
   productoNormalizado.precioFinalPesos = calculo.precioVentaPesos;
@@ -1037,6 +1043,188 @@ function construirFiltroBusquedaProductos(q = '') {
   }
   return { OR: or };
 }
+
+
+function fechaOrNull(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function normalizarSenasaDatosJson(datos = {}) {
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos)) return {};
+  return datos;
+}
+
+function extraerSenasaResumen(payload = {}) {
+  const datosJson = normalizarSenasaDatosJson(payload.datosJson || payload.datos || {});
+  const clienteId = parsePositiveInt(payload.clienteId ?? datosJson.clienteId);
+  return {
+    tipoDocumento: payload.tipoDocumento,
+    clienteId: clienteId || null,
+    numeroCircular: String(payload.numeroCircular ?? datosJson.numeroCircular ?? '').trim() || null,
+    fechaRecepcion: fechaOrNull(payload.fechaRecepcion ?? datosJson.fechaRecepcion),
+    periodoDesde: fechaOrNull(payload.periodoDesde ?? datosJson.periodoDesde ?? datosJson.roedores?.periodoDesde),
+    periodoHasta: fechaOrNull(payload.periodoHasta ?? datosJson.periodoHasta ?? datosJson.roedores?.periodoHasta),
+    datosJson,
+    esPlantilla: Boolean(payload.esPlantilla),
+    nombrePlantilla: String(payload.nombrePlantilla || '').trim() || null
+  };
+}
+
+app.get('/api/senasa/bootstrap', asyncHandler(async (_req, res) => {
+  const [clientes, productos, resoluciones, documentos, plantillas] = await Promise.all([
+    prisma.persona.findMany({ where: { eliminado: false, activo: true, tipo: 'CLIENTE' }, include: { senasaConfiguracion: true }, orderBy: { nombre: 'asc' } }),
+    prisma.producto.findMany({ where: { eliminado: false, activo: true }, orderBy: { nombre: 'asc' } }),
+    prisma.senasaResolucion.findMany({ orderBy: { updatedAt: 'desc' }, include: { producto: true } }),
+    prisma.senasaDocumento.findMany({ where: { esPlantilla: false }, orderBy: { updatedAt: 'desc' }, take: 50, include: { cliente: true } }),
+    prisma.senasaDocumento.findMany({ where: { esPlantilla: true }, orderBy: { updatedAt: 'desc' }, include: { cliente: true } })
+  ]);
+  const tipoCambioActual = await obtenerTipoCambioActual();
+  res.json({
+    clientes,
+    productos: productos.map((producto) => mapearProductoConPrecioPesos(producto, tipoCambioActual)),
+    resoluciones,
+    documentos,
+    plantillas
+  });
+}));
+
+app.put('/api/senasa/clientes/:clienteId/config', asyncHandler(async (req, res) => {
+  const clienteId = parsePositiveInt(req.params.clienteId);
+  if (!clienteId) return res.status(400).json({ error: 'clienteId inválido' });
+  const data = {
+    establecimientoOficial: String(req.body.establecimientoOficial || '').trim() || null,
+    supervisor: String(req.body.supervisor || '').trim() || null,
+    responsableSiv: String(req.body.responsableSiv || '').trim() || null,
+    departamentoPartido: String(req.body.departamentoPartido || '').trim() || null,
+    localidad: String(req.body.localidad || '').trim() || null,
+    provincia: String(req.body.provincia || '').trim() || null,
+    observaciones: String(req.body.observaciones || '').trim() || null
+  };
+  const config = await prisma.senasaClienteConfig.upsert({ where: { clienteId }, create: { clienteId, ...data }, update: data });
+  res.json(config);
+}));
+
+app.get('/api/senasa/resoluciones', asyncHandler(async (_req, res) => {
+  res.json(await prisma.senasaResolucion.findMany({ orderBy: { updatedAt: 'desc' }, include: { producto: true } }));
+}));
+
+app.post('/api/senasa/resoluciones', asyncHandler(async (req, res) => {
+  const productoId = parsePositiveInt(req.body.productoId);
+  const productoNombre = String(req.body.productoNombre || '').trim();
+  if (!productoNombre && !productoId) return res.status(400).json({ error: 'Seleccione o escriba un producto' });
+  const producto = productoId ? await prisma.producto.findUnique({ where: { id: productoId } }) : null;
+  const data = {
+    productoId: producto?.id || null,
+    productoNombre: productoNombre || producto?.nombre || 'Producto SENASA',
+    principioActivo: String(req.body.principioActivo || producto?.principioActivo || '').trim() || null,
+    resolucionNumero: String(req.body.resolucionNumero || producto?.resolucionSenasa || '').trim() || null,
+    fechaResolucion: fechaOrNull(req.body.fechaResolucion || producto?.fechaResolucionSenasa),
+    observaciones: String(req.body.observaciones || '').trim() || null,
+    archivoAdjuntoUrl: String(req.body.archivoAdjuntoUrl || '').trim() || null
+  };
+  const resolucion = await prisma.senasaResolucion.create({ data });
+  res.status(201).json(resolucion);
+}));
+
+app.put('/api/senasa/resoluciones/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const productoId = parsePositiveInt(req.body.productoId);
+  const data = {
+    productoId: productoId || null,
+    productoNombre: String(req.body.productoNombre || '').trim() || 'Producto SENASA',
+    principioActivo: String(req.body.principioActivo || '').trim() || null,
+    resolucionNumero: String(req.body.resolucionNumero || '').trim() || null,
+    fechaResolucion: fechaOrNull(req.body.fechaResolucion),
+    observaciones: String(req.body.observaciones || '').trim() || null,
+    archivoAdjuntoUrl: String(req.body.archivoAdjuntoUrl || '').trim() || null
+  };
+  res.json(await prisma.senasaResolucion.update({ where: { id }, data }));
+}));
+
+app.delete('/api/senasa/resoluciones/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  await prisma.senasaResolucion.delete({ where: { id } });
+  res.json({ ok: true });
+}));
+
+app.get('/api/senasa/documentos', asyncHandler(async (req, res) => {
+  const esPlantilla = String(req.query.plantillas || '') === '1';
+  const documentos = await prisma.senasaDocumento.findMany({ where: { esPlantilla }, orderBy: { updatedAt: 'desc' }, include: { cliente: true } });
+  res.json(documentos);
+}));
+
+app.get('/api/senasa/documentos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const documento = await prisma.senasaDocumento.findUnique({ where: { id }, include: { cliente: { include: { senasaConfiguracion: true } } } });
+  if (!documento) return res.status(404).json({ error: 'Documento no encontrado' });
+  res.json(documento);
+}));
+
+app.post('/api/senasa/documentos', asyncHandler(async (req, res) => {
+  const data = extraerSenasaResumen(req.body || {});
+  if (!['AVISO_MIP', 'INFORME_CONTROL_PLAGAS'].includes(data.tipoDocumento)) return res.status(400).json({ error: 'tipoDocumento inválido' });
+  const documento = await prisma.senasaDocumento.create({ data });
+  res.status(201).json(documento);
+}));
+
+app.put('/api/senasa/documentos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const data = extraerSenasaResumen(req.body || {});
+  if (!['AVISO_MIP', 'INFORME_CONTROL_PLAGAS'].includes(data.tipoDocumento)) return res.status(400).json({ error: 'tipoDocumento inválido' });
+  res.json(await prisma.senasaDocumento.update({ where: { id }, data }));
+}));
+
+app.post('/api/senasa/documentos/:id/plantilla', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const base = await prisma.senasaDocumento.findUnique({ where: { id } });
+  if (!base) return res.status(404).json({ error: 'Documento no encontrado' });
+  const plantilla = await prisma.senasaDocumento.create({ data: {
+    tipoDocumento: base.tipoDocumento,
+    clienteId: base.clienteId,
+    numeroCircular: base.numeroCircular,
+    fechaRecepcion: base.fechaRecepcion,
+    periodoDesde: base.periodoDesde,
+    periodoHasta: base.periodoHasta,
+    datosJson: base.datosJson,
+    esPlantilla: true,
+    nombrePlantilla: String(req.body.nombrePlantilla || base.nombrePlantilla || `Plantilla SENASA #${base.id}`).trim()
+  }});
+  res.status(201).json(plantilla);
+}));
+
+app.get('/api/senasa/documentos/:id/pdf', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const documento = await prisma.senasaDocumento.findUnique({ where: { id }, include: { cliente: true } });
+  if (!documento) return res.status(404).json({ error: 'Documento no encontrado' });
+  const doc = new PDFDocument({ size: 'A4', margin: 42 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="senasa-${id}.pdf"`);
+  doc.pipe(res);
+  const datos = documento.datosJson || {};
+  doc.fontSize(15).font('Helvetica-Bold').text(documento.tipoDocumento === 'AVISO_MIP' ? 'PLANILLA DE AVISO' : 'INFORME', { align: 'center' });
+  doc.fontSize(13).text(documento.tipoDocumento === 'AVISO_MIP' ? 'PROGRAMA DE ACTIVIDADES MIP' : 'CONTROL DE PLAGAS', { align: 'center' });
+  doc.moveDown().fontSize(10).font('Helvetica').text(`CIRCULAR Nº ${documento.numeroCircular || '-'}`, { align: 'center' });
+  doc.text(`FECHA DE RECEPCIÓN: ${datos.fechaRecepcion || '-'}`, { align: 'right' });
+  doc.moveDown().font('Helvetica-Bold').text('ESTABLECIMIENTO');
+  doc.font('Helvetica').rect(42, doc.y + 4, 510, 76).stroke();
+  doc.moveDown(0.8).text(`Razón social: ${datos.cliente?.nombre || documento.cliente?.nombre || '-'}`);
+  doc.text(`Domicilio: ${datos.cliente?.direccion || documento.cliente?.direccion || '-'}    Tel/Fax: ${datos.cliente?.telefono || documento.cliente?.telefono || '-'}`);
+  doc.text(`Localidad: ${datos.cliente?.localidad || '-'}    Dpto/Partido: ${datos.establecimiento?.departamentoPartido || '-'}    Provincia: ${datos.cliente?.provincia || '-'}`);
+  doc.text(`Supervisor: ${datos.establecimiento?.supervisor || '-'}    Responsable por S.I.V.: ${datos.establecimiento?.responsableSiv || '-'}`);
+  doc.moveDown(2).font('Helvetica-Bold').text(documento.tipoDocumento === 'AVISO_MIP' ? 'SECCIONES DEL PROGRAMA' : 'RESULTADOS DEL CONTROL');
+  doc.font('Helvetica').fontSize(9);
+  const resumen = JSON.stringify(datos, null, 2).slice(0, 6500);
+  doc.text(resumen, { width: 510 });
+  doc.end();
+}));
 
 app.get('/productos', async (req, res) => {
   try {
