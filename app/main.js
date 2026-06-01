@@ -3808,9 +3808,12 @@ function renderSenasaPreview() {
   $('#senasa-editable').value = JSON.stringify(d, null, 2);
 }
 async function cargarSenasa() {
-  const data = await api('/api/senasa/bootstrap');
+  const [data, productosSenasa] = await Promise.all([
+    api('/api/senasa/bootstrap'),
+    api('/api/senasa/productos')
+  ]);
   senasaClientes = data.clientes || [];
-  senasaProductos = (data.productos || []).filter(productoEsSenasaMip);
+  senasaProductos = (productosSenasa || []).filter(productoEsSenasaMip);
   senasaResoluciones = data.resoluciones || [];
   senasaDocumentos = data.documentos || [];
   senasaPlantillas = data.plantillas || [];
