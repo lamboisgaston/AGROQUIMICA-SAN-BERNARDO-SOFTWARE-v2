@@ -356,6 +356,8 @@ details[open] { display: grid; gap: 5px; }
 /* SENASA / MIP */
 .senasa-modulo { background: #f4f6f8; }
 .senasa-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+.senasa-menu-principal { flex-wrap: wrap; justify-content: flex-end; }
+.senasa-menu-principal button[data-senasa-scroll] { background: #0f766e; }
 .senasa-layout { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 16px; align-items: start; }
 .senasa-panel { background: #fff; border: 1px solid #d8dee4; border-radius: 12px; padding: 14px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
 .senasa-grid-dos, .senasa-grid-tres { display: grid; gap: 10px; margin: 10px 0; }
