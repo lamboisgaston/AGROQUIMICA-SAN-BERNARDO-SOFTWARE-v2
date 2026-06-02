@@ -1125,6 +1125,45 @@ async function hidratarSenasaDocumentoConProductos(documento = {}) {
   return { ...documento, datosJson: datosHidratados };
 }
 
+function senasaTextoCompleto(value) {
+  return value == null ? '' : String(value).trim();
+}
+
+function senasaProductoDatosValidacion(item = {}) {
+  const producto = item?.producto && typeof item.producto === 'object' ? item.producto : {};
+  const organismo = senasaTextoCompleto(item.organismoHabilitante || producto.organismoHabilitante || item.organismoRegulador || producto.organismoRegulador || item.habilitacionHabitual || producto.habilitacionHabitual);
+  const tipo = senasaTextoCompleto(item.tipoRegistro || producto.tipoRegistro);
+  const numero = senasaTextoCompleto(item.numeroRegistro || producto.numeroRegistro || item.resolucionSenasa || producto.resolucionSenasa);
+  const habilitacionCompleta = senasaTextoCompleto(item.habilitacionCompleta || producto.habilitacionCompleta || [organismo, tipo && tipo.toLowerCase() !== organismo.toLowerCase() ? tipo : '', numero ? `N° ${numero}` : ''].filter(Boolean).join(' '));
+  return {
+    nombre: senasaTextoCompleto(item.productoNombre || item.nombre || producto.nombre || producto.nombreComercial),
+    principioActivo: senasaTextoCompleto(item.principioActivo || producto.principioActivo),
+    concentracion: senasaTextoCompleto(item.concentracion || producto.concentracion),
+    numeroRegistro: numero,
+    habilitacionCompleta
+  };
+}
+
+function productosPrevistosValidacion(datos = {}) {
+  const base = Array.isArray(datos.productosPrevistos) ? datos.productosPrevistos : [];
+  if (base.length) return base;
+  return ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas']
+    .map((key) => datos[key])
+    .filter((item) => senasaProductoDatosValidacion(item || {}).nombre);
+}
+
+function validarDocumentoAvisoMipParaPdf(documento = {}) {
+  if (documento.tipoDocumento !== 'AVISO_MIP') return '';
+  const datos = normalizarSenasaDatosJson(documento.datosJson || {});
+  if (!senasaTextoCompleto(datos.cliente?.nombre || documento.cliente?.nombre)) return 'Falta completar razón social del establecimiento.';
+  if (!senasaTextoCompleto(datos.periodoDesde || documento.periodoDesde) || !senasaTextoCompleto(datos.periodoHasta || documento.periodoHasta)) return 'Falta completar el periodo del MIP.';
+  const productos = productosPrevistosValidacion(datos);
+  if (!productos.length) return 'Falta agregar al menos un producto MIP.';
+  if (productos.some((item) => !senasaProductoDatosValidacion(item).numeroRegistro)) return 'Falta completar número de registro del producto seleccionado.';
+  if (productos.some((item) => !senasaProductoDatosValidacion(item).habilitacionCompleta)) return 'Falta completar habilitación completa del producto seleccionado.';
+  return '';
+}
+
 function extraerSenasaResumen(payload = {}) {
   const datosJson = normalizarSenasaDatosJson(payload.datosJson || payload.datos || {});
   const clienteId = parsePositiveInt(payload.clienteId ?? datosJson.clienteId);
@@ -1325,6 +1364,8 @@ app.get('/api/senasa/documentos/:id/pdf', asyncHandler(async (req, res) => {
   });
   if (!documento) return res.status(404).json({ error: 'Documento no encontrado' });
   const documentoHidratado = await hidratarSenasaDocumentoConProductos(documento);
+  const errorValidacion = validarDocumentoAvisoMipParaPdf(documentoHidratado);
+  if (errorValidacion) return res.status(400).json({ error: errorValidacion });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="senasa-${id}.pdf"`);
   renderSenasaPdf(documentoHidratado, res);
