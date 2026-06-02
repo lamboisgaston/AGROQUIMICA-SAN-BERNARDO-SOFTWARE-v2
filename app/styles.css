@@ -354,33 +354,60 @@ details[open] { display: grid; gap: 5px; }
 @media (max-width:900px){.pre-aux-filters{grid-template-columns:1fr}.pre-presentacion-item{grid-template-columns:1fr}}
 
 /* SENASA / MIP */
-.senasa-modulo { background: #f4f6f8; }
-.senasa-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
-.senasa-menu-principal { flex-wrap: wrap; justify-content: flex-end; }
-.senasa-menu-principal button[data-senasa-scroll] { background: #0f766e; }
-.senasa-layout { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 16px; align-items: start; }
-.senasa-panel { background: #fff; border: 1px solid #d8dee4; border-radius: 12px; padding: 14px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
-.senasa-grid-dos, .senasa-grid-tres { display: grid; gap: 10px; margin: 10px 0; }
+.senasa-modulo { background: #f3f6f9; color: #1f2937; }
+.senasa-header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 12px; padding: 18px; border: 1px solid #d8e0ea; border-radius: 16px; background: linear-gradient(135deg, #ffffff 0%, #eef6ff 100%); }
+.senasa-header h2 { color: #243b53; margin-bottom: 4px; }
+.senasa-header p { color: #64748b; margin: 0; }
+.senasa-tabs, .senasa-acciones-documento { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.senasa-tabs { margin: 0 0 14px; padding: 8px; border: 1px solid #dbe5ef; border-radius: 14px; background: #fff; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05); }
+.senasa-tabs button { background: #eef6ff; color: #1e3a5f; border: 1px solid #cfe0f3; border-radius: 999px; }
+.senasa-tabs button:hover { background: #dbeafe; }
+.senasa-acciones-documento { justify-content: flex-end; }
+.senasa-acciones-documento button { background: #1d4ed8; border-radius: 10px; }
+.senasa-acciones-documento .btn-primary, .senasa-acciones-documento button.btn-primary { background: #15803d; }
+.senasa-acciones-inferiores { justify-content: flex-start; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+.senasa-layout { display: grid; grid-template-columns: minmax(280px, 390px) 1fr; gap: 16px; align-items: start; }
+.senasa-panel { background: #fff; border: 1px solid #d8dee4; border-radius: 14px; padding: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+.senasa-panel h3 { color: #334155; margin-top: 14px; }
+.senasa-grid-dos, .senasa-grid-tres { display: grid; gap: 10px; margin: 10px 0; align-items: start; }
 .senasa-grid-dos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .senasa-grid-tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.senasa-modulo label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; font-weight: 700; }
-.senasa-modulo input, .senasa-modulo select, .senasa-modulo textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; font: inherit; background: #fff; }
+.senasa-modulo label { display: flex; flex-direction: column; gap: 5px; font-size: 0.9rem; font-weight: 700; color: #334155; }
+.senasa-modulo input, .senasa-modulo select, .senasa-modulo textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 9px; padding: 8px 10px; font: inherit; background: #fff; }
+.senasa-modulo input:focus, .senasa-modulo select:focus, .senasa-modulo textarea:focus { outline: 2px solid #bfdbfe; border-color: #3b82f6; }
+.senasa-card { margin: 12px 0; border: 1px solid #dbe4ee; border-radius: 14px; background: #fff; overflow: hidden; }
+.senasa-card summary { cursor: pointer; padding: 12px 14px; color: #243b53; background: #f8fafc; font-weight: 800; border-bottom: 1px solid #e5edf5; }
+.senasa-card-body { padding: 12px 14px; }
+#senasa-form h4 { margin: 16px 0 8px; color: #334155; padding: 10px 12px; border-left: 4px solid #3b82f6; border-radius: 8px; background: #f8fafc; }
+.senasa-producto-selector { grid-column: span 2; padding: 10px; border: 1px solid #dbeafe; border-radius: 12px; background: #f8fbff; }
+.senasa-producto-buscar { margin-bottom: 6px; }
+.senasa-producto-resumen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #bbf7d0; border-radius: 12px; background: #f0fdf4; }
+.senasa-producto-resumen div { display: flex; flex-direction: column; gap: 2px; }
+.senasa-producto-resumen span { color: #64748b; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
+.senasa-producto-resumen strong { color: #14532d; font-size: 0.9rem; }
+.senasa-table-wrap { overflow: auto; }
+.senasa-productos-table { width: 100%; border-collapse: collapse; min-width: 760px; font-size: 0.82rem; }
+.senasa-productos-table th, .senasa-productos-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; vertical-align: top; }
+.senasa-productos-table th { background: #eef6ff; color: #334155; }
 .senasa-edit-table { width: 100%; border-collapse: collapse; margin: 8px 0 10px; font-size: 0.85rem; }
 .senasa-edit-table th, .senasa-edit-table td { border: 1px solid #cbd5e1; padding: 5px; vertical-align: top; }
+.senasa-edit-table th { background: #f1f5f9; }
 .senasa-edit-table input, .senasa-edit-table select { min-width: 70px; padding: 5px; border-radius: 4px; }
 .senasa-producto-tecnico { margin: 16px 0; padding: 12px; border: 1px solid #b7d6ba; border-radius: 10px; background: #f2fbf3; }
 .senasa-documento-formal { width: min(100%, 820px); margin: 22px auto; background: white; color: #050505; padding: 44px 54px; border: 1px solid #c5cbd3; box-shadow: 0 14px 40px rgba(15, 23, 42, 0.12); font-family: Arial, Helvetica, sans-serif; line-height: 1.45; }
 .senasa-documento-formal h2, .senasa-documento-formal h3 { margin: 0 0 6px; text-align: center; }
 .senasa-documento-formal h4 { margin: 18px 0 8px; font-size: 0.95rem; text-transform: uppercase; }
+.senasa-documento-formal h5 { margin: 0 0 6px; font-size: 0.9rem; }
 .senasa-doc-title { text-align: center; margin-bottom: 22px; }
 .senasa-fecha { text-align: right; }
 .senasa-box { border: 1px solid #111; padding: 8px; margin: 8px 0 16px; }
 .senasa-box p { margin: 6px 0; }
+.senasa-producto-doc { background: #fafafa; }
 .senasa-documento-formal table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .senasa-documento-formal th, .senasa-documento-formal td { border: 1px solid #111; padding: 5px; min-height: 22px; }
 .senasa-firmas { display: flex; justify-content: space-between; margin-top: 70px; font-weight: 700; }
 .senasa-firmas span::before { content: ''; display: block; border-top: 1px dotted #111; width: 240px; margin-bottom: 8px; }
-@media (max-width: 900px) { .senasa-layout, .senasa-grid-dos, .senasa-grid-tres { grid-template-columns: 1fr; } .senasa-header { flex-direction: column; } }
+@media (max-width: 900px) { .senasa-layout, .senasa-grid-dos, .senasa-grid-tres, .senasa-producto-resumen { grid-template-columns: 1fr; } .senasa-header { flex-direction: column; } .senasa-producto-selector { grid-column: span 1; } }
 @media print {
   body * { visibility: hidden !important; }
   #senasa-preview, #senasa-preview * { visibility: visible !important; }

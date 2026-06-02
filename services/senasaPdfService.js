@@ -85,18 +85,25 @@ function boxedRows(doc, rows) {
   doc.moveDown(0.3);
 }
 
+function documentoPendiente(value) {
+  return clean(value, 'Registro documental pendiente de carga');
+}
+
 function productoTecnicoRows(datos = {}) {
   return [
-    ['Producto', datos.productoNombre],
-    ['Principio activo', datos.principioActivo],
-    ['Concentración', datos.concentracion],
-    ['Habilitación', valueAt(datos.habilitacionHabitual, datos.resolucionSenasa)]
-  ].filter(([, value]) => !isBlank(value));
+    ['Producto comercial', documentoPendiente(valueAt(datos.productoNombre, datos.nombre))],
+    ['Principio activo', documentoPendiente(datos.principioActivo)],
+    ['Concentración', documentoPendiente(datos.concentracion)],
+    ['Habilitación', documentoPendiente(valueAt(datos.habilitacionHabitual, datos.organismoRegulador))],
+    ['Registro / Resolución', documentoPendiente(valueAt(datos.numeroRegistro, datos.resolucionSenasa, datos.registroResolucion, datos.resolucionNumero))],
+    ['Disposición', documentoPendiente(datos.disposicionRegistro)],
+    ['Fecha', documentoPendiente(formatDate(datos.fechaResolucionSenasa))],
+    ['Titular', documentoPendiente(datos.empresaTitularRegistro)]
+  ];
 }
 
 function productoTecnicoBox(doc, datos = {}) {
-  const rows = productoTecnicoRows(datos);
-  if (rows.length) boxedRows(doc, rows);
+  boxedRows(doc, productoTecnicoRows(datos));
 }
 
 function paragraph(doc, text) {
@@ -265,8 +272,14 @@ function renderInforme(documento, datos, doc) {
     ['Fecha de actividad', formatDate(datos.fechaActividad)],
     ['Hora de actividad', datos.horaActividad]
   ]);
+  sectionTitle(doc, 'Producto roedores');
+  productoTecnicoBox(doc, datos.roedores);
   renderTable(doc, 'Roedores', ROEDORES_COLUMNS, Array.isArray(datos.roedores?.filas) ? datos.roedores.filas : []);
   sectionTitle(doc, 'Insectos');
+  doc.font('Helvetica-Bold').fontSize(9.5).text('Producto insectos externos');
+  productoTecnicoBox(doc, datos.insectosExternos);
+  doc.font('Helvetica-Bold').fontSize(9.5).text('Producto insectos internos');
+  productoTecnicoBox(doc, datos.insectosInternos);
   boxedRows(doc, [
     ['Sectores externos', [formatDate(datos.insectosExternos?.fecha), datos.insectosExternos?.hora, datos.insectosExternos?.sectoresRecorridos].map(clean).filter(Boolean).join(' · ')],
     ['Sectores internos', [formatDate(datos.insectosInternos?.fecha), datos.insectosInternos?.hora, datos.insectosInternos?.trampaNumero ? `Trampa Nº ${datos.insectosInternos.trampaNumero}` : '', datos.insectosInternos?.observaciones].map(clean).filter(Boolean).join(' · ')]
