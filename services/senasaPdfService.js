@@ -99,6 +99,7 @@ function productoSeleccionado(datos = {}) {
     numeroRegistro: valueAt(producto.numeroRegistro, datos.numeroRegistro, producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion, datos.resolucionNumero),
     disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
     fechaResolucionSenasa: valueAt(producto.fechaResolucionSenasa, datos.fechaResolucionSenasa),
+    fechaVencimientoRegistro: valueAt(producto.fechaVencimientoRegistro, datos.fechaVencimientoRegistro),
     empresaTitularRegistro: valueAt(producto.empresaTitularRegistro, datos.empresaTitularRegistro)
   };
 }
@@ -117,6 +118,7 @@ function productoTecnicoRows(datos = {}) {
     ['Registro / Resolución', documentoPendiente(producto.numeroRegistro)],
     ['Disposición', documentoPendiente(producto.disposicionRegistro)],
     ['Fecha', documentoPendiente(formatDate(producto.fechaResolucionSenasa))],
+    ['Vencimiento', documentoPendiente(formatDate(producto.fechaVencimientoRegistro))],
     ['Titular', documentoPendiente(producto.empresaTitularRegistro)]
   ];
 }
@@ -213,6 +215,18 @@ function renderAviso(documento, datos, doc) {
   title(doc, 'PLANILLA DE AVISO', 'PROGRAMA DE ACTIVIDADES MIP');
   header(documento, datos, doc);
 
+  sectionTitle(doc, 'Planificación general');
+  boxedRows(doc, [
+    ['Periodo desde', formatDate(valueAt(datos.periodoDesde, documento.periodoDesde))],
+    ['Periodo hasta', formatDate(valueAt(datos.periodoHasta, documento.periodoHasta))],
+    ['Frecuencia general', datos.planificacion?.frecuenciaGeneral],
+    ['Horarios previstos', datos.planificacion?.horariosPrevistos],
+    ['Tipo de control', datos.planificacion?.tipoControl],
+    ['Metodología', datos.planificacion?.metodologia],
+    ['Cronograma', datos.planificacion?.cronograma],
+    ['Criterios de control', datos.planificacion?.criteriosControl]
+  ]);
+
   sectionTitle(doc, 'Roedores');
   const desde = formatDate(valueAt(datos.roedores?.periodoDesde, datos.periodoDesde, documento.periodoDesde));
   const hasta = formatDate(valueAt(datos.roedores?.periodoHasta, datos.periodoHasta, documento.periodoHasta));
@@ -283,33 +297,31 @@ function normalizedSimpleRows(rows = [], key) {
 }
 
 function renderInforme(documento, datos, doc) {
-  title(doc, 'INFORME CONTROL DE PLAGAS', 'PROGRAMA DE ACTIVIDADES MIP');
+  title(doc, 'INFORME', 'CONTROL DE PLAGAS');
   header(documento, datos, doc);
-  sectionTitle(doc, 'Datos de actividad');
+  sectionTitle(doc, 'Ejecución real');
   boxedRows(doc, [
-    ['Fecha programa MIP', formatDate(datos.fechaProgramaMip)],
-    ['Fecha de actividad', formatDate(datos.fechaActividad)],
-    ['Hora de actividad', datos.horaActividad]
+    ['Aviso MIP vinculado', datos.avisoVinculadoId ? `Aviso MIP #${datos.avisoVinculadoId}` : 'Sin vincular'],
+    ['Fecha real', formatDate(valueAt(datos.fechaActividad, documento.periodoDesde))],
+    ['Hora real', datos.horaActividad],
+    ['Sectores recorridos', datos.ejecucion?.sectoresRecorridos],
+    ['Casillas revisadas', datos.ejecucion?.casillasRevisadas],
+    ['Trampas revisadas', datos.ejecucion?.trampasRevisadas],
+    ['Actividad detectada / hallazgos', datos.ejecucion?.actividadDetectada],
+    ['Productos utilizados', datos.ejecucion?.productosUtilizados],
+    ['Observaciones', datos.ejecucion?.observaciones],
+    ['Medidas correctivas', datos.ejecucion?.medidasCorrectivas]
   ]);
-  sectionTitle(doc, 'Producto roedores');
-  productoTecnicoBox(doc, datos.roedores);
   renderTable(doc, 'Roedores', ROEDORES_COLUMNS, Array.isArray(datos.roedores?.filas) ? datos.roedores.filas : []);
-  sectionTitle(doc, 'Insectos');
-  doc.font('Helvetica-Bold').fontSize(9.5).text('Producto insectos externos');
-  productoTecnicoBox(doc, datos.insectosExternos);
-  doc.font('Helvetica-Bold').fontSize(9.5).text('Producto insectos internos');
-  productoTecnicoBox(doc, datos.insectosInternos);
-  boxedRows(doc, [
-    ['Sectores externos', [formatDate(datos.insectosExternos?.fecha), datos.insectosExternos?.hora, datos.insectosExternos?.sectoresRecorridos].map(clean).filter(Boolean).join(' · ')],
-    ['Sectores internos', [formatDate(datos.insectosInternos?.fecha), datos.insectosInternos?.hora, datos.insectosInternos?.trampaNumero ? `Trampa Nº ${datos.insectosInternos.trampaNumero}` : '', datos.insectosInternos?.observaciones].map(clean).filter(Boolean).join(' · ')]
-  ]);
   renderTable(doc, 'Otras plagas', OTRAS_COLUMNS, Array.isArray(datos.otrasPlagas?.filas) ? datos.otrasPlagas.filas : []);
   renderTable(doc, 'Áreas externas y espacios verdes', SIMPLE_COLUMNS, normalizedSimpleRows(Array.isArray(datos.areasExternas?.filas) ? datos.areasExternas.filas : [], 'areasExternas'));
   renderTable(doc, 'Hermeticidad', SIMPLE_COLUMNS, normalizedSimpleRows(Array.isArray(datos.hermeticidad?.filas) ? datos.hermeticidad.filas : [], 'hermeticidad'));
   sectionTitle(doc, 'Verificación');
   boxedRows(doc, [
     ['Acompañamiento', [formatDate(datos.verificacion?.fechaAcompanamiento), datos.verificacion?.horaDesde, datos.verificacion?.horaHasta].map(clean).filter(Boolean).join(' · ')],
+    ['Responsable control', datos.verificacion?.responsableControl],
     ['Incrementar actividades', datos.verificacion?.incrementarActividades],
+    ['Detalle de sectores', datos.verificacion?.detalleSectores],
     ['Observaciones finales', datos.verificacion?.observacionesFinales]
   ]);
 }

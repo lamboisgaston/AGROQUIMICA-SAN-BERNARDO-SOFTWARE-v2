@@ -1080,20 +1080,12 @@ function extraerSenasaResumen(payload = {}) {
 
 
 async function listarProductosSenasaMip() {
-  let productos = await prisma.producto.findMany({
+  await upsertProductosSenasaMip(prisma);
+  return prisma.producto.findMany({
     where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE },
     include: { categorias: true },
     orderBy: { nombre: 'asc' }
   });
-  if (!productos.length) {
-    await upsertProductosSenasaMip(prisma);
-    productos = await prisma.producto.findMany({
-      where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE },
-      include: { categorias: true },
-      orderBy: { nombre: 'asc' }
-    });
-  }
-  return productos;
 }
 
 app.get('/api/senasa/productos', asyncHandler(async (_req, res) => {

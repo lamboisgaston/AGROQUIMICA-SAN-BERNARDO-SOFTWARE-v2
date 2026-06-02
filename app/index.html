@@ -375,23 +375,38 @@
         </div>
       </div>
       <nav class="senasa-tabs no-print" aria-label="Menú interno SENASA">
-        <button type="button" data-senasa-scroll="senasa-documentos">Documentos</button>
-        <button id="senasa-btn-nuevo-aviso" type="button">Nuevo Aviso MIP</button>
-        <button id="senasa-btn-nuevo-informe" type="button">Nuevo Informe</button>
-        <button type="button" data-senasa-scroll="senasa-productos-panel">Productos SENASA / ANMAT</button>
-        <button type="button" data-senasa-scroll="senasa-productos-panel">Datos regulatorios</button>
-        <button type="button" data-senasa-scroll="senasa-plantillas">Plantillas</button>
+        <button id="senasa-tab-avisos" class="activo" type="button" data-senasa-tab="avisos">Avisos MIP</button>
+        <button id="senasa-tab-informes" type="button" data-senasa-tab="informes">Informes realizados</button>
+        <button type="button" data-senasa-tab="productos">Productos SENASA</button>
+        <button type="button" data-senasa-tab="plantillas">Plantillas</button>
+        <button type="button" data-senasa-tab="documentos">Documentos guardados</button>
       </nav>
       <div class="senasa-layout no-print">
-        <aside class="senasa-panel">
-          <h3>Documentos guardados</h3>
-          <div id="senasa-documentos" class="lista">Cargando...</div>
-          <h3>Plantillas prefijadas</h3>
-          <div id="senasa-plantillas" class="lista">Cargando...</div>
-          <h3 id="senasa-productos-panel">Productos SENASA / ANMAT</h3>
-          <div id="senasa-productos-tabla" class="lista">Cargando...</div>
-          <h3 id="senasa-resoluciones-panel">Datos regulatorios por producto</h3>
-          <div id="senasa-resoluciones" class="lista">Los registros, disposiciones y observaciones se editan desde cada producto SENASA / ANMAT; no se cargan resoluciones sueltas.</div>
+        <aside class="senasa-panel senasa-tab-contenedor">
+          <section data-senasa-panel="avisos">
+            <h3>Avisos MIP</h3>
+            <button id="senasa-btn-nuevo-aviso" class="senasa-btn-grande" type="button">Nuevo Aviso MIP</button>
+            <div id="senasa-avisos" class="lista">Cargando...</div>
+          </section>
+          <section data-senasa-panel="informes" hidden>
+            <h3>Informes realizados</h3>
+            <button id="senasa-btn-nuevo-informe" class="senasa-btn-grande" type="button">Nuevo Informe</button>
+            <div id="senasa-informes" class="lista">Cargando...</div>
+          </section>
+          <section data-senasa-panel="productos" hidden>
+            <h3 id="senasa-productos-panel">Productos SENASA / ANMAT</h3>
+            <div id="senasa-productos-tabla" class="lista">Cargando...</div>
+            <h3 id="senasa-resoluciones-panel">Datos regulatorios por producto</h3>
+            <div id="senasa-resoluciones" class="lista">Los registros, disposiciones y observaciones se editan desde cada producto SENASA / ANMAT; no se cargan resoluciones sueltas.</div>
+          </section>
+          <section data-senasa-panel="plantillas" hidden>
+            <h3>Plantillas</h3>
+            <div id="senasa-plantillas" class="lista">Cargando...</div>
+          </section>
+          <section data-senasa-panel="documentos" hidden>
+            <h3>Documentos guardados</h3>
+            <div id="senasa-documentos" class="lista">Cargando...</div>
+          </section>
         </aside>
         <main class="senasa-panel">
           <h3>Formulario guiado</h3>
