@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
 const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
 const { obtenerConfiguracionChatbot, actualizarConfiguracionChatbot, buscarContextoSemillasYa, generarRespuestaTecnica, sanitizarMensajeUsuario } = require('./services/chatbotService');
 const { renderSenasaPdf } = require('./services/senasaPdfService');
-const { bootstrapProductosSenasaMipSiVacio, mapearProductoSenasaApi, normalizarProductoMipPayload, validarProductoMipPayload } = require('./services/senasaProductosService');
+const { mapearProductoSenasaApi, normalizarProductoMipPayload, upsertProductosSenasaMip, validarProductoMipPayload } = require('./services/senasaProductosService');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -1069,6 +1069,10 @@ function senasaProductoIdsEnDatos(datos = {}) {
     const id = parsePositiveInt(datos?.[key]?.productoId ?? datos?.[key]?.producto?.id);
     if (id) ids.add(id);
   });
+  (Array.isArray(datos.productosPrevistos) ? datos.productosPrevistos : []).forEach((item) => {
+    const id = parsePositiveInt(item?.productoId ?? item?.producto?.id);
+    if (id) ids.add(id);
+  });
   return [...ids];
 }
 
@@ -1092,7 +1096,8 @@ function completarSenasaSeccionConProducto(seccion = {}, productosPorId = new Ma
     fechaVencimientoRegistro: producto.fechaVencimientoRegistro || null,
     disposicionRegistro: producto.disposicionRegistro || '',
     empresaTitularRegistro: producto.empresaTitularRegistro || '',
-    observacionesRegulatorias: producto.observacionesRegulatorias || ''
+    observacionesRegulatorias: producto.observacionesRegulatorias || '',
+    habilitacionCompleta: producto.habilitacionCompleta || [producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual, producto.tipoRegistro && String(producto.tipoRegistro).toLowerCase() !== String(producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '').toLowerCase() ? producto.tipoRegistro : '', producto.numeroRegistro ? `N° ${producto.numeroRegistro}` : ''].filter(Boolean).join(' ')
   };
   Object.entries(snapshot).forEach(([key, value]) => {
     if (seccion[key] == null || seccion[key] === '') seccion[key] = value;
@@ -1114,6 +1119,9 @@ async function hidratarSenasaDocumentoConProductos(documento = {}) {
   ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas', 'ejecucion'].forEach((key) => {
     if (datosHidratados[key]) datosHidratados[key] = completarSenasaSeccionConProducto({ ...datosHidratados[key] }, productosPorId);
   });
+  if (Array.isArray(datosHidratados.productosPrevistos)) {
+    datosHidratados.productosPrevistos = datosHidratados.productosPrevistos.map((item) => completarSenasaSeccionConProducto({ ...item }, productosPorId));
+  }
   return { ...documento, datosJson: datosHidratados };
 }
 
@@ -4628,12 +4636,8 @@ const PORT = process.env.PORT || 3000;
 
 async function iniciarServidor() {
   try {
-    const resultadoBootstrap = await bootstrapProductosSenasaMipSiVacio(prisma);
-    if (resultadoBootstrap.ejecutado) {
-      console.log(`[senasa] Bootstrap automático de productos MIP ejecutado: ${resultadoBootstrap.creados} creados, ${resultadoBootstrap.actualizados} actualizados.`);
-    } else {
-      console.log(`[senasa] Bootstrap automático omitido: ${resultadoBootstrap.existentesAptos} productos aptos SENASA / MIP existentes.`);
-    }
+    const resultadoBootstrap = await upsertProductosSenasaMip(prisma);
+    console.log(`[senasa] Productos MIP base sincronizados: ${resultadoBootstrap.creados} creados, ${resultadoBootstrap.actualizados} actualizados, ${resultadoBootstrap.total} base.`);
   } catch (error) {
     console.warn('[senasa] No se pudo completar el bootstrap automático de productos MIP:', error.message);
   }
