@@ -305,12 +305,136 @@ function header(documento, datos, doc) {
   ], 3, { fontSize: 7.6, gapX: 6, gapY: 3, minHeight: 20 });
 }
 
-function renderAviso(documento, datos, doc) {
-  title(doc, 'PLANILLA TÉCNICA MIP', 'PRODUCTOS A APLICAR', headerMetaRows(documento, datos));
-  header(documento, datos, doc);
-  renderProductosAAplicar(doc, productosAAplicarAviso(datos), 'Productos a aplicar');
+
+function dotted(value, fallback = '........................') {
+  return displayValue(value, fallback);
+}
+function avisoPeriodo(seccion = {}, datos = {}) {
+  return `${dotted(valueAt(seccion.periodoDesde, datos.periodoDesde))} y el ${dotted(valueAt(seccion.periodoHasta, datos.periodoHasta))}`;
+}
+function avisoProductoTexto(seccion = {}) {
+  const producto = productoSeleccionado(seccion);
+  return {
+    nombre: dotted(producto.nombre),
+    principio: dotted(producto.principioActivo),
+    registro: dotted(valueAt(producto.numeroRegistro, seccion.resolucionSenasa)),
+    metodologia: dotted(valueAt(seccion.metodologia, seccion.metodo)),
+    frecuencia1: dotted(valueAt(seccion.frecuenciaGrupo1, seccion.frecuenciaVerificacion, seccion.frecuenciaHoras, seccion.frecuencia)),
+    sectores1: dotted(seccion.sectoresGrupo1),
+    frecuencia2: dotted(seccion.frecuenciaGrupo2),
+    sectores2: dotted(seccion.sectoresGrupo2)
+  };
+}
+function avisoSectionTitle(doc, text) {
+  ensureSpace(doc, 22);
+  doc.moveDown(0.35);
+  doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000').text(clean(text).toUpperCase(), { align: 'left' });
+  doc.moveDown(0.25);
+}
+function avisoBox(doc, paragraphs = []) {
+  const x = doc.page.margins.left;
+  const width = contentWidth(doc);
+  const normalized = paragraphs.filter(Boolean).map((line) => clean(line));
+  const heights = normalized.map((line) => doc.font('Helvetica').fontSize(9.2).heightOfString(line, { width: width - 12, align: 'justify', lineGap: 2 }));
+  const boxHeight = Math.max(34, heights.reduce((sum, height) => sum + height, 0) + normalized.length * 5 + 8);
+  ensureSpace(doc, boxHeight + 10);
+  const y = doc.y;
+  doc.rect(x, y, width, boxHeight).strokeColor('#000').lineWidth(0.7).stroke();
+  let cursorY = y + 6;
+  normalized.forEach((line, index) => {
+    doc.font('Helvetica').fontSize(9.2).fillColor('#000').text(line, x + 6, cursorY, { width: width - 12, align: 'justify', lineGap: 2 });
+    cursorY += heights[index] + 5;
+  });
+  doc.y = y + boxHeight + 7;
+  resetStroke(doc);
+}
+function avisoFirmas(doc) {
+  ensureSpace(doc, 70);
+  const y = Math.max(doc.y + 38, doc.page.height - doc.page.margins.bottom - 42);
+  const left = doc.page.margins.left + 18;
+  const right = doc.page.width - doc.page.margins.right - 178;
+  doc.strokeColor('#000').lineWidth(0.7).moveTo(left, y).lineTo(left + 150, y).stroke();
+  doc.moveTo(right, y).lineTo(right + 150, y).stroke();
+  doc.font('Helvetica-Bold').fontSize(8.8).fillColor('#000').text('Responsable Técnico MIP', left + 10, y + 6, { width: 150, align: 'center' });
+  doc.text('Recibido SIV', right + 10, y + 6, { width: 150, align: 'center' });
+  doc.y = y + 25;
+  resetStroke(doc);
 }
 
+function renderAviso(documento, datos, doc) {
+  const cliente = datos.cliente || {};
+  const establecimiento = datos.establecimiento || {};
+  const dbCliente = documento.cliente || {};
+  const cfg = dbCliente.senasaConfiguracion || {};
+  const r = avisoProductoTexto(datos.roedores || {});
+  const ie = avisoProductoTexto(datos.insectosExternos || {});
+  const ii = avisoProductoTexto(datos.insectosInternos || {});
+  const ov = avisoProductoTexto(datos.otrasPlagas?.voladoras || datos.otrasPlagas || {});
+  const oc = avisoProductoTexto(datos.otrasPlagas?.caminadoras || {});
+
+  doc.page.margins.top = 36;
+  doc.page.margins.left = 56;
+  doc.page.margins.right = 56;
+  doc.page.margins.bottom = 40;
+  doc.y = doc.page.margins.top;
+  doc.fillColor('#000').font('Helvetica-Bold').fontSize(12.5).text('PLANILLA DE AVISO', { align: 'center' });
+  doc.moveDown(0.35);
+  doc.fontSize(12.5).text('PROGRAMA DE ACTIVIDADES MIP', { align: 'center' });
+  doc.moveDown(0.25);
+  doc.fontSize(9.5).text(`CIRCULAR N.º ${dotted(valueAt(documento.numeroCircular, datos.numeroCircular), '........')}`, { align: 'center' });
+  doc.moveDown(1.6);
+  doc.font('Helvetica').fontSize(10).text(`FECHA DE RECEPCIÓN: ${dotted(formatDate(valueAt(documento.fechaRecepcion, datos.fechaRecepcion)), '__/__________/20__')}`, { align: 'right' });
+  doc.moveDown(1.2);
+
+  avisoSectionTitle(doc, 'ESTABLECIMIENTO');
+  avisoBox(doc, [
+    `Establecimiento Nº Oficial   ${dotted(valueAt(establecimiento.establecimientoOficial, cfg.establecimientoOficial), '')}                 Razón Social ${dotted(valueAt(cliente.nombre, dbCliente.nombre), '')}`,
+    `Domicilio: ${dotted(valueAt(cliente.domicilio, cliente.direccion, dbCliente.direccion), '')}        Tel/Fax: ${dotted(valueAt(cliente.telefono, dbCliente.telefono), '')}`,
+    `Localidad: ${dotted(valueAt(cliente.localidad, cfg.localidad), '')}        Dpto/Partido: ${dotted(valueAt(establecimiento.departamentoPartido, cfg.departamentoPartido), '')}        Provincia: ${dotted(valueAt(cliente.provincia, cfg.provincia), '')}`,
+    `Supervisor: ${dotted(valueAt(establecimiento.supervisor, cfg.supervisor), '')}        Responsable por el S.I.V. ${dotted(valueAt(establecimiento.responsableSiv, cfg.responsableSiv), '')}`
+  ]);
+
+  avisoSectionTitle(doc, 'ROEDORES');
+  avisoBox(doc, [
+    `En el periodo comprendido del mes de ${dotted(datos.periodoDesde)} , se empleará como cebo rodenticida el producto: ${r.nombre}; cuyo principio activo es: ${r.principio}, aprobado por SENASA por la Resolución Nº ${r.registro}.`,
+    `Las actividades de verificación y reposición se efectuarán con una frecuencia de ${r.frecuencia1}, en los sectores identificados en el plano de referencia con las letras ${r.sectores1} en tanto que en los sectores identificados con las letras ${r.sectores2} la frecuencia de verificación y reposición será de ${r.frecuencia2}.`
+  ]);
+
+  avisoSectionTitle(doc, 'INSECTOS');
+  avisoBox(doc, [
+    `SECTORES EXTERNOS: Periodo comprendido entre el ${avisoPeriodo(datos.insectosExternos || {}, datos)}. Se empleará como insecticida para sectores externos el producto ${ie.nombre}. Cuyo principio activo es: ${ie.principio}. Y se encuentra aprobado por SENASA por Resolución Nº ${ie.registro}.`,
+    `Las actividades se efectuarán con una frecuencia de ${ie.frecuencia1} horas, en los sectores identificados en el plano de referencia con las letras ${ie.sectores1} en tanto que los sectores identificados con las letras ${ie.sectores2} la frecuencia será de ${ie.frecuencia2} Horas.`,
+    `SECTORES INTERNOS: Período comprendido entre el ${avisoPeriodo(datos.insectosInternos || {}, datos)}. En sectores internos se utilizará en la sección identificada en el plano de referencia, usando el producto insecticida para uso interior ${ii.nombre} cuyo principio activo es: ${ii.principio}. Y se encuentra aprobado por SENASA por Resolución Nº ${ii.registro}.`,
+    `La actividad se efectuará el día ${dotted(datos.insectosInternos?.diaActividad)} a las ${dotted(datos.insectosInternos?.horaActividad)} horas y se dejará actuar por un lapso de ${dotted(datos.insectosInternos?.lapsoHoras)} horas.`,
+    'Para proceder luego al lavado y desinfección de la sección'
+  ]);
+
+  avisoSectionTitle(doc, 'OTRAS PLAGAS');
+  avisoBox(doc, [
+    `SECTORES EXTERNOS ESPECIES VIVAS: Periodo comprendido entre el ${avisoPeriodo(datos.otrasPlagas?.voladoras || {}, datos)}.`,
+    `Se empleará para sectores externos la siguiente metodología/sistema de control ${ov.metodologia}. Que se encuentra desarrollado en el MIP.`,
+    `Las actividades de control y verificación se efectuarán con una frecuencia de ${ov.frecuencia1}, en los sectores identificados en el plano de referencia con las letras ${ov.sectores1} en tanto que los sectores identificados con las letras ${ov.sectores2} la frecuencia será de ${ov.frecuencia2}.`,
+    `SECTORES EXTERNOS ESPECIES CAMINADORAS: Periodo comprendido entre el ${avisoPeriodo(datos.otrasPlagas?.caminadoras || {}, datos)}.`,
+    `Se empleará para sectores externos la siguiente metodología/sistema de control ${oc.metodologia}. Que se encuentra desarrollado en el MIP.`,
+    `Las actividades de control y verificación se efectuarán con una frecuencia de ${oc.frecuencia1}, en los sectores identificados en el plano de referencia con las letras ${oc.sectores1} en tanto que los sectores identificados con las letras ${oc.sectores2} la frecuencia será de ${oc.frecuencia2}.`
+  ]);
+
+  avisoSectionTitle(doc, 'AREAS EXTERNAS Y ESPACIOS VERDES');
+  avisoBox(doc, [
+    `Periodo comprendido entre el ${avisoPeriodo(datos.areasExternas || {}, datos)}.`,
+    'Mantenimiento general de las áreas externas – (Acumulo de Basura, Chatarra, Malezas, etc.)',
+    `Las actividades de control y verificación se efectuarán con una frecuencia de ${dotted(valueAt(datos.areasExternas?.frecuenciaGrupo1, datos.areasExternas?.frecuencia))}, en los sectores identificados en el plano de referencia con las ${dotted(valueAt(datos.areasExternas?.sectoresGrupo1, datos.areasExternas?.sectoresMantenidos))}.`,
+    `Integridad del cerco perimetral y murete Las actividades de control y verificación se efectuarán con una frecuencia de ${dotted(datos.areasExternas?.frecuenciaGrupo2)}, en los sectores identificados en el plano de referencia con las letras ${dotted(datos.areasExternas?.sectoresGrupo2)}.`
+  ]);
+
+  avisoSectionTitle(doc, 'HERMETICIDAD');
+  avisoBox(doc, [
+    `Periodo comprendido entre el ${avisoPeriodo(datos.hermeticidad || {}, datos)}.`,
+    'Las actividades de control y verificación del correcto funcionamiento de cortinas de aire, cierre automático de puertas, extractores de aire, cierres sinfónicos, mosquiteros, burletes y fuelles, electrocutores, etc.',
+    `Se efectuarán con una frecuencia de ${dotted(valueAt(datos.hermeticidad?.frecuenciaGrupo1, datos.hermeticidad?.frecuencia))}, en los sectores identificados en el plano de referencia con las ${dotted(valueAt(datos.hermeticidad?.sectoresGrupo1, datos.hermeticidad?.sectoresEvaluados))}.`
+  ]);
+  avisoFirmas(doc);
+}
 const ROEDORES_COLUMNS = [
   { key: 'casilla', label: 'Casilla Nº', ratio: 0.11 },
   { key: 'roedoresVivos', label: 'Vivos', ratio: 0.10 },
@@ -402,8 +526,10 @@ function renderSenasaPdf(documento, writableStream) {
   doc.font('Helvetica');
   resetStroke(doc);
   if (documento.tipoDocumento === 'AVISO_MIP') renderAviso(documento, datos, doc);
-  else renderInforme(documento, datos, doc);
-  signatures(doc);
+  else {
+    renderInforme(documento, datos, doc);
+    signatures(doc);
+  }
 
   const pages = doc.bufferedPageRange();
   for (let i = 0; i < pages.count; i += 1) {

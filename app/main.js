@@ -3880,8 +3880,7 @@ function senasaProductoPrevistoDesdeProductoId(productoId) {
 function senasaProductosPrevistosDocumento(d = {}) {
   const base = Array.isArray(d.productosPrevistos) ? d.productosPrevistos : [];
   if (base.length) return base.map((item) => ({ ...item, habilitacionCompleta: senasaHabilitacionCompleta(item) }));
-  return ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas']
-    .map((key) => d[key])
+  return [d.roedores, d.insectosExternos, d.insectosInternos, d.otrasPlagas, d.otrasPlagas?.voladoras, d.otrasPlagas?.caminadoras]
     .filter((item) => senasaProductoDatos(item || {}).nombre)
     .map((item) => ({ ...item, habilitacionCompleta: senasaHabilitacionCompleta(item) }));
 }
@@ -3914,6 +3913,22 @@ function senasaValidarAvisoMip(d = {}) {
   return '';
 }
 
+
+function senasaMetodoSelect(name, value = '') {
+  const opciones = ['', 'Pulverización', 'Cebado', 'Nebulización', 'Control de cajas cebaderas', 'Reposición de cebos', 'Monitoreo', 'Inspección'];
+  return `<select name="${name}">${opciones.map((op) => `<option value="${escapeHtmlClient(op)}" ${String(value || '') === op ? 'selected' : ''}>${escapeHtmlClient(op || 'Seleccione metodología')}</option>`).join('')}</select>`;
+}
+function senasaSeccionProductoCampos(key, titulo, seccion = {}) {
+  const producto = senasaProductoDatos(seccion);
+  return `<div class="senasa-original-edit-block"><h4>${escapeHtmlClient(titulo)}</h4><div class="senasa-grid-dos">${senasaInput(`${key}.periodoDesde`, 'Periodo desde', 'date', seccion.periodoDesde || (senasaDocumentoActual?.periodoDesde || ''))}${senasaInput(`${key}.periodoHasta`, 'Periodo hasta', 'date', seccion.periodoHasta || (senasaDocumentoActual?.periodoHasta || ''))}<label>Metodología / sistema ${senasaMetodoSelect(`${key}.metodologia`, seccion.metodologia || seccion.metodo)}</label>${senasaSelectProducto(`${key}.productoId`, `Producto ${titulo.toLowerCase()}`, seccion.productoId, seccion)}${senasaInput(`${key}.principioActivo`, 'Principio activo', 'text', producto.principioActivo)}${senasaInput(`${key}.numeroRegistro`, 'Resolución / Registro SENASA', 'text', producto.numeroRegistro || producto.resolucionSenasa)}${senasaInput(`${key}.frecuenciaGrupo1`, 'Frecuencia', 'text', seccion.frecuenciaGrupo1 || seccion.frecuenciaVerificacion || seccion.frecuenciaHoras || seccion.frecuencia)}${senasaTextarea(`${key}.sectoresGrupo1`, 'Sectores grupo 1 / letras', seccion.sectoresGrupo1)}${senasaInput(`${key}.frecuenciaGrupo2`, 'Frecuencia grupo 2', 'text', seccion.frecuenciaGrupo2)}${senasaTextarea(`${key}.sectoresGrupo2`, 'Sectores grupo 2 / letras', seccion.sectoresGrupo2)}</div></div>`;
+}
+function senasaAvisoPlantillaOriginalHtml(d = {}) {
+  const cliente = d.cliente || {};
+  const est = d.establecimiento || {};
+  const clienteOptions = '<option value="">Seleccione cliente</option>' + senasaClientes.map((c) => senasaClienteOption(c, d.clienteId)).join('');
+  return `${senasaFieldset('Cabecera original', `<div class="senasa-grid-tres"><label>Tipo documento<select name="tipoDocumento"><option value="AVISO_MIP" selected>Planilla de Aviso — Programa de Actividades MIP</option><option value="INFORME_CONTROL_PLAGAS">Informe — Control de Plagas</option></select></label>${senasaInput('numeroCircular', 'Circular Nº', 'text', d.numeroCircular)}${senasaInput('fechaRecepcion', 'Fecha de recepción', 'date', d.fechaRecepcion)}${senasaInput('periodoDesde', 'Periodo general desde', 'date', d.periodoDesde)}${senasaInput('periodoHasta', 'Periodo general hasta', 'date', d.periodoHasta)}<label>Cliente / establecimiento<select name="clienteId" data-senasa-cliente>${clienteOptions}</select></label></div>`, true)}${senasaFieldset('ESTABLECIMIENTO', `<div class="senasa-grid-tres">${senasaInput('establecimiento.establecimientoOficial', 'Establecimiento Nº Oficial', 'text', est.establecimientoOficial)}${senasaInput('cliente.nombre', 'Razón social', 'text', cliente.nombre)}${senasaInput('cliente.domicilio', 'Domicilio', 'text', cliente.domicilio)}${senasaInput('cliente.telefono', 'Tel/Fax', 'text', cliente.telefono)}${senasaInput('cliente.localidad', 'Localidad', 'text', cliente.localidad)}${senasaInput('establecimiento.departamentoPartido', 'Dpto/Partido', 'text', est.departamentoPartido)}${senasaInput('cliente.provincia', 'Provincia', 'text', cliente.provincia)}${senasaInput('establecimiento.supervisor', 'Supervisor', 'text', est.supervisor)}${senasaInput('establecimiento.responsableSiv', 'Responsable por el S.I.V.', 'text', est.responsableSiv)}</div>`, true)}${senasaFieldset('ROEDORES', senasaSeccionProductoCampos('roedores', 'Roedores', d.roedores || {}), true)}${senasaFieldset('INSECTOS', `${senasaSeccionProductoCampos('insectosExternos', 'Sectores externos', d.insectosExternos || {})}${senasaSeccionProductoCampos('insectosInternos', 'Sectores internos', d.insectosInternos || {})}${senasaInput('insectosInternos.diaActividad', 'Día de actividad interna', 'date', d.insectosInternos?.diaActividad)}${senasaInput('insectosInternos.horaActividad', 'Hora actividad interna', 'time', d.insectosInternos?.horaActividad)}${senasaInput('insectosInternos.lapsoHoras', 'Lapso de actuación (horas)', 'text', d.insectosInternos?.lapsoHoras)}`, true)}${senasaFieldset('OTRAS PLAGAS', `${senasaSeccionProductoCampos('otrasPlagas.voladoras', 'Sectores externos especies vivas', d.otrasPlagas?.voladoras || {})}${senasaSeccionProductoCampos('otrasPlagas.caminadoras', 'Sectores externos especies caminadoras', d.otrasPlagas?.caminadoras || {})}`, true)}${senasaFieldset('ÁREAS EXTERNAS Y ESPACIOS VERDES', `<div class="senasa-grid-dos">${senasaInput('areasExternas.periodoDesde', 'Periodo desde', 'date', d.areasExternas?.periodoDesde || d.periodoDesde)}${senasaInput('areasExternas.periodoHasta', 'Periodo hasta', 'date', d.areasExternas?.periodoHasta || d.periodoHasta)}${senasaInput('areasExternas.frecuenciaGrupo1', 'Frecuencia', 'text', d.areasExternas?.frecuenciaGrupo1 || d.areasExternas?.frecuencia)}${senasaTextarea('areasExternas.sectoresGrupo1', 'Sectores / letras', d.areasExternas?.sectoresGrupo1 || d.areasExternas?.sectoresMantenidos)}${senasaTextarea('areasExternas.observaciones', 'Observaciones', d.areasExternas?.observaciones)}</div>`, true)}${senasaFieldset('HERMETICIDAD', `<div class="senasa-grid-dos">${senasaInput('hermeticidad.periodoDesde', 'Periodo desde', 'date', d.hermeticidad?.periodoDesde || d.periodoDesde)}${senasaInput('hermeticidad.periodoHasta', 'Periodo hasta', 'date', d.hermeticidad?.periodoHasta || d.periodoHasta)}${senasaInput('hermeticidad.frecuenciaGrupo1', 'Frecuencia', 'text', d.hermeticidad?.frecuenciaGrupo1 || d.hermeticidad?.frecuencia)}${senasaTextarea('hermeticidad.sectoresGrupo1', 'Sectores / letras', d.hermeticidad?.sectoresGrupo1 || d.hermeticidad?.sectoresEvaluados)}${senasaTextarea('hermeticidad.observaciones', 'Elementos / observaciones', d.hermeticidad?.observaciones)}</div>`, true)}`;
+}
+
 function renderSenasaForm() {
   const d = senasaDocumentoActual || senasaDocumentoBase('AVISO_MIP');
   const esAviso = d.tipoDocumento === 'AVISO_MIP';
@@ -3936,13 +3951,9 @@ function renderSenasaForm() {
   const validacion = senasaValidarAvisoMip(d);
   const pdfHtml = `<div class="senasa-pdf-preview-card"><h4>Vista previa antes de generar PDF</h4>${validacion ? `<div class="senasa-validation-error">${escapeHtmlClient(validacion)}</div>` : '<div class="senasa-validation-ok">Datos mínimos completos para generar PDF.</div>'}<div class="senasa-resumen-grid"><p><strong>Razón social:</strong> ${escapeHtmlClient(senasaValor(cliente.nombre))}</p><p><strong>Periodo:</strong> ${escapeHtmlClient(senasaValor(`${d.periodoDesde || ''} — ${d.periodoHasta || ''}`))}</p></div><h4>Productos a aplicar</h4>${senasaVistaPreviaProductosHtml(d)}<button type="button" class="btn-primary" data-senasa-generar-pdf ${validacion ? 'disabled aria-disabled="true" title="Complete los datos obligatorios antes de generar el PDF"' : ''}>Generar PDF</button></div>`;
   if (esAviso) {
-    const steps = { 1: ['Paso 1: Establecimiento', establecimientoHtml], 2: ['Paso 2: Periodo', planificacionHtml], 3: ['Paso 3: Productos a aplicar', productosHtml], 4: ['Paso 4: Vista previa y generar PDF', pdfHtml] };
-    const [titulo, contenido] = steps[senasaPasoMipActual] || steps[1];
-    form.innerHTML = `${senasaWizardNavHtml(senasaPasoMipActual)}<section class="senasa-wizard-panel"><h3>${titulo}</h3>${contenido}<div class="senasa-wizard-actions"><button type="button" data-senasa-paso="${Math.max(1, senasaPasoMipActual - 1)}" ${senasaPasoMipActual === 1 ? 'disabled' : ''}>Volver</button><button type="button" data-senasa-paso="${Math.min(4, senasaPasoMipActual + 1)}" ${senasaPasoMipActual === 4 ? 'disabled' : ''}>Siguiente</button></div></section>`;
+    form.innerHTML = senasaAvisoPlantillaOriginalHtml(d);
     const clienteSelect = form.querySelector('[name="clienteId"]');
     if (clienteSelect) clienteSelect.value = d.clienteId || '';
-    const previstoSelect = form.querySelector('[data-senasa-producto-previsto-select]');
-    if (previstoSelect) previstoSelect.value = senasaProductoPrevistoSeleccionado || '';
     renderSenasaPreview();
     return;
   }
@@ -4029,6 +4040,8 @@ function senasaHidratarProductosDocumento(documento = {}) {
   ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas', 'ejecucion'].forEach((key) => {
     if (documento[key]) senasaHidratarProductoSeleccionado(documento[key]);
   });
+  if (documento.otrasPlagas?.voladoras) senasaHidratarProductoSeleccionado(documento.otrasPlagas.voladoras);
+  if (documento.otrasPlagas?.caminadoras) senasaHidratarProductoSeleccionado(documento.otrasPlagas.caminadoras);
   return documento;
 }
 function senasaSincronizarProductoSeccion(seccion = {}) {
@@ -4062,17 +4075,19 @@ function senasaSincronizarProductosDocumento(documento = {}) {
   ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas', 'ejecucion'].forEach((key) => {
     if (documento[key]) senasaSincronizarProductoSeccion(documento[key]);
   });
+  if (documento.otrasPlagas?.voladoras) senasaSincronizarProductoSeccion(documento.otrasPlagas.voladoras);
+  if (documento.otrasPlagas?.caminadoras) senasaSincronizarProductoSeccion(documento.otrasPlagas.caminadoras);
   return documento;
 }
 function recogerSenasaForm() {
   if (!senasaDocumentoActual) senasaDocumentoActual = senasaDocumentoBase('AVISO_MIP');
   const base = { ...senasaDocumentoActual, roedores: { ...(senasaDocumentoActual.roedores || {}), filas: [] }, otrasPlagas: { ...(senasaDocumentoActual.otrasPlagas || {}), filas: [] }, areasExternas: { ...(senasaDocumentoActual.areasExternas || {}), filas: [] }, hermeticidad: { ...(senasaDocumentoActual.hermeticidad || {}), filas: [] } };
   $('#senasa-form')?.querySelectorAll('input[name], select[name], textarea[name]').forEach((el) => senasaSetNested(base, el.name, el.value));
-  base.productosPrevistos = senasaProductosPrevistosDocumento(base);
   if (base.tipoDocumento === 'AVISO_MIP') {
     ['roedores', 'otrasPlagas', 'areasExternas', 'hermeticidad'].forEach((key) => { if (base[key]) delete base[key].filas; });
     senasaHidratarProductosDocumento(base);
     senasaSincronizarProductosDocumento(base);
+    base.productosPrevistos = senasaProductosPrevistosDocumento(base);
   } else {
     senasaHidratarProductoSeleccionado(base.ejecucion);
     senasaSincronizarProductoSeccion(base.ejecucion);
@@ -4100,21 +4115,50 @@ function senasaSectoresPreviewHtml(d = {}) {
   const hermeticidadObservaciones = senasaValorPrimerNoVacio(d.hermeticidad?.observaciones, d.hermeticidad?.elementos);
   return `<h4>ROEDORES</h4><div class="senasa-box">${senasaLinea('Frecuencia de verificación / reposición', d.roedores?.frecuenciaVerificacion)}${senasaLinea('Frecuencia grupo 1', d.roedores?.frecuenciaGrupo1)}${senasaLinea('Sectores grupo 1', d.roedores?.sectoresGrupo1)}${senasaLinea('Frecuencia grupo 2', d.roedores?.frecuenciaGrupo2)}${senasaLinea('Sectores grupo 2', d.roedores?.sectoresGrupo2)}</div><h4>INSECTOS EXTERNOS</h4><div class="senasa-box">${senasaLinea('Frecuencia grupo 1', insectosExternosFrecuenciaGrupo1)}${senasaLinea('Sectores grupo 1', d.insectosExternos?.sectoresGrupo1)}${senasaLinea('Frecuencia grupo 2', d.insectosExternos?.frecuenciaGrupo2)}${senasaLinea('Sectores grupo 2', d.insectosExternos?.sectoresGrupo2)}${senasaLinea('Observaciones de sectores', insectosExternosObservaciones)}</div><h4>INSECTOS INTERNOS</h4><div class="senasa-box">${senasaLinea('Sectores internos tratados', insectosInternosTratados)}${senasaLinea('Sectores críticos', insectosInternosCriticos)}${senasaLinea('Observaciones', insectosInternosObservaciones)}</div><h4>ÁREAS EXTERNAS</h4><div class="senasa-box">${senasaLinea('Sectores mantenidos', areasExternasMantenidos)}${senasaLinea('Sectores críticos', d.areasExternas?.sectoresCriticos)}${senasaLinea('Observaciones', areasExternasObservaciones)}</div><h4>HERMETICIDAD</h4><div class="senasa-box">${senasaLinea('Sectores evaluados', hermeticidadEvaluados)}${senasaLinea('Observaciones', hermeticidadObservaciones)}</div>`;
 }
+
+function senasaPuntos(value, fallback = '........................') {
+  return escapeHtmlClient(senasaValor(value, fallback));
+}
+function senasaPeriodoTexto(seccion = {}, d = {}) {
+  return `${senasaPuntos(seccion.periodoDesde || d.periodoDesde)} y el ${senasaPuntos(seccion.periodoHasta || d.periodoHasta)}`;
+}
+function senasaProductoTexto(seccion = {}) {
+  const producto = senasaProductoDatos(seccion);
+  return {
+    nombre: senasaPuntos(producto.nombre),
+    principio: senasaPuntos(producto.principioActivo),
+    registro: senasaPuntos(producto.numeroRegistro || producto.resolucionSenasa),
+    metodologia: senasaPuntos(seccion.metodologia || seccion.metodo),
+    frecuencia1: senasaPuntos(seccion.frecuenciaGrupo1 || seccion.frecuenciaVerificacion || seccion.frecuenciaHoras || seccion.frecuencia),
+    sectores1: senasaPuntos(seccion.sectoresGrupo1),
+    frecuencia2: senasaPuntos(seccion.frecuenciaGrupo2),
+    sectores2: senasaPuntos(seccion.sectoresGrupo2)
+  };
+}
+function senasaAvisoOriginalPreviewHtml(d = {}) {
+  const r = senasaProductoTexto(d.roedores || {});
+  const ie = senasaProductoTexto(d.insectosExternos || {});
+  const ii = senasaProductoTexto(d.insectosInternos || {});
+  const ov = senasaProductoTexto(d.otrasPlagas?.voladoras || d.otrasPlagas || {});
+  const oc = senasaProductoTexto(d.otrasPlagas?.caminadoras || {});
+  return `<h4>ROEDORES</h4><div class="senasa-box"><p>En el periodo comprendido del mes ${senasaPuntos(d.periodoDesde)} , se empleará como cebo rodenticida el producto: ${r.nombre}; cuyo principio activo es: ${r.principio}, aprobado por SENASA por la Resolución Nº ${r.registro}.</p><p>Las actividades de verificación y reposición se efectuarán con una frecuencia de ${r.frecuencia1}, en los sectores identificados en el plano de referencia con las letras ${r.sectores1} en tanto que en los sectores identificados con las letras ${r.sectores2} la frecuencia de verificación y reposición será de ${r.frecuencia2}.</p></div><h4>INSECTOS</h4><div class="senasa-box"><p><strong><u>SECTORES EXTERNOS:</u></strong> Periodo comprendido entre el ${senasaPeriodoTexto(d.insectosExternos || {}, d)}. Se empleará como <strong>insecticida para sectores externos</strong> el producto ${ie.nombre}. Cuyo principio activo es: ${ie.principio}. Y se encuentra aprobado por SENASA por Resolución Nº ${ie.registro}.</p><p>Las actividades se efectuarán con una frecuencia de ${ie.frecuencia1} horas, en los sectores identificados en el plano de referencia con las letras ${ie.sectores1} en tanto que los sectores identificados con las letras ${ie.sectores2} la frecuencia será de ${ie.frecuencia2} horas.</p><p><strong><u>SECTORES INTERNOS:</u></strong> Período comprendido entre el ${senasaPeriodoTexto(d.insectosInternos || {}, d)}. En <strong>sectores internos</strong> se utilizará en la sección identificada en el plano de referencia, usando el producto insecticida para uso interior ${ii.nombre} cuyo principio activo es: ${ii.principio}. Y se encuentra aprobado por SENASA por Resolución Nº ${ii.registro}.</p><p>La actividad se efectuará el día ${senasaPuntos(d.insectosInternos?.diaActividad)} a las ${senasaPuntos(d.insectosInternos?.horaActividad)} horas y se dejará actuar por un lapso de ${senasaPuntos(d.insectosInternos?.lapsoHoras)} horas.</p><p>Para proceder luego al lavado y desinfección de la sección</p></div><h4>OTRAS PLAGAS</h4><div class="senasa-box"><p><strong><u>SECTORES EXTERNOS ESPECIES VIVAS:</u></strong> Periodo comprendido entre el ${senasaPeriodoTexto(d.otrasPlagas?.voladoras || {}, d)}.</p><p>Se empleará para <strong>sectores externos</strong> la siguiente metodología/sistema de control ${ov.metodologia}. Que se encuentra desarrollado en el MIP.</p><p>Las actividades de control y verificación se efectuarán con una frecuencia de ${ov.frecuencia1}, en los sectores identificados en el plano de referencia con las letras ${ov.sectores1} en tanto que los sectores identificados con las letras ${ov.sectores2} la frecuencia será de ${ov.frecuencia2}.</p><p><strong><u>SECTORES EXTERNOS ESPECIES CAMINADORAS:</u></strong> Periodo comprendido entre el ${senasaPeriodoTexto(d.otrasPlagas?.caminadoras || {}, d)}.</p><p>Se empleará para <strong>sectores externos</strong> la siguiente metodología/sistema de control ${oc.metodologia}. Que se encuentra desarrollado en el MIP.</p><p>Las actividades de control y verificación se efectuarán con una frecuencia de ${oc.frecuencia1}, en los sectores identificados en el plano de referencia con las letras ${oc.sectores1} en tanto que los sectores identificados con las letras ${oc.sectores2} la frecuencia será de ${oc.frecuencia2}.</p></div><h4>AREAS EXTERNAS Y ESPACIOS VERDES</h4><div class="senasa-box"><p>Periodo comprendido entre el ${senasaPeriodoTexto(d.areasExternas || {}, d)}.</p><p><strong>Mantenimiento general de las áreas externas</strong> – (Acumulo de Basura, Chatarra, Malezas, etc.)</p><p>Las actividades de control y verificación se efectuarán con una frecuencia de ${senasaPuntos(d.areasExternas?.frecuenciaGrupo1 || d.areasExternas?.frecuencia)}, en los sectores identificados en el plano de referencia con las ${senasaPuntos(d.areasExternas?.sectoresGrupo1 || d.areasExternas?.sectoresMantenidos)}.</p><p><strong>Integridad del cerco perimetral y murete</strong> Las actividades de control y verificación se efectuarán con una frecuencia de ${senasaPuntos(d.areasExternas?.frecuenciaGrupo2)}, en los sectores identificados en el plano de referencia con las letras ${senasaPuntos(d.areasExternas?.sectoresGrupo2)}.</p></div><h4>HERMETICIDAD</h4><div class="senasa-box"><p>Periodo comprendido entre el ${senasaPeriodoTexto(d.hermeticidad || {}, d)}.</p><p>Las actividades de control y verificación del correcto funcionamiento de cortinas de aire, cierre automático de puertas, extractores de aire, cierres sinfónicos, mosquiteros, burletes y fuelles, electrocutores, etc.</p><p>Se efectuarán con una frecuencia de ${senasaPuntos(d.hermeticidad?.frecuenciaGrupo1 || d.hermeticidad?.frecuencia)}, en los sectores identificados en el plano de referencia con las ${senasaPuntos(d.hermeticidad?.sectoresGrupo1 || d.hermeticidad?.sectoresEvaluados)}.</p></div>`;
+}
+
 function renderSenasaPreview() {
   const d = recogerSenasaForm();
   const esAviso = d.tipoDocumento === 'AVISO_MIP';
   const preview = $('#senasa-preview');
   if (!preview) return;
-  const titulo = esAviso ? 'PLANILLA TÉCNICA MIP' : 'INFORME';
-  const subtitulo = esAviso ? 'PRODUCTOS A APLICAR' : 'CONTROL DE PLAGAS';
+  const titulo = esAviso ? 'PLANILLA DE AVISO' : 'INFORME';
+  const subtitulo = esAviso ? 'PROGRAMA DE ACTIVIDADES MIP' : 'CONTROL DE PLAGAS';
   const cliente = d.cliente || {}, est = d.establecimiento || {};
   const roedoresTabla = !esAviso ? `<table><thead><tr><th>Casilla Nº</th><th>Vivos</th><th>Muertos</th><th>Materia fecal</th><th>Consumo cebo</th><th>Observaciones</th><th>Medida Correctiva</th></tr></thead><tbody>${(d.roedores?.filas || []).map(r=>`<tr><td>${escapeHtmlClient(r.casilla || '')}</td><td>${escapeHtmlClient(r.roedoresVivos || '')}</td><td>${escapeHtmlClient(r.roedoresMuertos || '')}</td><td>${escapeHtmlClient(r.materiaFecal || '')}</td><td>${escapeHtmlClient(r.consumoCebo || '')}</td><td>${escapeHtmlClient(r.observaciones || '')}</td><td>${escapeHtmlClient(r.medidaCorrectiva || '')}</td></tr>`).join('')}</tbody></table>` : '';
   const avisoVinculado = d.avisoVinculadoId ? `Aviso MIP vinculado #${d.avisoVinculadoId}` : 'Sin aviso vinculado';
   const productosPrevistosPreview = renderSenasaProductosPrevistosTabla({ productosPrevistos: senasaProductosPrevistosDocumento(d) });
-  preview.innerHTML = `<div class="senasa-doc-title"><h2>${titulo}</h2><h3>${subtitulo}</h3><b>CIRCULAR Nº ${escapeHtmlClient(d.numeroCircular || '........')}</b></div>
+  preview.innerHTML = `<div class="senasa-doc-title"><h2>${titulo}</h2><h3>${subtitulo}</h3><b>CIRCULAR N.º ${escapeHtmlClient(d.numeroCircular || '........')}</b></div>
     <p class="senasa-fecha">FECHA DE RECEPCIÓN: ${escapeHtmlClient(d.fechaRecepcion || '__/__/20__')}</p>
     <h4>ESTABLECIMIENTO</h4><div class="senasa-box"><p>Establecimiento Nº Oficial <b>${escapeHtmlClient(est.establecimientoOficial || '')}</b> &nbsp; Razón Social <b>${escapeHtmlClient(cliente.nombre || '')}</b></p><p>Domicilio: <b>${escapeHtmlClient(cliente.domicilio || '')}</b> &nbsp; Tel/Fax: <b>${escapeHtmlClient(cliente.telefono || '')}</b></p><p>Localidad: <b>${escapeHtmlClient(cliente.localidad || '')}</b> &nbsp; Dpto/Partido: <b>${escapeHtmlClient(est.departamentoPartido || '')}</b> &nbsp; Provincia: <b>${escapeHtmlClient(cliente.provincia || '')}</b></p><p>Supervisor: <b>${escapeHtmlClient(est.supervisor || '')}</b> &nbsp; Responsable por el S.I.V. <b>${escapeHtmlClient(est.responsableSiv || '')}</b></p></div>
-    ${esAviso ? `<h4>PRODUCTOS A APLICAR</h4>${productosPrevistosPreview}` : `<h4>EJECUCIÓN REAL</h4><div class="senasa-box">${senasaLinea('Aviso vinculado', avisoVinculado, '')}${senasaLinea('Fecha real', d.fechaActividad)}${senasaLinea('Hora real', d.horaActividad)}${senasaLinea('Sectores recorridos', d.ejecucion?.sectoresRecorridos)}${senasaLinea('Casillas revisadas', d.ejecucion?.casillasRevisadas)}${senasaLinea('Trampas revisadas', d.ejecucion?.trampasRevisadas)}${senasaLinea('Actividad detectada / hallazgos', d.ejecucion?.actividadDetectada)}${senasaLinea('Productos utilizados', d.ejecucion?.productosUtilizados)}${senasaProductoPreviewHtml('Producto utilizado', d.ejecucion)}${senasaLinea('Observaciones', d.ejecucion?.observaciones)}${senasaLinea('Medidas correctivas', d.ejecucion?.medidasCorrectivas)}</div><h4>ROEDORES</h4>${roedoresTabla}<h4>VERIFICACIÓN</h4><div class="senasa-box">${senasaLinea('Acompañamiento', `${d.verificacion?.fechaAcompanamiento || ''} de ${d.verificacion?.horaDesde || ''} a ${d.verificacion?.horaHasta || ''}`)}${senasaLinea('Incrementar actividades', d.verificacion?.incrementarActividades)}${senasaLinea('Observaciones finales', d.verificacion?.observacionesFinales)}</div>`}
+    ${esAviso ? senasaAvisoOriginalPreviewHtml(d) : `<h4>EJECUCIÓN REAL</h4><div class="senasa-box">${senasaLinea('Aviso vinculado', avisoVinculado, '')}${senasaLinea('Fecha real', d.fechaActividad)}${senasaLinea('Hora real', d.horaActividad)}${senasaLinea('Sectores recorridos', d.ejecucion?.sectoresRecorridos)}${senasaLinea('Casillas revisadas', d.ejecucion?.casillasRevisadas)}${senasaLinea('Trampas revisadas', d.ejecucion?.trampasRevisadas)}${senasaLinea('Actividad detectada / hallazgos', d.ejecucion?.actividadDetectada)}${senasaLinea('Productos utilizados', d.ejecucion?.productosUtilizados)}${senasaProductoPreviewHtml('Producto utilizado', d.ejecucion)}${senasaLinea('Observaciones', d.ejecucion?.observaciones)}${senasaLinea('Medidas correctivas', d.ejecucion?.medidasCorrectivas)}</div><h4>ROEDORES</h4>${roedoresTabla}<h4>VERIFICACIÓN</h4><div class="senasa-box">${senasaLinea('Acompañamiento', `${d.verificacion?.fechaAcompanamiento || ''} de ${d.verificacion?.horaDesde || ''} a ${d.verificacion?.horaHasta || ''}`)}${senasaLinea('Incrementar actividades', d.verificacion?.incrementarActividades)}${senasaLinea('Observaciones finales', d.verificacion?.observacionesFinales)}</div>`}
     <div class="senasa-firmas"><span>Responsable Técnico MIP</span><span>Recibido SIV</span></div>`;
   $('#senasa-editable').value = JSON.stringify(d, null, 2);
 }
