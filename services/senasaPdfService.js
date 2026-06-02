@@ -323,9 +323,9 @@ function productosAplicadosInforme(datos = {}) {
   return row ? [row] : [];
 }
 
-function renderProductosAplicados(doc, rows) {
+function renderProductosAplicados(doc, rows, titleText = 'Productos aplicados') {
   if (!rows.length) return;
-  renderTable(doc, 'Productos aplicados', PRODUCTOS_APLICADOS_COLUMNS, rows);
+  renderTable(doc, titleText, PRODUCTOS_APLICADOS_COLUMNS, rows);
 }
 
 function headerMetaRows(documento, datos) {
@@ -370,7 +370,7 @@ function renderAviso(documento, datos, doc) {
     ['Criterios de control', datos.planificacion?.criteriosControl]
   ], 2);
 
-  renderProductosAplicados(doc, productosAplicadosAviso(datos));
+  renderProductosAplicados(doc, productosAplicadosAviso(datos), 'Productos a aplicar');
 
   sectionTitle(doc, 'Roedores');
   const desde = formatDate(valueAt(datos.roedores?.periodoDesde, datos.periodoDesde, documento.periodoDesde));
