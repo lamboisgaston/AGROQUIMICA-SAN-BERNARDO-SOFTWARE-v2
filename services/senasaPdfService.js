@@ -157,6 +157,16 @@ function registroCompleto(producto = {}) {
   return [clean(producto.tipoRegistro), numero].filter(Boolean).join(' ');
 }
 
+
+function habilitacionCompleta(producto = {}) {
+  const completa = clean(producto.habilitacionCompleta);
+  if (completa) return completa;
+  const organismo = clean(producto.habilitacionHabitual);
+  const tipo = clean(producto.tipoRegistro);
+  const numero = clean(producto.numeroRegistro);
+  return [organismo, tipo && tipo.toLowerCase() !== organismo.toLowerCase() ? tipo : '', numero ? `N° ${numero}` : ''].filter(Boolean).join(' ');
+}
+
 function productoSeleccionado(datos = {}) {
   const producto = datos.producto && typeof datos.producto === 'object' ? datos.producto : {};
   const tipoRegistro = valueAt(producto.tipoRegistro, datos.tipoRegistro);
@@ -167,6 +177,7 @@ function productoSeleccionado(datos = {}) {
     principioActivo: valueAt(producto.principioActivo, datos.principioActivo),
     concentracion: valueAt(producto.concentracion, datos.concentracion),
     habilitacionHabitual: valueAt(producto.habilitacionHabitual, datos.habilitacionHabitual, producto.organismoHabilitante, datos.organismoHabilitante, producto.organismoRegulador, datos.organismoRegulador),
+    habilitacionCompleta: valueAt(producto.habilitacionCompleta, datos.habilitacionCompleta),
     tipoRegistro,
     numeroRegistro,
     disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
@@ -186,8 +197,7 @@ function productoTecnicoRows(datos = {}) {
     ['Producto', documentoPendiente(producto.nombre)],
     ['Principio activo', documentoPendiente(producto.principioActivo)],
     ['Concentración', documentoPendiente(producto.concentracion)],
-    ['Habilitación', documentoPendiente(producto.habilitacionHabitual)],
-    ['Registro', documentoPendiente(registroCompleto(producto))],
+    ['Habilitación / Registro', documentoPendiente(habilitacionCompleta(producto))],
     ['Disposición', documentoPendiente(producto.disposicionRegistro)],
     ['Fecha', documentoPendiente(formatDate(producto.fechaResolucionSenasa))],
     ['Vencimiento', documentoPendiente(formatDate(producto.fechaVencimientoRegistro))],
@@ -269,7 +279,7 @@ const PRODUCTOS_APLICADOS_COLUMNS = [
   { key: 'productoComercial', label: 'Producto comercial', ratio: 0.25 },
   { key: 'principioActivo', label: 'Principio activo', ratio: 0.25 },
   { key: 'concentracion', label: 'Concentración', ratio: 0.16 },
-  { key: 'habilitacion', label: 'Habilitación', ratio: 0.34 }
+  { key: 'habilitacion', label: 'Habilitación / Registro', ratio: 0.34 }
 ];
 
 function productoAplicadoRow(datos = {}) {
@@ -279,14 +289,17 @@ function productoAplicadoRow(datos = {}) {
     productoComercial: producto.nombre,
     principioActivo: producto.principioActivo,
     concentracion: producto.concentracion,
-    habilitacion: [producto.habilitacionHabitual, producto.tipoRegistro, producto.numeroRegistro ? `N° ${producto.numeroRegistro}` : ''].map(clean).filter(Boolean).join(' ')
+    habilitacion: habilitacionCompleta(producto)
   };
 }
 
 function productosAplicadosAviso(datos = {}) {
   const vistos = new Set();
-  return ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas']
-    .map((key) => productoAplicadoRow(datos[key]))
+  const fuentes = Array.isArray(datos.productosPrevistos) && datos.productosPrevistos.length
+    ? datos.productosPrevistos
+    : ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas'].map((key) => datos[key]);
+  return fuentes
+    .map((item) => productoAplicadoRow(item))
     .filter(Boolean)
     .filter((row) => {
       const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion].join('|');

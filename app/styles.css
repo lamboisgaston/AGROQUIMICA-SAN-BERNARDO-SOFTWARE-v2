@@ -443,3 +443,105 @@ details[open] { display: grid; gap: 5px; }
   .no-print { display: none !important; }
 }
 .pill.senasa { background: #dbeafe; color: #1d4ed8; margin-left: 6px; vertical-align: middle; }
+
+.senasa-wizard-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  margin: 0 0 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.96);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+.senasa-wizard-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  font-weight: 800;
+  cursor: pointer;
+}
+.senasa-wizard-step span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.senasa-wizard-step.activo {
+  border-color: #1d4ed8;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
+  color: #fff;
+}
+.senasa-wizard-step.activo span { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.senasa-wizard-panel {
+  min-height: 560px;
+  padding: 18px;
+  border: 1px solid #dbe4ee;
+  border-radius: 18px;
+  background: #fff;
+}
+.senasa-wizard-panel > h3 { margin-top: 0; color: #1e3a8a; }
+.senasa-step-grid { grid-auto-rows: minmax(78px, auto); }
+.senasa-productos-asistente,
+.senasa-pdf-preview-card { min-height: 430px; }
+.senasa-producto-add-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+}
+.senasa-sector-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.senasa-sector-card {
+  min-height: 210px;
+  padding: 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+.senasa-sector-card h4 { margin-top: 0 !important; }
+.senasa-wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+.senasa-empty-box,
+.senasa-validation-error,
+.senasa-validation-ok {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+.senasa-empty-box { border: 1px dashed #94a3b8; background: #f8fafc; color: #475569; }
+.senasa-validation-error { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; }
+.senasa-validation-ok { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
+.senasa-resumen-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+@media (max-width: 900px) {
+  .senasa-wizard-nav { position: static; grid-template-columns: 1fr; }
+  .senasa-producto-add-card,
+  .senasa-sector-cards,
+  .senasa-resumen-grid { grid-template-columns: 1fr; }
+}

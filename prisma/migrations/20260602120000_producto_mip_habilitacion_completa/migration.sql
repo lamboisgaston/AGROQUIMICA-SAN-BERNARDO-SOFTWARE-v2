@@ -1,0 +1,1 @@
+ALTER TABLE "ProductoMip" ADD COLUMN IF NOT EXISTS "habilitacionCompleta" TEXT NOT NULL DEFAULT '';

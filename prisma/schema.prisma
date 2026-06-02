@@ -414,6 +414,7 @@ model ProductoMip {
   organismoHabilitante String
   tipoRegistro         String
   numeroRegistro       String
+  habilitacionCompleta String   @default("")
   disposicionRegistro String?
   fechaResolucionSenasa DateTime?
   fechaVencimientoRegistro DateTime?

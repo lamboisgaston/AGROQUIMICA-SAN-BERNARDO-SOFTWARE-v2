@@ -1,15 +1,14 @@
 const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
 
 const PRODUCTOS_SENASA_MIP = [
+  ['Storm', 'Flocoumafen', '0,005%', 'ANMAT', 'RNPUD', '0250019'],
   ['Fendona 6 SC', 'Alfacipermetrina', '6%', 'ANMAT', 'RNPUD', '0250058'],
-  ['Sipertrin', 'Cipermetrina', '', 'ANMAT', 'RNPUD', '0250075', 'DI-2021-5216-APN-ANMAT#MS'],
-  ['K-Othrina', 'Deltametrina', '2,5%', 'ANMAT', 'RNPUD', '0250079', 'DI-2022-7452-APN-ANMAT#MS'],
+  ['K-Othrina', 'Deltametrina', '2,5%', 'ANMAT', 'RNPUD', '0250006'],
   ['Aqua K-Othrine', 'Deltametrina', '2%', 'ANMAT', 'RNPUD', '0250052'],
   ['Solfac EW 50', 'Cyfluthrin', '5%', 'ANMAT', 'RNPUD', '0250005'],
   ['Blattanex Gel', 'Fipronil', '0,05%', 'ANMAT', 'RNPUD', '0250034'],
   ['Maxforce Gel', 'Imidacloprid', '2,15%', 'ANMAT', 'RNPUD', '0250044'],
   ['Klerat', 'Brodifacoum', '0,005%', 'ANMAT', 'RNPUD', '0250012'],
-  ['Storm', 'Flocoumafen', '0,005%', 'ANMAT', '', ''],
   ['Rodilon Bloque', 'Difethialone', '0,0025%', 'ANMAT', 'RNPUD', '0250071'],
   ['Mirex-S', 'Sulfluramida', '0,3%', 'SENASA', 'SENASA', '36.184']
 ].map(([nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro, disposicionRegistro = '', empresaTitularRegistro = '']) => ({
@@ -19,12 +18,24 @@ const PRODUCTOS_SENASA_MIP = [
   organismoHabilitante,
   tipoRegistro,
   numeroRegistro,
+  habilitacionCompleta: habilitacionCompletaProducto({ organismoHabilitante, tipoRegistro, numeroRegistro }),
   disposicionRegistro,
   empresaTitularRegistro,
   usoPrincipal: 'MIP'
 }));
 
 const PRODUCTO_SENASA_WHERE = { aptoSenasaMip: true };
+
+
+function habilitacionCompletaProducto({ organismoHabilitante = '', tipoRegistro = '', numeroRegistro = '' } = {}) {
+  const organismo = String(organismoHabilitante || '').trim();
+  const tipo = String(tipoRegistro || '').trim();
+  const numero = String(numeroRegistro || '').trim();
+  const partes = [organismo];
+  if (tipo && tipo.toLowerCase() !== organismo.toLowerCase()) partes.push(tipo);
+  if (numero) partes.push(`N° ${numero}`);
+  return partes.filter(Boolean).join(' ');
+}
 
 function normalizarNombreSenasa(nombre = '') {
   return String(nombre).trim().toLocaleLowerCase('es-AR');
@@ -38,6 +49,7 @@ function normalizarProductoMipPayload(payload = {}) {
     organismoHabilitante: String(payload.organismoHabilitante ?? payload.organismoRegulador ?? payload.habilitacionHabitual ?? '').trim(),
     tipoRegistro: String(payload.tipoRegistro || '').trim(),
     numeroRegistro: String(payload.numeroRegistro ?? payload.resolucionSenasa ?? '').trim(),
+    habilitacionCompleta: String(payload.habilitacionCompleta || '').trim(),
     disposicionRegistro: String(payload.disposicionRegistro ?? '').trim(),
     fechaResolucionSenasa: payload.fechaResolucionSenasa || null,
     fechaVencimientoRegistro: payload.fechaVencimientoRegistro || null,
@@ -48,7 +60,8 @@ function normalizarProductoMipPayload(payload = {}) {
 }
 
 function validarProductoMipPayload(data = {}) {
-  const faltantes = ['nombreComercial', 'principioActivo', 'concentracion', 'organismoHabilitante']
+  data.habilitacionCompleta = data.habilitacionCompleta || habilitacionCompletaProducto(data);
+  const faltantes = ['nombreComercial', 'principioActivo', 'concentracion', 'organismoHabilitante', 'tipoRegistro', 'numeroRegistro', 'habilitacionCompleta']
     .filter((campo) => !String(data[campo] || '').trim());
   return faltantes.length ? `Faltan campos obligatorios: ${faltantes.join(', ')}` : null;
 }
@@ -103,7 +116,7 @@ function mapearProductoSenasaApi(producto = {}) {
     fechaVencimientoRegistro: producto.fechaVencimientoRegistro || null,
     empresaTitularRegistro: producto.empresaTitularRegistro || '',
     observacionesRegulatorias: producto.observacionesRegulatorias || '',
-    habilitacionCompleta: [organismoHabilitante, tipoRegistro, numeroRegistro ? `N° ${numeroRegistro}` : ''].filter(Boolean).join(' '),
+    habilitacionCompleta: producto.habilitacionCompleta || habilitacionCompletaProducto({ organismoHabilitante, tipoRegistro, numeroRegistro }),
     usoPrincipal: producto.usoPrincipal || 'MIP',
     aptoSenasaMip: true,
     categoria: CATEGORIA_AGROQUIMICOS_SENASA,
