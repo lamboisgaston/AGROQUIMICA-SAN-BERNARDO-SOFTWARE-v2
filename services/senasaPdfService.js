@@ -34,10 +34,6 @@ function displayValue(value, fallback = '—') {
   return clean(value, fallback);
 }
 
-function line(value = '—') {
-  return displayValue(value);
-}
-
 function formatDate(value) {
   if (isBlank(value)) return '';
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toLocaleDateString('es-AR');
@@ -139,10 +135,6 @@ function fichaGrid(doc, rows, columns = 2, options = {}) {
   resetStroke(doc);
 }
 
-function documentoPendiente(value) {
-  return displayValue(value);
-}
-
 function numeroRegistroDesdeResolucion(resolucion = '', tipoRegistro = '') {
   const texto = clean(resolucion);
   const tipo = clean(tipoRegistro);
@@ -185,50 +177,6 @@ function productoSeleccionado(datos = {}) {
     fechaVencimientoRegistro: valueAt(producto.fechaVencimientoRegistro, datos.fechaVencimientoRegistro),
     empresaTitularRegistro: valueAt(producto.empresaTitularRegistro, datos.empresaTitularRegistro)
   };
-}
-
-function productoNombre(datos = {}) {
-  return valueAt(datos.producto?.nombre, datos.productoNombre, datos.nombre);
-}
-
-function productoTecnicoRows(datos = {}) {
-  const producto = productoSeleccionado(datos);
-  return [
-    ['Producto', documentoPendiente(producto.nombre)],
-    ['Principio activo', documentoPendiente(producto.principioActivo)],
-    ['Concentración', documentoPendiente(producto.concentracion)],
-    ['Habilitación / Registro', documentoPendiente(habilitacionCompleta(producto))],
-    ['Disposición', documentoPendiente(producto.disposicionRegistro)],
-    ['Fecha', documentoPendiente(formatDate(producto.fechaResolucionSenasa))],
-    ['Vencimiento', documentoPendiente(formatDate(producto.fechaVencimientoRegistro))],
-    ['Titular', documentoPendiente(producto.empresaTitularRegistro)]
-  ];
-}
-
-function tieneProductoTecnico(datos = {}) {
-  const producto = productoSeleccionado(datos);
-  return [producto.nombre, producto.principioActivo, producto.concentracion, producto.numeroRegistro, producto.disposicionRegistro].some((value) => clean(value));
-}
-
-function productoTecnicoBox(doc, datos = {}) {
-  if (!tieneProductoTecnico(datos)) return;
-  fichaGrid(doc, productoTecnicoRows(datos), 4, { fontSize: 7.2, gapX: 5, gapY: 3, minHeight: 20 });
-}
-
-function paragraph(doc, text) {
-  ensureSpace(doc, 45);
-  doc.font('Helvetica').fontSize(8.4).fillColor(COLORS.ink).text(displayValue(text), {
-    align: 'justify',
-    lineGap: 0,
-    width: contentWidth(doc)
-  });
-  doc.moveDown(0.15);
-}
-
-function textBlock(doc, label, values) {
-  const joined = values.map((item) => clean(item)).filter(Boolean).join(' · ');
-  if (!joined) return;
-  fichaGrid(doc, [[label, joined]], 1, { fontSize: 7.9, gapY: 2, minHeight: 20 });
 }
 
 function splitLines(doc, text, width) {
@@ -282,52 +230,53 @@ function renderTable(doc, titleText, columns, rows) {
   doc.moveDown(0.12);
 }
 
-const PRODUCTOS_APLICADOS_COLUMNS = [
-  { key: 'productoComercial', label: 'Producto comercial', ratio: 0.20 },
-  { key: 'principioActivo', label: 'Principio activo', ratio: 0.17 },
-  { key: 'concentracion', label: 'Conc.', ratio: 0.09 },
-  { key: 'habilitacion', label: 'Habilitación', ratio: 0.14 },
-  { key: 'registro', label: 'Registro', ratio: 0.18 },
-  { key: 'disposicion', label: 'Disposición', ratio: 0.22 }
+const PRODUCTOS_A_APLICAR_COLUMNS = [
+  { key: 'productoComercial', label: 'Producto', ratio: 0.15 },
+  { key: 'principioActivo', label: 'Principio activo', ratio: 0.15 },
+  { key: 'concentracion', label: 'Concentración', ratio: 0.11 },
+  { key: 'habilitacionRegistro', label: 'Habilitación / Registro', ratio: 0.18 },
+  { key: 'areaSector', label: 'Área / sector', ratio: 0.16 },
+  { key: 'frecuencia', label: 'Frecuencia', ratio: 0.12 },
+  { key: 'metodo', label: 'Método', ratio: 0.13 }
 ];
 
-function productoAplicadoRow(datos = {}) {
+function productoAAplicarRow(datos = {}) {
   const producto = productoSeleccionado(datos);
   if (!clean(producto.nombre) && !clean(producto.principioActivo) && !clean(producto.numeroRegistro)) return null;
   return {
     productoComercial: producto.nombre,
     principioActivo: producto.principioActivo,
     concentracion: producto.concentracion,
-    habilitacion: clean(producto.organismoHabilitante || producto.habilitacionHabitual || producto.organismoRegulador),
-    registro: registroCompleto(producto) || habilitacionCompleta(producto),
-    disposicion: producto.disposicionRegistro
+    habilitacionRegistro: habilitacionCompleta(producto) || registroCompleto(producto),
+    areaSector: valueAt(datos.areaSector, datos.area, datos.sector),
+    frecuencia: datos.frecuencia,
+    metodo: valueAt(datos.metodo, datos.metodologia)
   };
 }
 
-function productosAplicadosAviso(datos = {}) {
+function productosAAplicarAviso(datos = {}) {
   const vistos = new Set();
   const fuentes = Array.isArray(datos.productosPrevistos) && datos.productosPrevistos.length
     ? datos.productosPrevistos
     : ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas'].map((key) => datos[key]);
   return fuentes
-    .map((item) => productoAplicadoRow(item))
+    .map((item) => productoAAplicarRow(item))
     .filter(Boolean)
     .filter((row) => {
-      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion, row.registro, row.disposicion].join('|');
+      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacionRegistro, row.areaSector, row.frecuencia, row.metodo].join('|');
       if (vistos.has(firma)) return false;
       vistos.add(firma);
       return true;
     });
 }
 
-function productosAplicadosInforme(datos = {}) {
-  const row = productoAplicadoRow(datos.ejecucion);
+function productosUtilizadosInforme(datos = {}) {
+  const row = productoAAplicarRow(datos.ejecucion);
   return row ? [row] : [];
 }
 
-function renderProductosAplicados(doc, rows, titleText = 'Productos aplicados') {
-  if (!rows.length) return;
-  renderTable(doc, titleText, PRODUCTOS_APLICADOS_COLUMNS, rows);
+function renderProductosAAplicar(doc, rows, titleText = 'Productos a aplicar') {
+  renderTable(doc, titleText, PRODUCTOS_A_APLICAR_COLUMNS, rows);
 }
 
 function headerMetaRows(documento, datos) {
@@ -357,78 +306,9 @@ function header(documento, datos, doc) {
 }
 
 function renderAviso(documento, datos, doc) {
-  title(doc, 'PLANILLA DE AVISO', 'PROGRAMA DE ACTIVIDADES MIP', headerMetaRows(documento, datos));
+  title(doc, 'PLANILLA TÉCNICA MIP', 'PRODUCTOS A APLICAR', headerMetaRows(documento, datos));
   header(documento, datos, doc);
-
-  sectionTitle(doc, 'Planificación general');
-  fichaGrid(doc, [
-    ['Periodo desde', formatDate(valueAt(datos.periodoDesde, documento.periodoDesde))],
-    ['Periodo hasta', formatDate(valueAt(datos.periodoHasta, documento.periodoHasta))],
-    ['Frecuencia general', datos.planificacion?.frecuenciaGeneral],
-    ['Horarios previstos', datos.planificacion?.horariosPrevistos],
-    ['Tipo de control', datos.planificacion?.tipoControl],
-    ['Metodología', datos.planificacion?.metodologia],
-    ['Cronograma', datos.planificacion?.cronograma],
-    ['Criterios de control', datos.planificacion?.criteriosControl]
-  ], 2);
-
-  renderProductosAplicados(doc, productosAplicadosAviso(datos), 'Productos a aplicar');
-
-  sectionTitle(doc, 'Roedores');
-  const desde = formatDate(valueAt(datos.roedores?.periodoDesde, datos.periodoDesde, documento.periodoDesde));
-  const hasta = formatDate(valueAt(datos.roedores?.periodoHasta, datos.periodoHasta, documento.periodoHasta));
-  paragraph(doc, `En el periodo comprendido entre ${line(desde)} y ${line(hasta)}, se empleará como cebo rodenticida el producto ${line(productoNombre(datos.roedores))}.`);
-  productoTecnicoBox(doc, datos.roedores);
-  fichaGrid(doc, [
-    ['Frecuencia de verificación / reposición', datos.roedores?.frecuenciaVerificacion],
-    ['Frecuencia grupo 1', datos.roedores?.frecuenciaGrupo1],
-    ['Sectores grupo 1', datos.roedores?.sectoresGrupo1],
-    ['Frecuencia grupo 2', datos.roedores?.frecuenciaGrupo2],
-    ['Sectores grupo 2', datos.roedores?.sectoresGrupo2]
-  ], 2, { fontSize: 7.5, gapX: 6, gapY: 3, minHeight: 20 });
-
-  sectionTitle(doc, 'Insectos externos');
-  fichaGrid(doc, [
-    ['Periodo', [formatDate(datos.insectosExternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosExternos?.periodoHasta || datos.periodoHasta)].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 7.6, minHeight: 20 });
-  productoTecnicoBox(doc, datos.insectosExternos);
-  fichaGrid(doc, [
-    ['Frecuencia grupo 1', valueAt(datos.insectosExternos?.frecuenciaGrupo1, datos.insectosExternos?.frecuenciaHoras)],
-    ['Sectores grupo 1', datos.insectosExternos?.sectoresGrupo1],
-    ['Frecuencia grupo 2', datos.insectosExternos?.frecuenciaGrupo2],
-    ['Sectores grupo 2', datos.insectosExternos?.sectoresGrupo2],
-    ['Observaciones de sectores', valueAt(datos.insectosExternos?.observacionesSectores, datos.insectosExternos?.observaciones)]
-  ], 2, { fontSize: 7.6, minHeight: 20 });
-  sectionTitle(doc, 'Insectos internos');
-  fichaGrid(doc, [
-    ['Periodo', [formatDate(datos.insectosInternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosInternos?.periodoHasta || datos.periodoHasta)].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 7.6, minHeight: 20 });
-  productoTecnicoBox(doc, datos.insectosInternos);
-  fichaGrid(doc, [
-    ['Sectores internos tratados', valueAt(datos.insectosInternos?.sectoresTratados, datos.insectosInternos?.sectores)],
-    ['Sectores críticos', valueAt(datos.insectosInternos?.sectoresCriticos, datos.insectosInternos?.colorSeccionPlano)],
-    ['Observaciones', valueAt(datos.insectosInternos?.observaciones, datos.insectosInternos?.metodologia)]
-  ], 1, { fontSize: 7.6, minHeight: 20 });
-
-  sectionTitle(doc, 'Otras plagas');
-  fichaGrid(doc, [
-    ['Especies / sectores', [datos.otrasPlagas?.especiesVoladoras, datos.otrasPlagas?.especiesCaminadoras, datos.otrasPlagas?.sectores].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 7.6, minHeight: 20 });
-  productoTecnicoBox(doc, datos.otrasPlagas);
-  textBlock(doc, 'Frecuencia', [datos.otrasPlagas?.frecuencia]);
-
-  sectionTitle(doc, 'Áreas externas y espacios verdes');
-  fichaGrid(doc, [
-    ['Sectores mantenidos', valueAt(datos.areasExternas?.sectoresMantenidos, datos.areasExternas?.sectores)],
-    ['Sectores críticos', datos.areasExternas?.sectoresCriticos],
-    ['Observaciones', valueAt(datos.areasExternas?.observaciones, datos.areasExternas?.actividades)]
-  ], 2, { fontSize: 7.6, minHeight: 20 });
-
-  sectionTitle(doc, 'Hermeticidad');
-  fichaGrid(doc, [
-    ['Sectores evaluados', valueAt(datos.hermeticidad?.sectoresEvaluados, datos.hermeticidad?.sectores)],
-    ['Observaciones', valueAt(datos.hermeticidad?.observaciones, datos.hermeticidad?.elementos)]
-  ], 2, { fontSize: 7.6, minHeight: 20 });
+  renderProductosAAplicar(doc, productosAAplicarAviso(datos), 'Productos a aplicar');
 }
 
 const ROEDORES_COLUMNS = [
@@ -483,7 +363,7 @@ function renderInforme(documento, datos, doc) {
     ['Observaciones', datos.ejecucion?.observaciones],
     ['Medidas correctivas', datos.ejecucion?.medidasCorrectivas]
   ], 2);
-  renderProductosAplicados(doc, productosAplicadosInforme(datos));
+  renderProductosAAplicar(doc, productosUtilizadosInforme(datos), 'Productos utilizados');
   renderTable(doc, 'Roedores', ROEDORES_COLUMNS, Array.isArray(datos.roedores?.filas) ? datos.roedores.filas : []);
   renderTable(doc, 'Otras plagas', OTRAS_COLUMNS, Array.isArray(datos.otrasPlagas?.filas) ? datos.otrasPlagas.filas : []);
   renderTable(doc, 'Áreas externas y espacios verdes', SIMPLE_COLUMNS, normalizedSimpleRows(Array.isArray(datos.areasExternas?.filas) ? datos.areasExternas.filas : [], 'areasExternas'));

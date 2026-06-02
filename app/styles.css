@@ -411,6 +411,7 @@ details[open] { display: grid; gap: 5px; }
 .senasa-productos-table { width: 100%; border-collapse: collapse; min-width: 760px; font-size: 0.82rem; }
 .senasa-productos-table th, .senasa-productos-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; vertical-align: top; }
 .senasa-productos-table th { background: #eef6ff; color: #334155; }
+.senasa-productos-table input { width: 100%; min-width: 120px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
 .senasa-edit-table { width: 100%; border-collapse: collapse; margin: 8px 0 10px; font-size: 0.85rem; }
 .senasa-edit-table th, .senasa-edit-table td { border: 1px solid #cbd5e1; padding: 5px; vertical-align: top; }
 .senasa-edit-table th { background: #f1f5f9; }
