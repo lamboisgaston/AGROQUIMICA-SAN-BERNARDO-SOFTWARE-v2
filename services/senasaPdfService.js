@@ -433,6 +433,7 @@ function renderAviso(documento, datos, doc) {
     'Las actividades de control y verificación del correcto funcionamiento de cortinas de aire, cierre automático de puertas, extractores de aire, cierres sinfónicos, mosquiteros, burletes y fuelles, electrocutores, etc.',
     `Se efectuarán con una frecuencia de ${dotted(valueAt(datos.hermeticidad?.frecuenciaGrupo1, datos.hermeticidad?.frecuencia))}, en los sectores identificados en el plano de referencia con las ${dotted(valueAt(datos.hermeticidad?.sectoresGrupo1, datos.hermeticidad?.sectoresEvaluados))}.`
   ]);
+  avisoSectionTitle(doc, 'FIRMAS');
   avisoFirmas(doc);
 }
 const ROEDORES_COLUMNS = [
