@@ -378,8 +378,8 @@
         <button type="button" data-senasa-scroll="senasa-documentos">Documentos</button>
         <button id="senasa-btn-nuevo-aviso" type="button">Nuevo Aviso MIP</button>
         <button id="senasa-btn-nuevo-informe" type="button">Nuevo Informe</button>
-        <button type="button" data-senasa-scroll="senasa-productos-panel">Productos SENASA</button>
-        <button type="button" data-senasa-scroll="senasa-resoluciones-panel">Resoluciones / Papeles</button>
+        <button type="button" data-senasa-scroll="senasa-productos-panel">Productos SENASA / ANMAT</button>
+        <button type="button" data-senasa-scroll="senasa-productos-panel">Datos regulatorios</button>
         <button type="button" data-senasa-scroll="senasa-plantillas">Plantillas</button>
       </nav>
       <div class="senasa-layout no-print">
@@ -388,19 +388,10 @@
           <div id="senasa-documentos" class="lista">Cargando...</div>
           <h3>Plantillas prefijadas</h3>
           <div id="senasa-plantillas" class="lista">Cargando...</div>
-          <h3 id="senasa-productos-panel">Productos SENASA</h3>
+          <h3 id="senasa-productos-panel">Productos SENASA / ANMAT</h3>
           <div id="senasa-productos-tabla" class="lista">Cargando...</div>
-          <h3 id="senasa-resoluciones-panel">Papeles / Resoluciones SENASA</h3>
-          <div class="senasa-grid-dos">
-            <select id="senasa-res-producto"></select>
-            <input id="senasa-res-producto-nombre" placeholder="Producto manual" />
-            <input id="senasa-res-principio" placeholder="Principio activo" />
-            <input id="senasa-res-numero" placeholder="Resolución Nº" />
-            <input id="senasa-res-fecha" type="date" />
-            <input id="senasa-res-observaciones" placeholder="Observaciones" />
-          </div>
-          <button id="senasa-btn-resolucion" type="button">Guardar resolución</button>
-          <div id="senasa-resoluciones" class="lista"></div>
+          <h3 id="senasa-resoluciones-panel">Datos regulatorios por producto</h3>
+          <div id="senasa-resoluciones" class="lista">Los registros, disposiciones y observaciones se editan desde cada producto SENASA / ANMAT; no se cargan resoluciones sueltas.</div>
         </aside>
         <main class="senasa-panel">
           <h3>Formulario guiado</h3>

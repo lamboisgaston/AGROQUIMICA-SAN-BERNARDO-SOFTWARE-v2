@@ -86,19 +86,38 @@ function boxedRows(doc, rows) {
 }
 
 function documentoPendiente(value) {
-  return clean(value, 'Registro documental pendiente de carga');
+  return clean(value, 'Pendiente de carga documental');
+}
+
+function productoSeleccionado(datos = {}) {
+  const producto = datos.producto && typeof datos.producto === 'object' ? datos.producto : {};
+  return {
+    nombre: valueAt(producto.nombre, datos.productoNombre, datos.nombre),
+    principioActivo: valueAt(producto.principioActivo, datos.principioActivo),
+    concentracion: valueAt(producto.concentracion, datos.concentracion),
+    habilitacionHabitual: valueAt(producto.habilitacionHabitual, datos.habilitacionHabitual, producto.organismoRegulador, datos.organismoRegulador),
+    numeroRegistro: valueAt(producto.numeroRegistro, datos.numeroRegistro, producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion, datos.resolucionNumero),
+    disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
+    fechaResolucionSenasa: valueAt(producto.fechaResolucionSenasa, datos.fechaResolucionSenasa),
+    empresaTitularRegistro: valueAt(producto.empresaTitularRegistro, datos.empresaTitularRegistro)
+  };
+}
+
+function productoNombre(datos = {}) {
+  return valueAt(datos.producto?.nombre, datos.productoNombre, datos.nombre);
 }
 
 function productoTecnicoRows(datos = {}) {
+  const producto = productoSeleccionado(datos);
   return [
-    ['Producto comercial', documentoPendiente(valueAt(datos.productoNombre, datos.nombre))],
-    ['Principio activo', documentoPendiente(datos.principioActivo)],
-    ['Concentración', documentoPendiente(datos.concentracion)],
-    ['Habilitación', documentoPendiente(valueAt(datos.habilitacionHabitual, datos.organismoRegulador))],
-    ['Registro / Resolución', documentoPendiente(valueAt(datos.numeroRegistro, datos.resolucionSenasa, datos.registroResolucion, datos.resolucionNumero))],
-    ['Disposición', documentoPendiente(datos.disposicionRegistro)],
-    ['Fecha', documentoPendiente(formatDate(datos.fechaResolucionSenasa))],
-    ['Titular', documentoPendiente(datos.empresaTitularRegistro)]
+    ['Producto', documentoPendiente(producto.nombre)],
+    ['Principio activo', documentoPendiente(producto.principioActivo)],
+    ['Concentración', documentoPendiente(producto.concentracion)],
+    ['Habilitación', documentoPendiente(producto.habilitacionHabitual)],
+    ['Registro / Resolución', documentoPendiente(producto.numeroRegistro)],
+    ['Disposición', documentoPendiente(producto.disposicionRegistro)],
+    ['Fecha', documentoPendiente(formatDate(producto.fechaResolucionSenasa))],
+    ['Titular', documentoPendiente(producto.empresaTitularRegistro)]
   ];
 }
 
@@ -197,7 +216,7 @@ function renderAviso(documento, datos, doc) {
   sectionTitle(doc, 'Roedores');
   const desde = formatDate(valueAt(datos.roedores?.periodoDesde, datos.periodoDesde, documento.periodoDesde));
   const hasta = formatDate(valueAt(datos.roedores?.periodoHasta, datos.periodoHasta, documento.periodoHasta));
-  paragraph(doc, `En el periodo comprendido entre ${line(desde)} y ${line(hasta)}, se empleará como cebo rodenticida el producto ${line(datos.roedores?.productoNombre)}.`);
+  paragraph(doc, `En el periodo comprendido entre ${line(desde)} y ${line(hasta)}, se empleará como cebo rodenticida el producto ${line(productoNombre(datos.roedores))}.`);
   productoTecnicoBox(doc, datos.roedores);
   textBlock(doc, 'Frecuencia de verificación / reposición', [datos.roedores?.frecuenciaVerificacion]);
   textBlock(doc, 'Sectores grupo 1', [datos.roedores?.sectoresGrupo1, datos.roedores?.frecuenciaGrupo1]);
