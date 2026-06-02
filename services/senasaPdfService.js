@@ -95,7 +95,8 @@ function productoSeleccionado(datos = {}) {
     nombre: valueAt(producto.nombre, datos.productoNombre, datos.nombre),
     principioActivo: valueAt(producto.principioActivo, datos.principioActivo),
     concentracion: valueAt(producto.concentracion, datos.concentracion),
-    habilitacionHabitual: valueAt(producto.habilitacionHabitual, datos.habilitacionHabitual, producto.organismoRegulador, datos.organismoRegulador),
+    habilitacionHabitual: valueAt(producto.habilitacionHabitual, datos.habilitacionHabitual, producto.organismoHabilitante, datos.organismoHabilitante, producto.organismoRegulador, datos.organismoRegulador),
+    tipoRegistro: valueAt(producto.tipoRegistro, datos.tipoRegistro),
     numeroRegistro: valueAt(producto.numeroRegistro, datos.numeroRegistro, producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion, datos.resolucionNumero),
     disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
     fechaResolucionSenasa: valueAt(producto.fechaResolucionSenasa, datos.fechaResolucionSenasa),
@@ -115,6 +116,7 @@ function productoTecnicoRows(datos = {}) {
     ['Principio activo', documentoPendiente(producto.principioActivo)],
     ['Concentración', documentoPendiente(producto.concentracion)],
     ['Habilitación', documentoPendiente(producto.habilitacionHabitual)],
+    ['Tipo de registro', documentoPendiente(producto.tipoRegistro)],
     ['Registro / Resolución', documentoPendiente(producto.numeroRegistro)],
     ['Disposición', documentoPendiente(producto.disposicionRegistro)],
     ['Fecha', documentoPendiente(formatDate(producto.fechaResolucionSenasa))],
@@ -191,6 +193,48 @@ function renderTable(doc, titleText, columns, rows) {
   doc.moveDown(0.5);
 }
 
+
+const PRODUCTOS_APLICADOS_COLUMNS = [
+  { key: 'productoComercial', label: 'Producto comercial', ratio: 0.25 },
+  { key: 'principioActivo', label: 'Principio activo', ratio: 0.25 },
+  { key: 'concentracion', label: 'Concentración', ratio: 0.16 },
+  { key: 'habilitacion', label: 'Habilitación', ratio: 0.34 }
+];
+
+function productoAplicadoRow(datos = {}) {
+  const producto = productoSeleccionado(datos);
+  if (!clean(producto.nombre) && !clean(producto.principioActivo) && !clean(producto.numeroRegistro)) return null;
+  return {
+    productoComercial: producto.nombre,
+    principioActivo: producto.principioActivo,
+    concentracion: producto.concentracion,
+    habilitacion: [producto.habilitacionHabitual, producto.tipoRegistro, producto.numeroRegistro ? `N° ${producto.numeroRegistro}` : ''].map(clean).filter(Boolean).join(' ')
+  };
+}
+
+function productosAplicadosAviso(datos = {}) {
+  const vistos = new Set();
+  return ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas']
+    .map((key) => productoAplicadoRow(datos[key]))
+    .filter(Boolean)
+    .filter((row) => {
+      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion].join('|');
+      if (vistos.has(firma)) return false;
+      vistos.add(firma);
+      return true;
+    });
+}
+
+function productosAplicadosInforme(datos = {}) {
+  const row = productoAplicadoRow(datos.ejecucion);
+  return row ? [row] : [];
+}
+
+function renderProductosAplicados(doc, rows) {
+  if (!rows.length) return;
+  renderTable(doc, 'Productos aplicados', PRODUCTOS_APLICADOS_COLUMNS, rows);
+}
+
 function header(documento, datos, doc) {
   const cliente = datos.cliente || {};
   const establecimiento = datos.establecimiento || {};
@@ -226,6 +270,8 @@ function renderAviso(documento, datos, doc) {
     ['Cronograma', datos.planificacion?.cronograma],
     ['Criterios de control', datos.planificacion?.criteriosControl]
   ]);
+
+  renderProductosAplicados(doc, productosAplicadosAviso(datos));
 
   sectionTitle(doc, 'Roedores');
   const desde = formatDate(valueAt(datos.roedores?.periodoDesde, datos.periodoDesde, documento.periodoDesde));
@@ -312,6 +358,7 @@ function renderInforme(documento, datos, doc) {
     ['Observaciones', datos.ejecucion?.observaciones],
     ['Medidas correctivas', datos.ejecucion?.medidasCorrectivas]
   ]);
+  renderProductosAplicados(doc, productosAplicadosInforme(datos));
   renderTable(doc, 'Roedores', ROEDORES_COLUMNS, Array.isArray(datos.roedores?.filas) ? datos.roedores.filas : []);
   renderTable(doc, 'Otras plagas', OTRAS_COLUMNS, Array.isArray(datos.otrasPlagas?.filas) ? datos.otrasPlagas.filas : []);
   renderTable(doc, 'Áreas externas y espacios verdes', SIMPLE_COLUMNS, normalizedSimpleRows(Array.isArray(datos.areasExternas?.filas) ? datos.areasExternas.filas : [], 'areasExternas'));

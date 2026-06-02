@@ -1,253 +1,63 @@
 const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
 
 const PRODUCTOS_SENASA_MIP = [
-  {
-    nombre: 'Fendona 6 SC',
-    principioActivo: 'Alfacipermetrina',
-    concentracion: '6% SC',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida de uso profesional para programas MIP; verificar rótulo, alcance de uso y registro vigente antes de aplicar.'
-  },
-  {
-    nombre: 'Sipertrin',
-    principioActivo: 'Beta-cipermetrina',
-    concentracion: '0,5%',
-    habilitacionHabitual: 'ANMAT',
-    organismoRegulador: 'ANMAT',
-    numeroRegistro: 'RNPUD 0250075',
-    resolucionSenasa: 'RNPUD 0250075',
-    disposicionRegistro: 'DI-2021-5216-APN-ANMAT#MS',
-    fechaVencimientoRegistro: '2026-06-23',
-    empresaTitularRegistro: 'Chemotecnica S.A. - RNE N° 020033120',
-    observacionesRegulatorias: 'Producto insecticida piretroide para control de insectos; usar según marbete y habilitación sanitaria vigente.'
-  },
-  {
-    nombre: 'Delta Pro',
-    principioActivo: 'Deltametrina + Propoxur',
-    concentracion: '2,5% + 20%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida combinado; confirmar formulación, registro y condiciones de uso del lote disponible.'
-  },
-  {
-    nombre: 'Veloxan Derribante',
-    principioActivo: 'Cipermetrina + Tetrametrina',
-    concentracion: '15% + 0,2%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida de volteo; aplicar únicamente bajo indicaciones de etiqueta y normativa aplicable.'
-  },
-  {
-    nombre: 'K-Othrina',
-    aliases: ['K-Othrine'],
-    principioActivo: 'Deltametrina',
-    concentracion: '2,5%',
-    habilitacionHabitual: 'ANMAT',
-    organismoRegulador: 'ANMAT',
-    numeroRegistro: 'RNPUD 0250079',
-    resolucionSenasa: 'RNPUD 0250079',
-    disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
-    fechaVencimientoRegistro: '2026-10-03',
-    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212',
-    observacionesRegulatorias: 'Producto insecticida para saneamiento ambiental; validar registro y uso autorizado para el establecimiento.'
-  },
-  {
-    nombre: 'Solfac EW 50',
-    principioActivo: 'Cyfluthrin',
-    concentracion: '5%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida residual; conservar respaldo documental de habilitación y lote utilizado.'
-  },
-  {
-    nombre: 'Maxforce Gel',
-    principioActivo: 'Imidacloprid',
-    concentracion: '2,15%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Cebo gel cucarachicida; utilizar conforme a registro sanitario y plan MIP.'
-  },
-  {
-    nombre: 'Blattanex Gel',
-    principioActivo: 'Fipronil',
-    concentracion: '0,05%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Cebo gel para cucarachas; documentar aplicación según indicaciones del fabricante.'
-  },
-  {
-    nombre: 'Mirex-S',
-    principioActivo: 'Sulfluramida',
-    concentracion: '0,3%',
-    habilitacionHabitual: 'SENASA / ANMAT según uso',
-    observacionesRegulatorias: 'Cebo hormiguicida; confirmar autoridad registrante y alcance de uso según destino de aplicación.'
-  },
-  {
-    nombre: 'Klerat',
-    principioActivo: 'Brodifacoum',
-    concentracion: '0,005%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Cebo rodenticida anticoagulante; usar en estaciones seguras y registrar reposiciones del plan MIP.'
-  },
-  {
-    nombre: 'Racumin',
-    principioActivo: 'Coumatetralyl',
-    concentracion: '0,75%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Rodenticida anticoagulante; verificar presentación y autorización vigente antes de su uso.'
-  },
-  {
-    nombre: 'Storm',
-    principioActivo: 'Flocoumafen',
-    concentracion: '0,005%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Cebo rodenticida; mantener trazabilidad de lote, ubicación y consumo por estación.'
-  },
-  {
-    nombre: 'Rodilon Bloque',
-    principioActivo: 'Difethialone',
-    concentracion: '0,0025%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Bloque rodenticida para programa MIP; aplicar con control de exposición a no objetivos.'
-  },
-  {
-    nombre: 'Dragnet',
-    principioActivo: 'Permetrina',
-    concentracion: '25%',
-    habilitacionHabitual: 'ANMAT / SENASA',
-    observacionesRegulatorias: 'Producto insecticida; confirmar registro aplicable según uso urbano, industrial o agropecuario.'
-  },
-  {
-    nombre: 'Dragón',
-    principioActivo: 'Cipermetrina',
-    concentracion: '25%',
-    habilitacionHabitual: 'SENASA',
-    observacionesRegulatorias: 'Producto insecticida con referencia SENASA; validar marbete y restricciones vigentes.'
-  },
-  {
-    nombre: 'Biflex',
-    principioActivo: 'Bifentrin',
-    concentracion: '10%',
-    habilitacionHabitual: 'SENASA / ANMAT según formulación',
-    observacionesRegulatorias: 'Producto insecticida; la autoridad habilitante puede variar por formulación y destino.'
-  },
-  {
-    nombre: 'Cislin 25',
-    principioActivo: 'Deltametrina',
-    concentracion: '2,5%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida residual; usar según etiqueta y requisitos del cliente auditado.'
-  },
-  {
-    nombre: 'Aqua K-Othrine',
-    principioActivo: 'Deltametrina',
-    concentracion: '2%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida base acuosa; verificar condiciones de dilución y aplicación autorizadas.'
-  },
-  {
-    nombre: 'Demand CS',
-    principioActivo: 'Lambda Cyhalothrin',
-    concentracion: '9,7%',
-    habilitacionHabitual: 'ANMAT',
-    observacionesRegulatorias: 'Producto insecticida microencapsulado; registrar dosis y sectores en documentación MIP.'
-  },
-  {
-    nombre: 'Icon 10 CS',
-    principioActivo: 'Lambda Cyhalothrin',
-    concentracion: '10%',
-    habilitacionHabitual: 'ANMAT / SENASA según uso',
-    observacionesRegulatorias: 'Producto insecticida microencapsulado; verificar autoridad registrante según el uso declarado.'
-  }
-];
+  ['Fendona 6 SC', 'Alfacipermetrina', '6%', 'ANMAT', 'RNPUD', '0250058'],
+  ['K-Othrina', 'Deltametrina', '2,5%', 'ANMAT', 'RNPUD', '0250006'],
+  ['Aqua K-Othrine', 'Deltametrina', '2%', 'ANMAT', 'RNPUD', '0250052'],
+  ['Solfac EW 50', 'Cyfluthrin', '5%', 'ANMAT', 'RNPUD', '0250005'],
+  ['Blattanex Gel', 'Fipronil', '0,05%', 'ANMAT', 'RNPUD', '0250034'],
+  ['Maxforce Gel', 'Imidacloprid', '2,15%', 'ANMAT', 'RNPUD', '0250044'],
+  ['Klerat', 'Brodifacoum', '0,005%', 'ANMAT', 'RNPUD', '0250012'],
+  ['Storm', 'Flocoumafen', '0,005%', 'ANMAT', 'RNPUD', '0250019'],
+  ['Rodilon Bloque', 'Difethialone', '0,0025%', 'ANMAT', 'RNPUD', '0250071'],
+  ['Mirex-S', 'Sulfluramida', '0,3%', 'SENASA', 'SENASA', '36.184']
+].map(([nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro]) => ({
+  nombreComercial,
+  principioActivo,
+  concentracion,
+  organismoHabilitante,
+  tipoRegistro,
+  numeroRegistro,
+  usoPrincipal: 'MIP'
+}));
 
-const PRODUCTOS_SENASA_MIP_POR_NOMBRE = new Map();
-for (const producto of PRODUCTOS_SENASA_MIP) {
-  PRODUCTOS_SENASA_MIP_POR_NOMBRE.set(normalizarNombreSenasa(producto.nombre), producto);
-  (producto.aliases || []).forEach((alias) => PRODUCTOS_SENASA_MIP_POR_NOMBRE.set(normalizarNombreSenasa(alias), producto));
-}
-
-const PRODUCTO_SENASA_WHERE = {
-  OR: [
-    { aptoSenasaMip: true },
-    { categoria: CATEGORIA_AGROQUIMICOS_SENASA },
-    { categorias: { some: { nombre: CATEGORIA_AGROQUIMICOS_SENASA } } }
-  ]
-};
+const PRODUCTO_SENASA_WHERE = { aptoSenasaMip: true };
 
 function normalizarNombreSenasa(nombre = '') {
   return String(nombre).trim().toLocaleLowerCase('es-AR');
 }
 
-function normalizarRegistroSenasa(producto = {}) {
-  return producto.numeroRegistro || producto.resolucionSenasa || producto.registroResolucion || '';
-}
-
-function normalizarOrganismoRegulador(producto = {}) {
-  return producto.organismoRegulador || producto.habilitacionHabitual || '';
-}
-
-function dataProductoSenasa(producto) {
+function normalizarProductoMipPayload(payload = {}) {
   return {
-    nombre: producto.nombre,
-    categoria: CATEGORIA_AGROQUIMICOS_SENASA,
-    principioActivo: producto.principioActivo,
-    concentracion: producto.concentracion,
-    habilitacionHabitual: producto.habilitacionHabitual,
-    resolucionSenasa: normalizarRegistroSenasa(producto) || undefined,
-    fechaResolucionSenasa: producto.fechaResolucionSenasa ? new Date(producto.fechaResolucionSenasa) : undefined,
-    observaciones: producto.observacionesRegulatorias,
-    usoSenasa: 'MIP',
-    aptoSenasaMip: true,
-    activo: true,
-    eliminado: false
+    nombreComercial: String(payload.nombreComercial ?? payload.nombre ?? '').trim(),
+    principioActivo: String(payload.principioActivo || '').trim(),
+    concentracion: String(payload.concentracion || '').trim(),
+    organismoHabilitante: String(payload.organismoHabilitante ?? payload.organismoRegulador ?? payload.habilitacionHabitual ?? '').trim(),
+    tipoRegistro: String(payload.tipoRegistro || '').trim(),
+    numeroRegistro: String(payload.numeroRegistro ?? payload.resolucionSenasa ?? '').trim(),
+    usoPrincipal: String(payload.usoPrincipal || 'MIP').trim() || 'MIP'
   };
 }
 
-function dataProductoSenasaCreate(producto, categoriaId) {
-  return {
-    ...dataProductoSenasa(producto),
-    categorias: { connect: { id: categoriaId } },
-    marca: '',
-    unidad: 'UN',
-    stock: 0,
-    monedaCosto: 'ARS',
-    costoBase: 0,
-    precioVenta: 0,
-    porcentajeUva: 0,
-    porcentajeFlete: 0,
-    porcentajeGanancia: 0,
-    precioFinalPesos: 0
-  };
+function validarProductoMipPayload(data = {}) {
+  const faltantes = ['nombreComercial', 'principioActivo', 'concentracion', 'organismoHabilitante', 'tipoRegistro', 'numeroRegistro']
+    .filter((campo) => !String(data[campo] || '').trim());
+  return faltantes.length ? `Faltan campos obligatorios: ${faltantes.join(', ')}` : null;
 }
 
 async function upsertProductosSenasaMip(prisma) {
-  const categoria = await prisma.categoria.upsert({
-    where: { nombre: CATEGORIA_AGROQUIMICOS_SENASA },
-    update: { activo: true },
-    create: {
-      nombre: CATEGORIA_AGROQUIMICOS_SENASA,
-      descripcion: 'Productos técnicos habilitados para uso SENASA / MIP.'
-    }
-  });
-
-  const existentes = await prisma.producto.findMany({
-    select: { id: true, nombre: true, categorias: true }
-  });
-  const existentesPorNombre = new Map(existentes.map((producto) => [normalizarNombreSenasa(producto.nombre), producto]));
-
+  const existentes = await prisma.productoMip.findMany({ select: { id: true, nombreComercial: true } });
+  const existentesPorNombre = new Map(existentes.map((producto) => [normalizarNombreSenasa(producto.nombreComercial), producto]));
   let creados = 0;
   let actualizados = 0;
 
   for (const producto of PRODUCTOS_SENASA_MIP) {
-    const nombresBusqueda = [producto.nombre, ...(producto.aliases || [])].map(normalizarNombreSenasa);
-    const existente = nombresBusqueda.map((nombre) => existentesPorNombre.get(nombre)).find(Boolean);
-    const data = dataProductoSenasa(producto);
-    const categorias = existente?.categorias?.some((item) => item.id === categoria.id)
-      ? undefined
-      : { connect: { id: categoria.id } };
-
-    await prisma.producto.upsert({
+    const existente = existentesPorNombre.get(normalizarNombreSenasa(producto.nombreComercial));
+    await prisma.productoMip.upsert({
       where: { id: existente?.id || -1 },
-      update: { ...data, ...(categorias ? { categorias } : {}) },
-      create: dataProductoSenasaCreate(producto, categoria.id)
+      update: { ...producto, activo: true },
+      create: { ...producto, activo: true }
     });
-
     if (existente) actualizados += 1;
     else creados += 1;
   }
@@ -256,35 +66,34 @@ async function upsertProductosSenasaMip(prisma) {
 }
 
 async function bootstrapProductosSenasaMipSiVacio(prisma) {
-  const existentesAptos = await prisma.producto.count({
-    where: { eliminado: false, activo: true, aptoSenasaMip: true }
-  });
+  const existentesAptos = await prisma.productoMip.count();
   if (existentesAptos > 0) return { ejecutado: false, existentesAptos };
   const resultado = await upsertProductosSenasaMip(prisma);
   return { ejecutado: true, existentesAptos, ...resultado };
 }
 
-function mapearProductoSenasaApi(producto) {
-  const catalogo = PRODUCTOS_SENASA_MIP_POR_NOMBRE.get(normalizarNombreSenasa(producto.nombre)) || {};
-  const resolucionSenasa = producto.resolucionSenasa || catalogo.resolucionSenasa || catalogo.numeroRegistro || '';
-  const numeroRegistro = producto.numeroRegistro || catalogo.numeroRegistro || resolucionSenasa;
-  const organismoRegulador = normalizarOrganismoRegulador({ ...catalogo, ...producto });
+function mapearProductoSenasaApi(producto = {}) {
+  const nombreComercial = producto.nombreComercial || producto.nombre || '';
+  const organismoHabilitante = producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '';
+  const tipoRegistro = producto.tipoRegistro || '';
+  const numeroRegistro = producto.numeroRegistro || producto.resolucionSenasa || '';
   return {
     ...producto,
-    nombre: producto.nombre || catalogo.nombre || '',
-    principioActivo: producto.principioActivo || catalogo.principioActivo || '',
-    concentracion: producto.concentracion || catalogo.concentracion || '',
-    habilitacionHabitual: producto.habilitacionHabitual || catalogo.habilitacionHabitual || organismoRegulador,
-    organismoRegulador,
+    nombreComercial,
+    nombre: nombreComercial,
+    principioActivo: producto.principioActivo || '',
+    concentracion: producto.concentracion || '',
+    organismoHabilitante,
+    organismoRegulador: organismoHabilitante,
+    habilitacionHabitual: organismoHabilitante,
+    tipoRegistro,
     numeroRegistro,
-    resolucionSenasa,
-    fechaResolucionSenasa: producto.fechaResolucionSenasa || catalogo.fechaResolucionSenasa || null,
-    fechaVencimientoRegistro: producto.fechaVencimientoRegistro || catalogo.fechaVencimientoRegistro || null,
-    disposicionRegistro: producto.disposicionRegistro || catalogo.disposicionRegistro || '',
-    empresaTitularRegistro: producto.empresaTitularRegistro || catalogo.empresaTitularRegistro || '',
-    observacionesRegulatorias: producto.observacionesRegulatorias || catalogo.observacionesRegulatorias || producto.observaciones || '',
-    aptoSenasaMip: Boolean(producto.aptoSenasaMip ?? catalogo.aptoSenasaMip ?? true),
-    categoria: producto.categoria || catalogo.categoria || CATEGORIA_AGROQUIMICOS_SENASA
+    resolucionSenasa: [tipoRegistro, numeroRegistro].filter(Boolean).join(' '),
+    habilitacionCompleta: [organismoHabilitante, tipoRegistro, numeroRegistro ? `N° ${numeroRegistro}` : ''].filter(Boolean).join(' '),
+    usoPrincipal: producto.usoPrincipal || 'MIP',
+    aptoSenasaMip: true,
+    categoria: CATEGORIA_AGROQUIMICOS_SENASA,
+    activo: producto.activo !== false
   };
 }
 
@@ -294,5 +103,7 @@ module.exports = {
   PRODUCTO_SENASA_WHERE,
   bootstrapProductosSenasaMipSiVacio,
   mapearProductoSenasaApi,
-  upsertProductosSenasaMip
+  normalizarProductoMipPayload,
+  upsertProductosSenasaMip,
+  validarProductoMipPayload
 };
