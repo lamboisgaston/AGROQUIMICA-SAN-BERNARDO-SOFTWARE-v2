@@ -3846,8 +3846,8 @@ function renderSenasaListas() {
   $('#senasa-resoluciones').innerHTML = '<div class="item">Los datos regulatorios se mantienen dentro del producto SENASA / ANMAT seleccionado. Use la tabla de productos para revisar o editar cada ficha; no hay carga de resoluciones sueltas.</div>';
   const tabla = $('#senasa-productos-tabla');
   if (tabla) {
-    const rows = senasaProductos.filter(productoEsSenasaMip).map((p) => `<tr><td>${escapeHtmlClient(senasaValor(p.nombre || p.nombreComercial))}</td><td>${escapeHtmlClient(senasaValor(p.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(p.concentracion))}</td><td>${escapeHtmlClient(senasaValor(senasaHabilitacionCompleta(p)))}</td><td>${escapeHtmlClient(senasaValor(p.tipoRegistro, ''))}</td><td>${escapeHtmlClient(senasaRegistroValor(p))}</td><td>${escapeHtmlClient(senasaProductoEstado({ productoNombre: p.nombre || p.nombreComercial, ...p }))}</td><td><button type="button" data-senasa-producto-editar="${p.id}">Editar</button> <button type="button" data-senasa-producto-detalle="${p.id}">Ver</button> <button type="button" data-senasa-producto-eliminar="${p.id}">Baja lógica</button></td></tr>`).join('');
-    tabla.innerHTML = `<button type="button" class="btn-primary" data-senasa-producto-nuevo>+ Agregar producto MIP</button><div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Habilitación completa</th><th>Tipo</th><th>Número</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Sin productos SENASA.</td></tr>'}</tbody></table></div>`;
+    const rows = senasaProductos.filter(productoEsSenasaMip).map((p) => `<tr><td>${escapeHtmlClient(senasaValor(p.nombre || p.nombreComercial))}</td><td>${escapeHtmlClient(senasaValor(p.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(p.concentracion))}</td><td>${escapeHtmlClient(senasaRegistroValor(p))}</td><td>${escapeHtmlClient(senasaValor(p.disposicionRegistro))}</td><td>${escapeHtmlClient(senasaProductoEstado({ productoNombre: p.nombre || p.nombreComercial, ...p }))}</td><td><button type="button" data-senasa-producto-editar="${p.id}">Editar</button> <button type="button" data-senasa-producto-detalle="${p.id}">Ver</button> <button type="button" data-senasa-producto-eliminar="${p.id}">Baja lógica</button></td></tr>`).join('');
+    tabla.innerHTML = `<button type="button" class="btn-primary" data-senasa-producto-nuevo>+ Agregar producto MIP</button><div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Registro</th><th>Disposición</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Sin productos SENASA.</td></tr>'}</tbody></table></div>`;
   }
 }
 function renderSenasaResolucionForm() {
@@ -3889,9 +3889,9 @@ function renderSenasaProductosPrevistosTabla(d = {}) {
   if (!productos.length) return '<div class="senasa-empty-box">No hay productos agregados. Seleccione un producto MIP y presione “Agregar producto”.</div>';
   const rows = productos.map((item, i) => {
     const producto = senasaProductoDatos(item);
-    return `<tr><td>${escapeHtmlClient(senasaValor(producto.nombre))}</td><td>${escapeHtmlClient(senasaValor(producto.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(producto.concentracion))}</td><td>${escapeHtmlClient(senasaValor(senasaHabilitacionCompleta(item)))}</td><td><button type="button" data-senasa-producto-previsto-remove="${i}">Quitar</button></td></tr>`;
+    return `<tr><td>${escapeHtmlClient(senasaValor(producto.nombre))}</td><td>${escapeHtmlClient(senasaValor(producto.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(producto.concentracion))}</td><td>${escapeHtmlClient(senasaRegistroValor(producto))}</td><td>${escapeHtmlClient(senasaValor(producto.disposicionRegistro))}</td><td><button type="button" data-senasa-producto-previsto-remove="${i}">Quitar</button></td></tr>`;
   }).join('');
-  return `<div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Habilitación / Registro</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Registro</th><th>Disposición</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function senasaWizardNavHtml(active = 1) {
   const pasos = [['1', 'Establecimiento'], ['2', 'Planificación'], ['3', 'Productos'], ['4', 'Sectores'], ['5', 'PDF']];
@@ -4015,12 +4015,12 @@ function senasaHidratarProductoSeleccionado(seccion = {}) {
   if (!seccion || typeof seccion !== 'object' || !seccion.productoId) return seccion;
   const tecnico = senasaProductoTecnico(seccion.productoId);
   Object.entries(tecnico).forEach(([key, value]) => {
-    if (seccion[key] == null || seccion[key] === '' || (key === 'producto' && !seccion.producto?.nombre)) seccion[key] = value;
+    seccion[key] = value;
   });
   const productoTecnico = tecnico.producto || {};
   seccion.producto = { ...(seccion.producto || {}) };
   Object.entries(productoTecnico).forEach(([key, value]) => {
-    if (seccion.producto[key] == null || seccion.producto[key] === '') seccion.producto[key] = value;
+    seccion.producto[key] = value;
   });
   return seccion;
 }
@@ -4242,9 +4242,11 @@ function senasaProductoPayloadDesdePrompt(producto = {}) {
   if (disposicionRegistro === null) return null;
   const empresaTitularRegistro = prompt('Titular', producto.empresaTitularRegistro || '');
   if (empresaTitularRegistro === null) return null;
+  const fechaVencimientoRegistro = prompt('Vencimiento del registro (AAAA-MM-DD)', senasaFecha(producto.fechaVencimientoRegistro));
+  if (fechaVencimientoRegistro === null) return null;
   const usoPrincipal = prompt('Uso principal', producto.usoPrincipal || 'MIP');
   if (usoPrincipal === null) return null;
-  return { nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro, disposicionRegistro, empresaTitularRegistro, usoPrincipal };
+  return { nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro, disposicionRegistro, fechaVencimientoRegistro: fechaVencimientoRegistro || null, empresaTitularRegistro, usoPrincipal };
 }
 $('#senasa-productos-tabla')?.addEventListener('click', async (e) => {
   const nuevo = e.target.closest('[data-senasa-producto-nuevo]');
@@ -4286,6 +4288,8 @@ $('#senasa-productos-tabla')?.addEventListener('click', async (e) => {
       `Organismo habilitante: ${senasaValor(producto.organismoHabilitante || producto.habilitacionHabitual || producto.organismoRegulador)}`,
       `Tipo registro: ${senasaValor(producto.tipoRegistro)}`,
       `Número registro: ${senasaRegistroValor(producto)}`,
+      `Disposición: ${senasaValor(producto.disposicionRegistro)}`,
+      `Vencimiento: ${senasaValor(senasaFecha(producto.fechaVencimientoRegistro))}`,
       `Estado documental: ${senasaProductoEstado(producto)}`
     ].join(' · ');
     setMsg(resumen, 'info');

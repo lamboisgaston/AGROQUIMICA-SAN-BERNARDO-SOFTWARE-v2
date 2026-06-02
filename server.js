@@ -1100,11 +1100,11 @@ function completarSenasaSeccionConProducto(seccion = {}, productosPorId = new Ma
     habilitacionCompleta: producto.habilitacionCompleta || [producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual, producto.tipoRegistro && String(producto.tipoRegistro).toLowerCase() !== String(producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '').toLowerCase() ? producto.tipoRegistro : '', producto.numeroRegistro ? `N° ${producto.numeroRegistro}` : ''].filter(Boolean).join(' ')
   };
   Object.entries(snapshot).forEach(([key, value]) => {
-    if (seccion[key] == null || seccion[key] === '') seccion[key] = value;
+    seccion[key] = value;
   });
   seccion.producto = { ...(seccion.producto || {}) };
   Object.entries({ id: producto.id, nombre: snapshot.productoNombre, ...snapshot }).forEach(([key, value]) => {
-    if (seccion.producto[key] == null || seccion.producto[key] === '') seccion.producto[key] = value;
+    seccion.producto[key] = value;
   });
   return seccion;
 }
@@ -1182,6 +1182,7 @@ function extraerSenasaResumen(payload = {}) {
 
 
 async function listarProductosSenasaMip({ soloActivos = true } = {}) {
+  await upsertProductosSenasaMip(prisma);
   return prisma.productoMip.findMany({
     where: soloActivos ? { activo: true } : undefined,
     orderBy: { nombreComercial: 'asc' }

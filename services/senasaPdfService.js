@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 
 const PAGE = {
-  margin: 38,
+  margin: 22,
   width: 595.28,
   height: 841.89
 };
@@ -66,17 +66,17 @@ function resetStroke(doc) {
 }
 
 function title(doc, main, sub, metaRows = []) {
-  ensureSpace(doc, 105);
+  ensureSpace(doc, 78);
   doc.fillColor(COLORS.ink)
     .font('Helvetica-Bold')
-    .fontSize(19)
+    .fontSize(16.5)
     .text(main, { align: 'center', characterSpacing: 0.5 });
-  doc.moveDown(0.25);
+  doc.moveDown(0.1);
   doc.fillColor(COLORS.muted)
     .font('Helvetica')
-    .fontSize(11)
+    .fontSize(9.2)
     .text(sub, { align: 'center', characterSpacing: 0.8 });
-  doc.moveDown(0.9);
+  doc.moveDown(0.45);
 
   if (metaRows.length) {
     const gap = 14;
@@ -84,42 +84,42 @@ function title(doc, main, sub, metaRows = []) {
     const y = doc.y;
     metaRows.slice(0, 2).forEach(([label, value], index) => {
       const x = doc.page.margins.left + index * (width + gap);
-      doc.roundedRect(x, y, width, 36, 6).fillAndStroke(COLORS.panel, COLORS.line);
-      doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(7.6).text(clean(label).toUpperCase(), x + 12, y + 8, { width: width - 24 });
-      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(10).text(displayValue(value), x + 12, y + 19, { width: width - 24 });
+      doc.roundedRect(x, y, width, 24, 4).fillAndStroke(COLORS.panel, COLORS.line);
+      doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(6.8).text(clean(label).toUpperCase(), x + 8, y + 4, { width: width - 16 });
+      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(8.2).text(displayValue(value), x + 8, y + 14, { width: width - 16 });
     });
-    doc.y = y + 48;
+    doc.y = y + 29;
   }
 }
 
 function sectionTitle(doc, text) {
-  ensureSpace(doc, 38);
-  doc.moveDown(0.35);
+  ensureSpace(doc, 28);
+  doc.moveDown(0.12);
   const x = doc.page.margins.left;
   const width = contentWidth(doc);
   const y = doc.y;
-  doc.roundedRect(x, y, width, 24, 4).fill(COLORS.header);
+  doc.roundedRect(x, y, width, 15, 3).fill(COLORS.header);
   doc.fillColor(COLORS.accent)
     .font('Helvetica-Bold')
-    .fontSize(9.4)
-    .text(clean(text).toUpperCase(), x + 10, y + 7, { width: width - 20, characterSpacing: 0.6 });
-  doc.y = y + 31;
+    .fontSize(7.5)
+    .text(clean(text).toUpperCase(), x + 8, y + 4, { width: width - 16, characterSpacing: 0.35 });
+  doc.y = y + 17;
   resetStroke(doc);
 }
 
 function fichaGrid(doc, rows, columns = 2, options = {}) {
   const visibleRows = rows.map(([label, value]) => [label, displayValue(value)]);
-  const gapX = options.gapX || 14;
-  const gapY = options.gapY || 8;
+  const gapX = options.gapX || 8;
+  const gapY = options.gapY || 4;
   const width = contentWidth(doc);
   const colWidth = (width - gapX * (columns - 1)) / columns;
-  const labelHeight = 10;
-  const lineGap = 1;
+  const labelHeight = 8;
+  const lineGap = 0;
   const rowHeights = [];
   for (let i = 0; i < visibleRows.length; i += columns) {
     const group = visibleRows.slice(i, i + columns);
-    const maxValueHeight = Math.max(...group.map(([, value]) => doc.font('Helvetica').fontSize(options.fontSize || 9.2).heightOfString(value, { width: colWidth - 20, lineGap })));
-    rowHeights.push(Math.max(42, labelHeight + maxValueHeight + 19));
+    const maxValueHeight = Math.max(...group.map(([, value]) => doc.font('Helvetica').fontSize(options.fontSize || 8.1).heightOfString(value, { width: colWidth - 14, lineGap })));
+    rowHeights.push(Math.max(options.minHeight || 22, labelHeight + maxValueHeight + 10));
   }
   const totalHeight = rowHeights.reduce((sum, height) => sum + height, 0) + gapY * Math.max(0, rowHeights.length - 1) + (options.padY || 0);
   ensureSpace(doc, totalHeight + 6);
@@ -131,11 +131,11 @@ function fichaGrid(doc, rows, columns = 2, options = {}) {
     const col = index % columns;
     const x = startX + col * (colWidth + gapX);
     const cellY = y + rowHeights.slice(0, row).reduce((sum, height) => sum + height + gapY, 0);
-    doc.roundedRect(x, cellY, colWidth, rowHeights[row], 5).fillAndStroke(COLORS.panel, COLORS.softLine);
-    doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(7.2).text(clean(label).toUpperCase(), x + 10, cellY + 8, { width: colWidth - 20 });
-    doc.fillColor(COLORS.ink).font('Helvetica').fontSize(options.fontSize || 9.2).text(value, x + 10, cellY + 20, { width: colWidth - 20, lineGap });
+    doc.roundedRect(x, cellY, colWidth, rowHeights[row], 3).fillAndStroke(COLORS.panel, COLORS.softLine);
+    doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(6.4).text(clean(label).toUpperCase(), x + 7, cellY + 5, { width: colWidth - 14 });
+    doc.fillColor(COLORS.ink).font('Helvetica').fontSize(options.fontSize || 8.1).text(value, x + 7, cellY + 13, { width: colWidth - 14, lineGap });
   });
-  doc.y += totalHeight + 4;
+  doc.y = y + totalHeight + 2;
   resetStroke(doc);
 }
 
@@ -205,23 +205,30 @@ function productoTecnicoRows(datos = {}) {
   ];
 }
 
+function tieneProductoTecnico(datos = {}) {
+  const producto = productoSeleccionado(datos);
+  return [producto.nombre, producto.principioActivo, producto.concentracion, producto.numeroRegistro, producto.disposicionRegistro].some((value) => clean(value));
+}
+
 function productoTecnicoBox(doc, datos = {}) {
-  fichaGrid(doc, productoTecnicoRows(datos), 3, { fontSize: 8.8, gapX: 10, gapY: 7 });
+  if (!tieneProductoTecnico(datos)) return;
+  fichaGrid(doc, productoTecnicoRows(datos), 4, { fontSize: 7.2, gapX: 5, gapY: 3, minHeight: 20 });
 }
 
 function paragraph(doc, text) {
   ensureSpace(doc, 45);
-  doc.font('Helvetica').fontSize(9.6).fillColor(COLORS.ink).text(displayValue(text), {
+  doc.font('Helvetica').fontSize(8.4).fillColor(COLORS.ink).text(displayValue(text), {
     align: 'justify',
-    lineGap: 2,
+    lineGap: 0,
     width: contentWidth(doc)
   });
-  doc.moveDown(0.4);
+  doc.moveDown(0.15);
 }
 
 function textBlock(doc, label, values) {
   const joined = values.map((item) => clean(item)).filter(Boolean).join(' · ');
-  fichaGrid(doc, [[label, joined]], 1, { fontSize: 9.2, gapY: 4 });
+  if (!joined) return;
+  fichaGrid(doc, [[label, joined]], 1, { fontSize: 7.9, gapY: 2, minHeight: 20 });
 }
 
 function splitLines(doc, text, width) {
@@ -239,15 +246,15 @@ function renderTable(doc, titleText, columns, rows) {
   function drawHeader() {
     ensureSpace(doc, 26);
     const y = doc.y;
-    doc.roundedRect(x, y, tableWidth, 20, 3).fillAndStroke(COLORS.header, COLORS.line);
-    doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(7.2);
+    doc.roundedRect(x, y, tableWidth, 16, 2).fillAndStroke(COLORS.header, COLORS.line);
+    doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(6.5);
     let cursorX = x;
     columns.forEach((col, index) => {
-      doc.text(col.label, cursorX + 5, y + 6, { width: widths[index] - 10, height: 12 });
+      doc.text(col.label, cursorX + 4, y + 4, { width: widths[index] - 8, height: 10 });
       cursorX += widths[index];
-      if (index < columns.length - 1) doc.moveTo(cursorX, y + 4).lineTo(cursorX, y + 16).strokeColor(COLORS.line).lineWidth(0.5).stroke();
+      if (index < columns.length - 1) doc.moveTo(cursorX, y + 3).lineTo(cursorX, y + 13).strokeColor(COLORS.line).lineWidth(0.45).stroke();
     });
-    doc.y = y + 20;
+    doc.y = y + 16;
     resetStroke(doc);
   }
 
@@ -255,31 +262,32 @@ function renderTable(doc, titleText, columns, rows) {
   safeRows.forEach((row, rowIndex) => {
     const values = columns.map((col) => displayValue(row[col.key]));
     const heights = values.map((value, index) => splitLines(doc, value, widths[index] - 10));
-    const rowHeight = Math.max(22, ...heights.map((height) => height + 10));
+    const rowHeight = Math.max(17, ...heights.map((height) => height + 7));
     if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
       doc.addPage();
       drawHeader();
     }
     const y = doc.y;
     doc.rect(x, y, tableWidth, rowHeight).fillAndStroke(rowIndex % 2 ? '#ffffff' : COLORS.panel, COLORS.line);
-    doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.ink);
+    doc.font('Helvetica').fontSize(6.8).fillColor(COLORS.ink);
     let cursorX = x;
     values.forEach((value, index) => {
-      doc.text(value, cursorX + 5, y + 5, { width: widths[index] - 10, lineGap: 1 });
+      doc.text(value, cursorX + 4, y + 3, { width: widths[index] - 8, lineGap: 0 });
       cursorX += widths[index];
       if (index < columns.length - 1) doc.moveTo(cursorX, y).lineTo(cursorX, y + rowHeight).strokeColor(COLORS.softLine).lineWidth(0.5).stroke();
     });
     doc.y = y + rowHeight;
     resetStroke(doc);
   });
-  doc.moveDown(0.35);
+  doc.moveDown(0.12);
 }
 
 const PRODUCTOS_APLICADOS_COLUMNS = [
-  { key: 'productoComercial', label: 'Producto comercial', ratio: 0.25 },
-  { key: 'principioActivo', label: 'Principio activo', ratio: 0.25 },
-  { key: 'concentracion', label: 'Concentración', ratio: 0.16 },
-  { key: 'habilitacion', label: 'Habilitación / Registro', ratio: 0.34 }
+  { key: 'productoComercial', label: 'Producto comercial', ratio: 0.21 },
+  { key: 'principioActivo', label: 'Principio activo', ratio: 0.18 },
+  { key: 'concentracion', label: 'Conc.', ratio: 0.10 },
+  { key: 'habilitacion', label: 'Registro', ratio: 0.24 },
+  { key: 'disposicion', label: 'Disposición', ratio: 0.27 }
 ];
 
 function productoAplicadoRow(datos = {}) {
@@ -289,7 +297,8 @@ function productoAplicadoRow(datos = {}) {
     productoComercial: producto.nombre,
     principioActivo: producto.principioActivo,
     concentracion: producto.concentracion,
-    habilitacion: habilitacionCompleta(producto)
+    habilitacion: registroCompleto(producto) || habilitacionCompleta(producto),
+    disposicion: producto.disposicionRegistro
   };
 }
 
@@ -302,7 +311,7 @@ function productosAplicadosAviso(datos = {}) {
     .map((item) => productoAplicadoRow(item))
     .filter(Boolean)
     .filter((row) => {
-      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion].join('|');
+      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion, row.disposicion].join('|');
       if (vistos.has(firma)) return false;
       vistos.add(firma);
       return true;
@@ -342,7 +351,7 @@ function header(documento, datos, doc) {
     ['Provincia', valueAt(cliente.provincia, cfg.provincia)],
     ['Supervisor', valueAt(establecimiento.supervisor, cfg.supervisor)],
     ['Responsable por S.I.V.', valueAt(establecimiento.responsableSiv, cfg.responsableSiv)]
-  ], 3, { fontSize: 8.9, gapX: 10, gapY: 7 });
+  ], 3, { fontSize: 7.6, gapX: 6, gapY: 3, minHeight: 20 });
 }
 
 function renderAviso(documento, datos, doc) {
@@ -372,32 +381,32 @@ function renderAviso(documento, datos, doc) {
     ['Frecuencia de verificación / reposición', datos.roedores?.frecuenciaVerificacion],
     ['Sectores grupo 1', [datos.roedores?.sectoresGrupo1, datos.roedores?.frecuenciaGrupo1].map(clean).filter(Boolean).join(' · ')],
     ['Sectores grupo 2', [datos.roedores?.sectoresGrupo2, datos.roedores?.frecuenciaGrupo2].map(clean).filter(Boolean).join(' · ')]
-  ], 3, { fontSize: 8.8, gapX: 10, gapY: 7 });
+  ], 3, { fontSize: 7.5, gapX: 6, gapY: 3, minHeight: 20 });
 
   sectionTitle(doc, 'Insectos');
-  doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(9.2).text('Sectores externos');
-  doc.moveDown(0.25);
+  doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(7.8).text('Sectores externos');
+  doc.moveDown(0.1);
   fichaGrid(doc, [
     ['Periodo', [formatDate(datos.insectosExternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosExternos?.periodoHasta || datos.periodoHasta)].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 8.9 });
+  ], 1, { fontSize: 7.6, minHeight: 20 });
   productoTecnicoBox(doc, datos.insectosExternos);
   fichaGrid(doc, [
     ['Frecuencia y sectores', [datos.insectosExternos?.frecuenciaHoras ? `cada ${datos.insectosExternos.frecuenciaHoras} horas` : '', datos.insectosExternos?.sectoresGrupo1, datos.insectosExternos?.sectoresGrupo2].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 8.9 });
-  doc.moveDown(0.2).fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(9.2).text('Sectores internos');
-  doc.moveDown(0.25);
+  ], 1, { fontSize: 7.6, minHeight: 20 });
+  doc.moveDown(0.1).fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(7.8).text('Sectores internos');
+  doc.moveDown(0.1);
   fichaGrid(doc, [
     ['Periodo', [formatDate(datos.insectosInternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosInternos?.periodoHasta || datos.periodoHasta)].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 8.9 });
+  ], 1, { fontSize: 7.6, minHeight: 20 });
   productoTecnicoBox(doc, datos.insectosInternos);
   fichaGrid(doc, [
     ['Aplicación', [datos.insectosInternos?.colorSeccionPlano, datos.insectosInternos?.dia, datos.insectosInternos?.hora, datos.insectosInternos?.sectores, datos.insectosInternos?.observaciones].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 8.9 });
+  ], 1, { fontSize: 7.6, minHeight: 20 });
 
   sectionTitle(doc, 'Otras plagas');
   fichaGrid(doc, [
     ['Especies / sectores', [datos.otrasPlagas?.especiesVoladoras, datos.otrasPlagas?.especiesCaminadoras, datos.otrasPlagas?.sectores].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 8.9 });
+  ], 1, { fontSize: 7.6, minHeight: 20 });
   productoTecnicoBox(doc, datos.otrasPlagas);
   textBlock(doc, 'Frecuencia', [datos.otrasPlagas?.frecuencia]);
 
@@ -405,13 +414,13 @@ function renderAviso(documento, datos, doc) {
   fichaGrid(doc, [
     ['Sectores', datos.areasExternas?.sectores],
     ['Actividades / observaciones', [datos.areasExternas?.actividades, datos.areasExternas?.observaciones].map(clean).filter(Boolean).join(' · ')]
-  ], 2, { fontSize: 8.9 });
+  ], 2, { fontSize: 7.6, minHeight: 20 });
 
   sectionTitle(doc, 'Hermeticidad');
   fichaGrid(doc, [
     ['Sectores', datos.hermeticidad?.sectores],
     ['Elementos / observaciones', [datos.hermeticidad?.elementos, datos.hermeticidad?.observaciones].map(clean).filter(Boolean).join(' · ')]
-  ], 2, { fontSize: 8.9 });
+  ], 2, { fontSize: 7.6, minHeight: 20 });
 }
 
 const ROEDORES_COLUMNS = [
@@ -482,9 +491,9 @@ function renderInforme(documento, datos, doc) {
 }
 
 function signatures(doc) {
-  ensureSpace(doc, 72);
-  doc.moveDown(1.2);
-  const y = doc.y + 18;
+  ensureSpace(doc, 42);
+  doc.moveDown(0.35);
+  const y = doc.y + 10;
   const left = doc.page.margins.left;
   const width = contentWidth(doc);
   const col = width / 3;
@@ -493,7 +502,7 @@ function signatures(doc) {
     doc.moveTo(x, y).lineTo(x + col - 20, y).strokeColor(COLORS.muted).lineWidth(0.7).stroke();
     doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted).text(label, x, y + 7, { width: col - 20, align: 'center' });
   });
-  doc.y = y + 30;
+  doc.y = y + 22;
   resetStroke(doc);
 }
 
@@ -511,7 +520,7 @@ function renderSenasaPdf(documento, writableStream) {
   const pages = doc.bufferedPageRange();
   for (let i = 0; i < pages.count; i += 1) {
     doc.switchToPage(i);
-    doc.font('Helvetica').fontSize(7.3).fillColor(COLORS.muted).text(`Página ${i + 1} de ${pages.count}`, PAGE.margin, doc.page.height - 28, { align: 'right', width: doc.page.width - PAGE.margin * 2 });
+    doc.font('Helvetica').fontSize(6.8).fillColor(COLORS.muted).text(`Página ${i + 1} de ${pages.count}`, PAGE.margin, doc.page.height - doc.page.margins.bottom - 8, { align: 'right', width: doc.page.width - PAGE.margin * 2 });
   }
 
   doc.end();
