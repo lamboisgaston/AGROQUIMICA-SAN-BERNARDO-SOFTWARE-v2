@@ -190,6 +190,13 @@ th { background: #f8fafc; position: sticky; top: 0; }
 details { font-size: 12px; }
 details[open] { display: grid; gap: 5px; }
 @media (max-width: 1100px) { .workbench-grid { grid-template-columns: 1fr; } .sticky-summary { position: static; } }
+.senasa-tabs button.activo { background: #1d4ed8; color: #fff; border-color: #1d4ed8; box-shadow: 0 6px 16px rgba(29, 78, 216, 0.22); }
+.senasa-tab-contenedor section[hidden] { display: none !important; }
+.senasa-btn-grande { width: 100%; margin: 6px 0 12px; padding: 12px 14px; border-radius: 12px; background: #15803d; color: #fff; font-weight: 800; }
+.senasa-alerta-estructural { margin: 12px 0; padding: 12px 14px; border-radius: 12px; font-weight: 800; line-height: 1.35; }
+.senasa-alerta-plan { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; }
+.senasa-alerta-real { border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; }
+.senasa-lista-card { border-radius: 12px; border: 1px solid #e2e8f0; background: #fbfdff; }
 @media (max-width: 900px) {
   .bloque table { display:block; overflow:auto; }
   .cliente-buscador-row { grid-template-columns: 1fr; }
@@ -210,6 +217,13 @@ details[open] { display: grid; gap: 5px; }
 .proveedor-row small { color: var(--muted); }
 .proveedor-meta { display:grid; gap:2px; }
 .proveedor-id { font-size: 12px; color: #1e3a8a; font-weight: 700; }
+.senasa-tabs button.activo { background: #1d4ed8; color: #fff; border-color: #1d4ed8; box-shadow: 0 6px 16px rgba(29, 78, 216, 0.22); }
+.senasa-tab-contenedor section[hidden] { display: none !important; }
+.senasa-btn-grande { width: 100%; margin: 6px 0 12px; padding: 12px 14px; border-radius: 12px; background: #15803d; color: #fff; font-weight: 800; }
+.senasa-alerta-estructural { margin: 12px 0; padding: 12px 14px; border-radius: 12px; font-weight: 800; line-height: 1.35; }
+.senasa-alerta-plan { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; }
+.senasa-alerta-real { border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; }
+.senasa-lista-card { border-radius: 12px; border: 1px solid #e2e8f0; background: #fbfdff; }
 @media (max-width: 900px) { .proveedores-workbench { grid-template-columns: 1fr; } }
 
 .producto-card { display: grid; grid-template-columns: 90px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px; }
@@ -278,6 +292,13 @@ details[open] { display: grid; gap: 5px; }
   background: #fef2f2;
 }
 
+.senasa-tabs button.activo { background: #1d4ed8; color: #fff; border-color: #1d4ed8; box-shadow: 0 6px 16px rgba(29, 78, 216, 0.22); }
+.senasa-tab-contenedor section[hidden] { display: none !important; }
+.senasa-btn-grande { width: 100%; margin: 6px 0 12px; padding: 12px 14px; border-radius: 12px; background: #15803d; color: #fff; font-weight: 800; }
+.senasa-alerta-estructural { margin: 12px 0; padding: 12px 14px; border-radius: 12px; font-weight: 800; line-height: 1.35; }
+.senasa-alerta-plan { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; }
+.senasa-alerta-real { border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; }
+.senasa-lista-card { border-radius: 12px; border: 1px solid #e2e8f0; background: #fbfdff; }
 @media (max-width: 900px) {
   .producto-card { grid-template-columns: 70px minmax(0,1fr); }
   .producto-media { width: 70px; height: 70px; }
@@ -407,6 +428,13 @@ details[open] { display: grid; gap: 5px; }
 .senasa-documento-formal th, .senasa-documento-formal td { border: 1px solid #111; padding: 5px; min-height: 22px; }
 .senasa-firmas { display: flex; justify-content: space-between; margin-top: 70px; font-weight: 700; }
 .senasa-firmas span::before { content: ''; display: block; border-top: 1px dotted #111; width: 240px; margin-bottom: 8px; }
+.senasa-tabs button.activo { background: #1d4ed8; color: #fff; border-color: #1d4ed8; box-shadow: 0 6px 16px rgba(29, 78, 216, 0.22); }
+.senasa-tab-contenedor section[hidden] { display: none !important; }
+.senasa-btn-grande { width: 100%; margin: 6px 0 12px; padding: 12px 14px; border-radius: 12px; background: #15803d; color: #fff; font-weight: 800; }
+.senasa-alerta-estructural { margin: 12px 0; padding: 12px 14px; border-radius: 12px; font-weight: 800; line-height: 1.35; }
+.senasa-alerta-plan { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; }
+.senasa-alerta-real { border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; }
+.senasa-lista-card { border-radius: 12px; border: 1px solid #e2e8f0; background: #fbfdff; }
 @media (max-width: 900px) { .senasa-layout, .senasa-grid-dos, .senasa-grid-tres, .senasa-producto-resumen { grid-template-columns: 1fr; } .senasa-header { flex-direction: column; } .senasa-producto-selector { grid-column: span 1; } }
 @media print {
   body * { visibility: hidden !important; }

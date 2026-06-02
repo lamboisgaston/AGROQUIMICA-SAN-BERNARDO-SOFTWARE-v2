@@ -10,9 +10,15 @@ const PRODUCTOS_SENASA_MIP = [
   },
   {
     nombre: 'Sipertrin',
-    principioActivo: 'Beta Cipermetrina',
-    concentracion: '5%',
+    principioActivo: 'Beta-cipermetrina',
+    concentracion: '0,5%',
     habilitacionHabitual: 'ANMAT',
+    organismoRegulador: 'ANMAT',
+    numeroRegistro: 'RNPUD 0250075',
+    resolucionSenasa: 'RNPUD 0250075',
+    disposicionRegistro: 'DI-2021-5216-APN-ANMAT#MS',
+    fechaVencimientoRegistro: '2026-06-23',
+    empresaTitularRegistro: 'Chemotecnica S.A. - RNE N° 020033120',
     observacionesRegulatorias: 'Producto insecticida piretroide para control de insectos; usar según marbete y habilitación sanitaria vigente.'
   },
   {
@@ -31,9 +37,16 @@ const PRODUCTOS_SENASA_MIP = [
   },
   {
     nombre: 'K-Othrina',
+    aliases: ['K-Othrine'],
     principioActivo: 'Deltametrina',
     concentracion: '2,5%',
     habilitacionHabitual: 'ANMAT',
+    organismoRegulador: 'ANMAT',
+    numeroRegistro: 'RNPUD 0250079',
+    resolucionSenasa: 'RNPUD 0250079',
+    disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
+    fechaVencimientoRegistro: '2026-10-03',
+    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212',
     observacionesRegulatorias: 'Producto insecticida para saneamiento ambiental; validar registro y uso autorizado para el establecimiento.'
   },
   {
@@ -143,7 +156,11 @@ const PRODUCTOS_SENASA_MIP = [
   }
 ];
 
-const PRODUCTOS_SENASA_MIP_POR_NOMBRE = new Map(PRODUCTOS_SENASA_MIP.map((producto) => [normalizarNombreSenasa(producto.nombre), producto]));
+const PRODUCTOS_SENASA_MIP_POR_NOMBRE = new Map();
+for (const producto of PRODUCTOS_SENASA_MIP) {
+  PRODUCTOS_SENASA_MIP_POR_NOMBRE.set(normalizarNombreSenasa(producto.nombre), producto);
+  (producto.aliases || []).forEach((alias) => PRODUCTOS_SENASA_MIP_POR_NOMBRE.set(normalizarNombreSenasa(alias), producto));
+}
 
 const PRODUCTO_SENASA_WHERE = {
   OR: [
@@ -218,7 +235,8 @@ async function upsertProductosSenasaMip(prisma) {
   let actualizados = 0;
 
   for (const producto of PRODUCTOS_SENASA_MIP) {
-    const existente = existentesPorNombre.get(normalizarNombreSenasa(producto.nombre));
+    const nombresBusqueda = [producto.nombre, ...(producto.aliases || [])].map(normalizarNombreSenasa);
+    const existente = nombresBusqueda.map((nombre) => existentesPorNombre.get(nombre)).find(Boolean);
     const data = dataProductoSenasa(producto);
     const categorias = existente?.categorias?.some((item) => item.id === categoria.id)
       ? undefined
@@ -261,6 +279,7 @@ function mapearProductoSenasaApi(producto) {
     numeroRegistro,
     resolucionSenasa,
     fechaResolucionSenasa: producto.fechaResolucionSenasa || catalogo.fechaResolucionSenasa || null,
+    fechaVencimientoRegistro: producto.fechaVencimientoRegistro || catalogo.fechaVencimientoRegistro || null,
     disposicionRegistro: producto.disposicionRegistro || catalogo.disposicionRegistro || '',
     empresaTitularRegistro: producto.empresaTitularRegistro || catalogo.empresaTitularRegistro || '',
     observacionesRegulatorias: producto.observacionesRegulatorias || catalogo.observacionesRegulatorias || producto.observaciones || '',
