@@ -1,27 +1,57 @@
 const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
 
 const PRODUCTOS_SENASA_MIP = [
-  ['Storm', 'Flocoumafen', '0,005%', 'ANMAT', 'RNPUD', '0250019'],
-  ['Fendona 6 SC', 'Alfacipermetrina', '6%', 'ANMAT', 'RNPUD', '0250058'],
-  ['K-Othrina', 'Deltametrina', '2,5%', 'ANMAT', 'RNPUD', '0250006'],
-  ['Aqua K-Othrine', 'Deltametrina', '2%', 'ANMAT', 'RNPUD', '0250052'],
-  ['Solfac EW 50', 'Cyfluthrin', '5%', 'ANMAT', 'RNPUD', '0250005'],
-  ['Blattanex Gel', 'Fipronil', '0,05%', 'ANMAT', 'RNPUD', '0250034'],
-  ['Maxforce Gel', 'Imidacloprid', '2,15%', 'ANMAT', 'RNPUD', '0250044'],
-  ['Klerat', 'Brodifacoum', '0,005%', 'ANMAT', 'RNPUD', '0250012'],
-  ['Rodilon Bloque', 'Difethialone', '0,0025%', 'ANMAT', 'RNPUD', '0250071'],
-  ['Mirex-S', 'Sulfluramida', '0,3%', 'SENASA', 'SENASA', '36.184']
-].map(([nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro, disposicionRegistro = '', empresaTitularRegistro = '']) => ({
-  nombreComercial,
-  principioActivo,
-  concentracion,
-  organismoHabilitante,
-  tipoRegistro,
-  numeroRegistro,
-  habilitacionCompleta: habilitacionCompletaProducto({ organismoHabilitante, tipoRegistro, numeroRegistro }),
-  disposicionRegistro,
-  empresaTitularRegistro,
-  usoPrincipal: 'MIP'
+  { nombreComercial: 'Storm', principioActivo: 'Flocoumafen', concentracion: '0,005%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250019' },
+  { nombreComercial: 'Fendona 6 SC', principioActivo: 'Alfacipermetrina', concentracion: '6%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250058' },
+  {
+    nombreComercial: 'Sipertrin',
+    principioActivo: 'Beta-cipermetrina',
+    concentracion: '0,5%',
+    organismoHabilitante: 'ANMAT',
+    tipoRegistro: 'RNPUD',
+    numeroRegistro: '0250075',
+    disposicionRegistro: 'DI-2021-5216-APN-ANMAT#MS',
+    fechaVencimientoRegistro: '2026-06-23',
+    empresaTitularRegistro: 'Chemotecnica S.A. - RNE N° 020033120'
+  },
+  {
+    nombreComercial: 'K-Othrina',
+    principioActivo: 'Deltametrina',
+    concentracion: '2,5%',
+    organismoHabilitante: 'ANMAT',
+    tipoRegistro: 'RNPUD',
+    numeroRegistro: '0250079',
+    disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
+    fechaVencimientoRegistro: '2026-10-03',
+    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212'
+  },
+  {
+    nombreComercial: 'K-Othrine',
+    principioActivo: 'Deltametrina',
+    concentracion: '2,5%',
+    organismoHabilitante: 'ANMAT',
+    tipoRegistro: 'RNPUD',
+    numeroRegistro: '0250079',
+    disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
+    fechaVencimientoRegistro: '2026-10-03',
+    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212'
+  },
+  { nombreComercial: 'Aqua K-Othrine', principioActivo: 'Deltametrina', concentracion: '2%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250052' },
+  { nombreComercial: 'Solfac EW 50', principioActivo: 'Cyfluthrin', concentracion: '5%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250005' },
+  { nombreComercial: 'Blattanex Gel', principioActivo: 'Fipronil', concentracion: '0,05%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250034' },
+  { nombreComercial: 'Maxforce Gel', principioActivo: 'Imidacloprid', concentracion: '2,15%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250044' },
+  { nombreComercial: 'Klerat', principioActivo: 'Brodifacoum', concentracion: '0,005%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250012' },
+  { nombreComercial: 'Rodilon Bloque', principioActivo: 'Difethialone', concentracion: '0,0025%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250071' },
+  { nombreComercial: 'Mirex-S', principioActivo: 'Sulfluramida', concentracion: '0,3%', organismoHabilitante: 'SENASA', tipoRegistro: 'SENASA', numeroRegistro: '36.184' }
+].map((producto) => ({
+  ...producto,
+  habilitacionCompleta: producto.habilitacionCompleta || habilitacionCompletaProducto(producto),
+  disposicionRegistro: producto.disposicionRegistro || '',
+  fechaResolucionSenasa: producto.fechaResolucionSenasa || null,
+  fechaVencimientoRegistro: producto.fechaVencimientoRegistro || null,
+  empresaTitularRegistro: producto.empresaTitularRegistro || '',
+  observacionesRegulatorias: producto.observacionesRegulatorias || '',
+  usoPrincipal: producto.usoPrincipal || 'MIP'
 }));
 
 const PRODUCTO_SENASA_WHERE = { aptoSenasaMip: true };
@@ -76,7 +106,7 @@ async function upsertProductosSenasaMip(prisma) {
     const existente = existentesPorNombre.get(normalizarNombreSenasa(producto.nombreComercial));
     await prisma.productoMip.upsert({
       where: { id: existente?.id || -1 },
-      update: { ...producto, activo: true },
+      update: producto,
       create: { ...producto, activo: true }
     });
     if (existente) actualizados += 1;
