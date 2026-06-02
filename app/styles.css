@@ -438,9 +438,37 @@ details[open] { display: grid; gap: 5px; }
 .senasa-lista-card { border-radius: 12px; border: 1px solid #e2e8f0; background: #fbfdff; }
 @media (max-width: 900px) { .senasa-layout, .senasa-grid-dos, .senasa-grid-tres, .senasa-producto-resumen { grid-template-columns: 1fr; } .senasa-header { flex-direction: column; } .senasa-producto-selector { grid-column: span 1; } }
 @media print {
+  @page { size: A4 portrait; margin: 6mm; }
+  html, body { width: 210mm; min-height: 297mm; background: #fff !important; }
   body * { visibility: hidden !important; }
   #senasa-preview, #senasa-preview * { visibility: visible !important; }
-  #senasa-preview { position: absolute; inset: 0 auto auto 0; width: 100%; margin: 0; padding: 28px; box-shadow: none; border: 0; }
+  #senasa-preview {
+    position: absolute;
+    inset: 0 auto auto 0;
+    box-sizing: border-box;
+    width: 198mm;
+    margin: 0;
+    padding: 5mm 6mm;
+    border: 0;
+    box-shadow: none;
+    font-size: 8.5pt;
+    line-height: 1.22;
+  }
+  #senasa-preview .senasa-doc-title { margin-bottom: 6mm; }
+  #senasa-preview.senasa-documento-formal h2 { font-size: 14pt; }
+  #senasa-preview.senasa-documento-formal h3 { font-size: 10pt; }
+  #senasa-preview.senasa-documento-formal h4 { margin: 3mm 0 1.5mm; font-size: 8.5pt; }
+  #senasa-preview .senasa-box { margin: 1.5mm 0 3mm; padding: 2mm; }
+  #senasa-preview .senasa-box p { margin: 1mm 0; }
+  #senasa-preview.senasa-documento-formal table { font-size: 7pt; page-break-inside: avoid; }
+  #senasa-preview.senasa-documento-formal th,
+  #senasa-preview.senasa-documento-formal td { padding: 1.2mm; }
+  #senasa-preview .senasa-firmas { margin-top: 10mm; }
+  #senasa-preview .senasa-firmas span::before { width: 58mm; }
+  #senasa-preview h4,
+  #senasa-preview .senasa-box,
+  #senasa-preview table,
+  #senasa-preview .senasa-firmas { break-inside: avoid; page-break-inside: avoid; }
   .no-print { display: none !important; }
 }
 .pill.senasa { background: #dbeafe; color: #1d4ed8; margin-left: 6px; vertical-align: middle; }
