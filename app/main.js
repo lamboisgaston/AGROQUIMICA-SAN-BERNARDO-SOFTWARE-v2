@@ -3789,8 +3789,9 @@ function senasaDocumentoBase(tipoDocumento = 'AVISO_MIP') {
     verificacion: {}
   };
 }
-function senasaClienteOption(c) {
-  return `<option value="${c.id}">${escapeHtmlClient(c.nombre || '-')} ${c.cuitDni ? `(${escapeHtmlClient(c.cuitDni)})` : ''}</option>`;
+function senasaClienteOption(c, selectedId = '') {
+  const selected = String(c.id) === String(selectedId || '') ? ' selected' : '';
+  return `<option value="${c.id}"${selected}>${escapeHtmlClient(c.nombre || '-')} ${c.cuitDni ? `(${escapeHtmlClient(c.cuitDni)})` : ''}</option>`;
 }
 function senasaAplicarCliente(clienteId) {
   const c = senasaClientes.find((x) => String(x.id) === String(clienteId));
@@ -3921,7 +3922,7 @@ function renderSenasaForm() {
   const est = d.establecimiento || {};
   const form = $('#senasa-form');
   if (!form) return;
-  const clienteOptions = '<option value="">Seleccione cliente</option>' + senasaClientes.map(senasaClienteOption).join('');
+  const clienteOptions = '<option value="">Seleccione cliente</option>' + senasaClientes.map((c) => senasaClienteOption(c, d.clienteId)).join('');
   const avisosOptions = '<option value="">Sin vincular</option>' + senasaDocumentos
     .filter((doc) => doc.tipoDocumento === 'AVISO_MIP')
     .map((doc) => `<option value="${doc.id}" ${String(d.avisoVinculadoId || '') === String(doc.id) ? 'selected' : ''}>Aviso MIP #${doc.id} · ${escapeHtmlClient(doc.cliente?.nombre || doc.datosJson?.cliente?.nombre || 'Sin cliente')} · ${escapeHtmlClient(doc.periodoDesde || doc.datosJson?.periodoDesde || '')}</option>`)
@@ -4103,12 +4104,9 @@ function renderSenasaPreview() {
   $('#senasa-editable').value = JSON.stringify(d, null, 2);
 }
 async function cargarSenasa() {
-  const [data, productosSenasa] = await Promise.all([
-    api('/api/senasa/bootstrap'),
-    api('/api/senasa/productos')
-  ]);
+  const data = await api('/api/senasa/bootstrap');
   senasaClientes = data.clientes || [];
-  senasaProductos = (productosSenasa || []).filter(productoEsSenasaMip);
+  senasaProductos = (data.productos || []).filter(productoEsSenasaMip);
   senasaResoluciones = data.resoluciones || [];
   senasaDocumentos = data.documentos || [];
   senasaPlantillas = data.plantillas || [];
@@ -4116,6 +4114,11 @@ async function cargarSenasa() {
   renderSenasaResolucionForm();
   renderSenasaListas();
   renderSenasaForm();
+}
+function imprimirSenasaVistaPrevia() {
+  renderSenasaPreview();
+  setMsg('Use Imprimir / Guardar como PDF. Se genera desde el mismo HTML visible en la vista previa SENASA.', 'info');
+  window.print();
 }
 async function guardarSenasaDocumento(esPlantilla = false) {
   const d = recogerSenasaForm();
@@ -4125,7 +4128,7 @@ async function guardarSenasaDocumento(esPlantilla = false) {
   const payload = { tipoDocumento: d.tipoDocumento, clienteId: d.clienteId || null, numeroCircular: d.numeroCircular, fechaRecepcion: d.fechaRecepcion || null, periodoDesde: d.periodoDesde || null, periodoHasta: d.periodoHasta || null, datosJson: d, esPlantilla, nombrePlantilla };
   const url = d.id && !esPlantilla ? `/api/senasa/documentos/${d.id}` : '/api/senasa/documentos';
   const saved = await api(url, { method: d.id && !esPlantilla ? 'PUT' : 'POST', body: JSON.stringify(payload) });
-  senasaDocumentoActual.id = saved.id;
+  if (!esPlantilla) senasaDocumentoActual = { ...senasaDocumentoActual, ...saved.datosJson, id: saved.id };
   await cargarSenasa();
   setMsg(esPlantilla ? 'Plantilla SENASA guardada' : 'Documento SENASA guardado', 'success');
 }
@@ -4146,7 +4149,7 @@ $('#senasa-btn-nuevo-aviso')?.addEventListener('click', () => { senasaDocumentoA
 $('#senasa-btn-nuevo-informe')?.addEventListener('click', () => { senasaDocumentoActual = senasaDocumentoBase('INFORME_CONTROL_PLAGAS'); activarSenasaTab('informes'); renderSenasaForm(); });
 $('#senasa-btn-guardar')?.addEventListener('click', () => guardarSenasaDocumento(false).catch((e) => setMsg(e.message, 'error')));
 $('#senasa-btn-plantilla')?.addEventListener('click', () => guardarSenasaDocumento(true).catch((e) => setMsg(e.message, 'error')));
-$('#senasa-btn-imprimir')?.addEventListener('click', () => { renderSenasaPreview(); window.print(); });
+$('#senasa-btn-imprimir')?.addEventListener('click', imprimirSenasaVistaPrevia);
 async function generarSenasaPdfDesdeVista() {
   const d = recogerSenasaForm();
   const error = d.tipoDocumento === 'AVISO_MIP' ? senasaValidarAvisoMip(d) : '';
@@ -4157,9 +4160,7 @@ async function generarSenasaPdfDesdeVista() {
     return;
   }
   if (!senasaDocumentoActual?.id) await guardarSenasaDocumento(false);
-  renderSenasaPreview();
-  setMsg('Use Imprimir / Guardar como PDF. Se genera desde la misma vista SENASA, sin plantilla alternativa.', 'info');
-  window.print();
+  imprimirSenasaVistaPrevia();
 }
 $('#senasa-btn-pdf')?.addEventListener('click', () => generarSenasaPdfDesdeVista().catch((e) => setMsg(e.message, 'error')));
 $('#senasa-btn-copiar')?.addEventListener('click', async () => { await navigator.clipboard.writeText($('#senasa-editable').value || ''); setMsg('Formato editable copiado'); });
@@ -4169,7 +4170,7 @@ document.querySelectorAll('[data-senasa-action]').forEach((btn) => {
     const action = btn.dataset.senasaAction;
     if (action === 'guardar') guardarSenasaDocumento(false).catch((e) => setMsg(e.message, 'error'));
     if (action === 'plantilla') guardarSenasaDocumento(true).catch((e) => setMsg(e.message, 'error'));
-    if (action === 'imprimir') { renderSenasaPreview(); window.print(); }
+    if (action === 'imprimir') imprimirSenasaVistaPrevia();
     if (action === 'pdf') $('#senasa-btn-pdf')?.click();
   });
 });
