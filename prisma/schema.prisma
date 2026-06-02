@@ -405,6 +405,24 @@ enum TipoCliente {
 
 
 
+
+model ProductoMip {
+  id                   Int      @id @default(autoincrement())
+  nombreComercial      String
+  principioActivo      String
+  concentracion        String
+  organismoHabilitante String
+  tipoRegistro         String
+  numeroRegistro       String
+  usoPrincipal         String?
+  activo               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([activo])
+  @@index([nombreComercial])
+}
+
 model SenasaClienteConfig {
   id                    Int      @id @default(autoincrement())
   clienteId             Int      @unique

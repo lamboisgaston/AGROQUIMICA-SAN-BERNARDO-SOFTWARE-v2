@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
 const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
 const { obtenerConfiguracionChatbot, actualizarConfiguracionChatbot, buscarContextoSemillasYa, generarRespuestaTecnica, sanitizarMensajeUsuario } = require('./services/chatbotService');
 const { renderSenasaPdf } = require('./services/senasaPdfService');
-const { PRODUCTO_SENASA_WHERE, bootstrapProductosSenasaMipSiVacio, mapearProductoSenasaApi, upsertProductosSenasaMip } = require('./services/senasaProductosService');
+const { bootstrapProductosSenasaMipSiVacio, mapearProductoSenasaApi, normalizarProductoMipPayload, validarProductoMipPayload } = require('./services/senasaProductosService');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -1079,19 +1079,51 @@ function extraerSenasaResumen(payload = {}) {
 }
 
 
-async function listarProductosSenasaMip() {
-  await upsertProductosSenasaMip(prisma);
-  return prisma.producto.findMany({
-    where: { eliminado: false, activo: true, ...PRODUCTO_SENASA_WHERE },
-    include: { categorias: true },
-    orderBy: { nombre: 'asc' }
+async function listarProductosSenasaMip({ soloActivos = true } = {}) {
+  return prisma.productoMip.findMany({
+    where: soloActivos ? { activo: true } : undefined,
+    orderBy: { nombreComercial: 'asc' }
   });
 }
 
+function productoMipApi(producto) {
+  return mapearProductoSenasaApi(producto);
+}
+
+app.get('/api/mip/productos', asyncHandler(async (req, res) => {
+  const incluirInactivos = String(req.query.incluirInactivos || '') === '1';
+  const productos = await listarProductosSenasaMip({ soloActivos: !incluirInactivos });
+  res.json(productos.map(productoMipApi));
+}));
+
+app.post('/api/mip/productos', asyncHandler(async (req, res) => {
+  const data = normalizarProductoMipPayload(req.body || {});
+  const error = validarProductoMipPayload(data);
+  if (error) return res.status(400).json({ error });
+  const creado = await prisma.productoMip.create({ data: { ...data, activo: req.body?.activo == null ? true : Boolean(req.body.activo) } });
+  res.status(201).json(productoMipApi(creado));
+}));
+
+app.put('/api/mip/productos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const data = normalizarProductoMipPayload(req.body || {});
+  const error = validarProductoMipPayload(data);
+  if (error) return res.status(400).json({ error });
+  const actualizado = await prisma.productoMip.update({ where: { id }, data: { ...data, activo: req.body?.activo == null ? true : Boolean(req.body.activo) } });
+  res.json(productoMipApi(actualizado));
+}));
+
+app.delete('/api/mip/productos/:id', asyncHandler(async (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id inválido' });
+  const producto = await prisma.productoMip.update({ where: { id }, data: { activo: false } });
+  res.json({ ok: true, producto: productoMipApi(producto) });
+}));
+
 app.get('/api/senasa/productos', asyncHandler(async (_req, res) => {
-  const tipoCambioActual = await obtenerTipoCambioActual();
   const productos = await listarProductosSenasaMip();
-  res.json(productos.map((producto) => mapearProductoSenasaApi(mapearProductoConPrecioPesos(producto, tipoCambioActual))));
+  res.json(productos.map(productoMipApi));
 }));
 
 app.get('/api/senasa/bootstrap', asyncHandler(async (_req, res) => {
