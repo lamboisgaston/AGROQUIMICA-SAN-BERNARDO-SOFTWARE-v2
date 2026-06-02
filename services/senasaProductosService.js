@@ -1,5 +1,15 @@
 const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
 
+function fechaRegistroOrNull(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const texto = String(value).trim();
+  if (!texto) return null;
+  const normalizado = /^\d{4}-\d{2}-\d{2}$/.test(texto) ? `${texto}T00:00:00.000Z` : texto;
+  const fecha = new Date(normalizado);
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
+}
+
 const PRODUCTOS_SENASA_MIP = [
   { nombreComercial: 'Storm', principioActivo: 'Flocoumafen', concentracion: '0,005%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250019' },
   { nombreComercial: 'Fendona 6 SC', principioActivo: 'Alfacipermetrina', concentracion: '6%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250058' },
@@ -47,8 +57,8 @@ const PRODUCTOS_SENASA_MIP = [
   ...producto,
   habilitacionCompleta: producto.habilitacionCompleta || habilitacionCompletaProducto(producto),
   disposicionRegistro: producto.disposicionRegistro || '',
-  fechaResolucionSenasa: producto.fechaResolucionSenasa || null,
-  fechaVencimientoRegistro: producto.fechaVencimientoRegistro || null,
+  fechaResolucionSenasa: fechaRegistroOrNull(producto.fechaResolucionSenasa),
+  fechaVencimientoRegistro: fechaRegistroOrNull(producto.fechaVencimientoRegistro),
   empresaTitularRegistro: producto.empresaTitularRegistro || '',
   observacionesRegulatorias: producto.observacionesRegulatorias || '',
   usoPrincipal: producto.usoPrincipal || 'MIP'
@@ -81,8 +91,8 @@ function normalizarProductoMipPayload(payload = {}) {
     numeroRegistro: String(payload.numeroRegistro ?? payload.resolucionSenasa ?? '').trim(),
     habilitacionCompleta: String(payload.habilitacionCompleta || '').trim(),
     disposicionRegistro: String(payload.disposicionRegistro ?? '').trim(),
-    fechaResolucionSenasa: payload.fechaResolucionSenasa || null,
-    fechaVencimientoRegistro: payload.fechaVencimientoRegistro || null,
+    fechaResolucionSenasa: fechaRegistroOrNull(payload.fechaResolucionSenasa),
+    fechaVencimientoRegistro: fechaRegistroOrNull(payload.fechaVencimientoRegistro),
     empresaTitularRegistro: String(payload.empresaTitularRegistro ?? '').trim(),
     observacionesRegulatorias: String(payload.observacionesRegulatorias ?? '').trim(),
     usoPrincipal: String(payload.usoPrincipal || 'MIP').trim() || 'MIP'
