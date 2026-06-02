@@ -283,11 +283,12 @@ function renderTable(doc, titleText, columns, rows) {
 }
 
 const PRODUCTOS_APLICADOS_COLUMNS = [
-  { key: 'productoComercial', label: 'Producto comercial', ratio: 0.21 },
-  { key: 'principioActivo', label: 'Principio activo', ratio: 0.18 },
-  { key: 'concentracion', label: 'Conc.', ratio: 0.10 },
-  { key: 'habilitacion', label: 'Registro', ratio: 0.24 },
-  { key: 'disposicion', label: 'Disposición', ratio: 0.27 }
+  { key: 'productoComercial', label: 'Producto comercial', ratio: 0.20 },
+  { key: 'principioActivo', label: 'Principio activo', ratio: 0.17 },
+  { key: 'concentracion', label: 'Conc.', ratio: 0.09 },
+  { key: 'habilitacion', label: 'Habilitación', ratio: 0.14 },
+  { key: 'registro', label: 'Registro', ratio: 0.18 },
+  { key: 'disposicion', label: 'Disposición', ratio: 0.22 }
 ];
 
 function productoAplicadoRow(datos = {}) {
@@ -297,7 +298,8 @@ function productoAplicadoRow(datos = {}) {
     productoComercial: producto.nombre,
     principioActivo: producto.principioActivo,
     concentracion: producto.concentracion,
-    habilitacion: registroCompleto(producto) || habilitacionCompleta(producto),
+    habilitacion: clean(producto.organismoHabilitante || producto.habilitacionHabitual || producto.organismoRegulador),
+    registro: registroCompleto(producto) || habilitacionCompleta(producto),
     disposicion: producto.disposicionRegistro
   };
 }
@@ -311,7 +313,7 @@ function productosAplicadosAviso(datos = {}) {
     .map((item) => productoAplicadoRow(item))
     .filter(Boolean)
     .filter((row) => {
-      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion, row.disposicion].join('|');
+      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacion, row.registro, row.disposicion].join('|');
       if (vistos.has(firma)) return false;
       vistos.add(firma);
       return true;

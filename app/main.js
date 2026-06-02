@@ -3715,7 +3715,7 @@ function senasaRegistroValor(datos = {}, fallback = SENASA_TEXTO_PENDIENTE) {
   return senasaValor([tipo, numero].filter(Boolean).join(' '), fallback);
 }
 function senasaProductoLabel(p = {}) {
-  return [p.nombre || p.nombreComercial, p.principioActivo, p.concentracion, p.habilitacionHabitual || p.organismoHabilitante || p.organismoRegulador, p.tipoRegistro, p.numeroRegistro].map((item) => senasaValor(item, '')).filter(Boolean).join(' — ') || 'Producto SENASA / MIP';
+  return [p.nombre || p.nombreComercial, p.principioActivo, p.concentracion, p.habilitacionHabitual || p.organismoHabilitante || p.organismoRegulador].map((item) => senasaValor(item, '')).filter(Boolean).join(' — ') || 'Producto SENASA / MIP';
 }
 function senasaProductoEstado(datos = {}) {
   const producto = senasaProductoDatos(datos);
@@ -3890,9 +3890,9 @@ function renderSenasaProductosPrevistosTabla(d = {}) {
   if (!productos.length) return '<div class="senasa-empty-box">No hay productos agregados. Seleccione un producto MIP y presione “Agregar producto”.</div>';
   const rows = productos.map((item, i) => {
     const producto = senasaProductoDatos(item);
-    return `<tr><td>${escapeHtmlClient(senasaValor(producto.nombre))}</td><td>${escapeHtmlClient(senasaValor(producto.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(producto.concentracion))}</td><td>${escapeHtmlClient(senasaRegistroValor(producto))}</td><td>${escapeHtmlClient(senasaValor(producto.disposicionRegistro))}</td><td><button type="button" data-senasa-producto-previsto-remove="${i}">Quitar</button></td></tr>`;
+    return `<tr><td>${escapeHtmlClient(senasaValor(producto.nombre))}</td><td>${escapeHtmlClient(senasaValor(producto.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(producto.concentracion))}</td><td>${escapeHtmlClient(senasaValor(producto.organismoHabilitante || producto.habilitacionHabitual || producto.organismoRegulador))}</td><td>${escapeHtmlClient(senasaRegistroValor(producto))}</td><td>${escapeHtmlClient(senasaValor(producto.disposicionRegistro))}</td><td><button type="button" data-senasa-producto-previsto-remove="${i}">Quitar</button></td></tr>`;
   }).join('');
-  return `<div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Registro</th><th>Disposición</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Habilitación</th><th>Registro</th><th>Disposición</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function senasaWizardNavHtml(active = 1) {
   const pasos = [['1', 'Establecimiento'], ['2', 'Planificación'], ['3', 'Productos'], ['4', 'Sectores'], ['5', 'PDF']];
