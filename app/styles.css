@@ -402,7 +402,8 @@ details[open] { display: grid; gap: 5px; }
 #senasa-form h4 { margin: 16px 0 8px; color: #334155; padding: 10px 12px; border-left: 4px solid #3b82f6; border-radius: 8px; background: #f8fafc; }
 .senasa-producto-selector { grid-column: span 2; padding: 10px; border: 1px solid #dbeafe; border-radius: 12px; background: #f8fbff; }
 .senasa-producto-buscar { margin-bottom: 6px; }
-.senasa-producto-resumen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #bbf7d0; border-radius: 12px; background: #f0fdf4; }
+.senasa-producto-resumen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-height: 112px; margin-top: 10px; padding: 10px; border: 1px solid #bbf7d0; border-radius: 12px; background: #f0fdf4; }
+.senasa-producto-resumen-vacio { border-color: #cbd5e1; background: #f8fafc; }
 .senasa-producto-resumen div { display: flex; flex-direction: column; gap: 2px; }
 .senasa-producto-resumen span { color: #64748b; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
 .senasa-producto-resumen strong { color: #14532d; font-size: 0.9rem; }
@@ -497,6 +498,7 @@ details[open] { display: grid; gap: 5px; }
 .senasa-step-grid { grid-auto-rows: minmax(78px, auto); }
 .senasa-productos-asistente,
 .senasa-pdf-preview-card { min-height: 430px; }
+.senasa-productos-asistente { display: flex; flex-direction: column; gap: 12px; }
 .senasa-producto-add-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
