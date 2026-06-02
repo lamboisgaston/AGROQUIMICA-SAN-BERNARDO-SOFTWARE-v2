@@ -414,6 +414,11 @@ model ProductoMip {
   organismoHabilitante String
   tipoRegistro         String
   numeroRegistro       String
+  disposicionRegistro String?
+  fechaResolucionSenasa DateTime?
+  fechaVencimientoRegistro DateTime?
+  empresaTitularRegistro String?
+  observacionesRegulatorias String?
   usoPrincipal         String?
   activo               Boolean  @default(true)
   createdAt            DateTime @default(now())

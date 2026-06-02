@@ -86,18 +86,35 @@ function boxedRows(doc, rows) {
 }
 
 function documentoPendiente(value) {
-  return clean(value, 'Pendiente de carga documental');
+  return clean(value, '—');
+}
+
+function numeroRegistroDesdeResolucion(resolucion = '', tipoRegistro = '') {
+  const texto = clean(resolucion);
+  const tipo = clean(tipoRegistro);
+  if (!texto) return '';
+  if (tipo && texto.toLowerCase().startsWith(tipo.toLowerCase())) return texto.slice(tipo.length).trim();
+  return texto;
+}
+
+function registroCompleto(producto = {}) {
+  const numero = clean(producto.numeroRegistro);
+  if (!numero) return '';
+  return [clean(producto.tipoRegistro), numero].filter(Boolean).join(' ');
 }
 
 function productoSeleccionado(datos = {}) {
   const producto = datos.producto && typeof datos.producto === 'object' ? datos.producto : {};
+  const tipoRegistro = valueAt(producto.tipoRegistro, datos.tipoRegistro);
+  const resolucionSenasa = valueAt(producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion);
+  const numeroRegistro = valueAt(producto.numeroRegistro, datos.numeroRegistro, datos.resolucionNumero, numeroRegistroDesdeResolucion(resolucionSenasa, tipoRegistro));
   return {
     nombre: valueAt(producto.nombre, datos.productoNombre, datos.nombre),
     principioActivo: valueAt(producto.principioActivo, datos.principioActivo),
     concentracion: valueAt(producto.concentracion, datos.concentracion),
     habilitacionHabitual: valueAt(producto.habilitacionHabitual, datos.habilitacionHabitual, producto.organismoHabilitante, datos.organismoHabilitante, producto.organismoRegulador, datos.organismoRegulador),
-    tipoRegistro: valueAt(producto.tipoRegistro, datos.tipoRegistro),
-    numeroRegistro: valueAt(producto.numeroRegistro, datos.numeroRegistro, producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion, datos.resolucionNumero),
+    tipoRegistro,
+    numeroRegistro,
     disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
     fechaResolucionSenasa: valueAt(producto.fechaResolucionSenasa, datos.fechaResolucionSenasa),
     fechaVencimientoRegistro: valueAt(producto.fechaVencimientoRegistro, datos.fechaVencimientoRegistro),
@@ -117,7 +134,7 @@ function productoTecnicoRows(datos = {}) {
     ['Concentración', documentoPendiente(producto.concentracion)],
     ['Habilitación', documentoPendiente(producto.habilitacionHabitual)],
     ['Tipo de registro', documentoPendiente(producto.tipoRegistro)],
-    ['Registro / Resolución', documentoPendiente(producto.numeroRegistro)],
+    ['Registro / Resolución', documentoPendiente(registroCompleto(producto))],
     ['Disposición', documentoPendiente(producto.disposicionRegistro)],
     ['Fecha', documentoPendiente(formatDate(producto.fechaResolucionSenasa))],
     ['Vencimiento', documentoPendiente(formatDate(producto.fechaVencimientoRegistro))],
