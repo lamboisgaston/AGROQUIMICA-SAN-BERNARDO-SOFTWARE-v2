@@ -365,25 +365,31 @@
       <div class="senasa-header no-print">
         <div>
           <h2>SENASA — Planillas MIP</h2>
-          <p>Planillas MIP, avisos e informes de control de plagas.</p>
+          <p>Avisos, informes, productos habilitados y resoluciones para control de plagas.</p>
         </div>
-        <div class="action-row senasa-menu-principal" aria-label="Menú interno SENASA">
-          <button id="senasa-btn-nuevo-aviso" type="button">Nueva Planilla de Aviso MIP</button>
-          <button id="senasa-btn-nuevo-informe" type="button">Nuevo Informe Control de Plagas</button>
-          <button type="button" data-senasa-scroll="senasa-documentos">Ver documentos guardados</button>
-          <button type="button" data-senasa-scroll="senasa-resoluciones-panel">Papeles / Resoluciones SENASA</button>
+        <div class="senasa-acciones-documento" aria-label="Acciones SENASA superiores">
           <button id="senasa-btn-guardar" class="btn-primary" type="button">Guardar documento</button>
-          <button id="senasa-btn-plantilla" type="button">Guardar como plantilla</button>
-          <button id="senasa-btn-imprimir" type="button">Imprimir</button>
+          <button id="senasa-btn-imprimir" type="button">Ver PDF</button>
           <button id="senasa-btn-pdf" type="button">Descargar PDF</button>
+          <button id="senasa-btn-plantilla" type="button">Guardar como plantilla</button>
         </div>
       </div>
+      <nav class="senasa-tabs no-print" aria-label="Menú interno SENASA">
+        <button type="button" data-senasa-scroll="senasa-documentos">Documentos</button>
+        <button id="senasa-btn-nuevo-aviso" type="button">Nuevo Aviso MIP</button>
+        <button id="senasa-btn-nuevo-informe" type="button">Nuevo Informe</button>
+        <button type="button" data-senasa-scroll="senasa-productos-panel">Productos SENASA</button>
+        <button type="button" data-senasa-scroll="senasa-resoluciones-panel">Resoluciones / Papeles</button>
+        <button type="button" data-senasa-scroll="senasa-plantillas">Plantillas</button>
+      </nav>
       <div class="senasa-layout no-print">
         <aside class="senasa-panel">
           <h3>Documentos guardados</h3>
           <div id="senasa-documentos" class="lista">Cargando...</div>
           <h3>Plantillas prefijadas</h3>
           <div id="senasa-plantillas" class="lista">Cargando...</div>
+          <h3 id="senasa-productos-panel">Productos SENASA</h3>
+          <div id="senasa-productos-tabla" class="lista">Cargando...</div>
           <h3 id="senasa-resoluciones-panel">Papeles / Resoluciones SENASA</h3>
           <div class="senasa-grid-dos">
             <select id="senasa-res-producto"></select>
@@ -402,6 +408,12 @@
           <h3>Formato editable</h3>
           <textarea id="senasa-editable" rows="6" readonly></textarea>
           <button id="senasa-btn-copiar" type="button">Copiar editable</button>
+          <div class="senasa-acciones-documento senasa-acciones-inferiores">
+            <button type="button" data-senasa-action="guardar" class="btn-primary">Guardar documento</button>
+            <button type="button" data-senasa-action="imprimir">Ver PDF</button>
+            <button type="button" data-senasa-action="pdf">Descargar PDF</button>
+            <button type="button" data-senasa-action="plantilla">Guardar como plantilla</button>
+          </div>
         </main>
       </div>
       <article id="senasa-preview" class="senasa-documento-formal">Seleccione o cree un documento SENASA.</article>

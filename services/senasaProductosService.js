@@ -143,6 +143,8 @@ const PRODUCTOS_SENASA_MIP = [
   }
 ];
 
+const PRODUCTOS_SENASA_MIP_POR_NOMBRE = new Map(PRODUCTOS_SENASA_MIP.map((producto) => [normalizarNombreSenasa(producto.nombre), producto]));
+
 const PRODUCTO_SENASA_WHERE = {
   OR: [
     { aptoSenasaMip: true },
@@ -155,6 +157,14 @@ function normalizarNombreSenasa(nombre = '') {
   return String(nombre).trim().toLocaleLowerCase('es-AR');
 }
 
+function normalizarRegistroSenasa(producto = {}) {
+  return producto.numeroRegistro || producto.resolucionSenasa || producto.registroResolucion || '';
+}
+
+function normalizarOrganismoRegulador(producto = {}) {
+  return producto.organismoRegulador || producto.habilitacionHabitual || '';
+}
+
 function dataProductoSenasa(producto) {
   return {
     nombre: producto.nombre,
@@ -162,6 +172,8 @@ function dataProductoSenasa(producto) {
     principioActivo: producto.principioActivo,
     concentracion: producto.concentracion,
     habilitacionHabitual: producto.habilitacionHabitual,
+    resolucionSenasa: normalizarRegistroSenasa(producto) || undefined,
+    fechaResolucionSenasa: producto.fechaResolucionSenasa ? new Date(producto.fechaResolucionSenasa) : undefined,
     observaciones: producto.observacionesRegulatorias,
     usoSenasa: 'MIP',
     aptoSenasaMip: true,
@@ -235,9 +247,25 @@ async function bootstrapProductosSenasaMipSiVacio(prisma) {
 }
 
 function mapearProductoSenasaApi(producto) {
+  const catalogo = PRODUCTOS_SENASA_MIP_POR_NOMBRE.get(normalizarNombreSenasa(producto.nombre)) || {};
+  const resolucionSenasa = producto.resolucionSenasa || catalogo.resolucionSenasa || catalogo.numeroRegistro || '';
+  const numeroRegistro = producto.numeroRegistro || catalogo.numeroRegistro || resolucionSenasa;
+  const organismoRegulador = normalizarOrganismoRegulador({ ...catalogo, ...producto });
   return {
     ...producto,
-    observacionesRegulatorias: producto.observacionesRegulatorias || producto.observaciones || ''
+    nombre: producto.nombre || catalogo.nombre || '',
+    principioActivo: producto.principioActivo || catalogo.principioActivo || '',
+    concentracion: producto.concentracion || catalogo.concentracion || '',
+    habilitacionHabitual: producto.habilitacionHabitual || catalogo.habilitacionHabitual || organismoRegulador,
+    organismoRegulador,
+    numeroRegistro,
+    resolucionSenasa,
+    fechaResolucionSenasa: producto.fechaResolucionSenasa || catalogo.fechaResolucionSenasa || null,
+    disposicionRegistro: producto.disposicionRegistro || catalogo.disposicionRegistro || '',
+    empresaTitularRegistro: producto.empresaTitularRegistro || catalogo.empresaTitularRegistro || '',
+    observacionesRegulatorias: producto.observacionesRegulatorias || catalogo.observacionesRegulatorias || producto.observaciones || '',
+    aptoSenasaMip: Boolean(producto.aptoSenasaMip ?? catalogo.aptoSenasaMip ?? true),
+    categoria: producto.categoria || catalogo.categoria || CATEGORIA_AGROQUIMICOS_SENASA
   };
 }
 
