@@ -379,28 +379,33 @@ function renderAviso(documento, datos, doc) {
   productoTecnicoBox(doc, datos.roedores);
   fichaGrid(doc, [
     ['Frecuencia de verificación / reposición', datos.roedores?.frecuenciaVerificacion],
-    ['Sectores grupo 1', [datos.roedores?.sectoresGrupo1, datos.roedores?.frecuenciaGrupo1].map(clean).filter(Boolean).join(' · ')],
-    ['Sectores grupo 2', [datos.roedores?.sectoresGrupo2, datos.roedores?.frecuenciaGrupo2].map(clean).filter(Boolean).join(' · ')]
-  ], 3, { fontSize: 7.5, gapX: 6, gapY: 3, minHeight: 20 });
+    ['Frecuencia grupo 1', datos.roedores?.frecuenciaGrupo1],
+    ['Sectores grupo 1', datos.roedores?.sectoresGrupo1],
+    ['Frecuencia grupo 2', datos.roedores?.frecuenciaGrupo2],
+    ['Sectores grupo 2', datos.roedores?.sectoresGrupo2]
+  ], 2, { fontSize: 7.5, gapX: 6, gapY: 3, minHeight: 20 });
 
-  sectionTitle(doc, 'Insectos');
-  doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(7.8).text('Sectores externos');
-  doc.moveDown(0.1);
+  sectionTitle(doc, 'Insectos externos');
   fichaGrid(doc, [
     ['Periodo', [formatDate(datos.insectosExternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosExternos?.periodoHasta || datos.periodoHasta)].map(clean).filter(Boolean).join(' · ')]
   ], 1, { fontSize: 7.6, minHeight: 20 });
   productoTecnicoBox(doc, datos.insectosExternos);
   fichaGrid(doc, [
-    ['Frecuencia y sectores', [datos.insectosExternos?.frecuenciaHoras ? `cada ${datos.insectosExternos.frecuenciaHoras} horas` : '', datos.insectosExternos?.sectoresGrupo1, datos.insectosExternos?.sectoresGrupo2].map(clean).filter(Boolean).join(' · ')]
-  ], 1, { fontSize: 7.6, minHeight: 20 });
-  doc.moveDown(0.1).fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(7.8).text('Sectores internos');
-  doc.moveDown(0.1);
+    ['Frecuencia grupo 1', valueAt(datos.insectosExternos?.frecuenciaGrupo1, datos.insectosExternos?.frecuenciaHoras)],
+    ['Sectores grupo 1', datos.insectosExternos?.sectoresGrupo1],
+    ['Frecuencia grupo 2', datos.insectosExternos?.frecuenciaGrupo2],
+    ['Sectores grupo 2', datos.insectosExternos?.sectoresGrupo2],
+    ['Observaciones de sectores', valueAt(datos.insectosExternos?.observacionesSectores, datos.insectosExternos?.observaciones)]
+  ], 2, { fontSize: 7.6, minHeight: 20 });
+  sectionTitle(doc, 'Insectos internos');
   fichaGrid(doc, [
     ['Periodo', [formatDate(datos.insectosInternos?.periodoDesde || datos.periodoDesde), formatDate(datos.insectosInternos?.periodoHasta || datos.periodoHasta)].map(clean).filter(Boolean).join(' · ')]
   ], 1, { fontSize: 7.6, minHeight: 20 });
   productoTecnicoBox(doc, datos.insectosInternos);
   fichaGrid(doc, [
-    ['Aplicación', [datos.insectosInternos?.colorSeccionPlano, datos.insectosInternos?.dia, datos.insectosInternos?.hora, datos.insectosInternos?.sectores, datos.insectosInternos?.observaciones].map(clean).filter(Boolean).join(' · ')]
+    ['Sectores internos tratados', valueAt(datos.insectosInternos?.sectoresTratados, datos.insectosInternos?.sectores)],
+    ['Sectores críticos', valueAt(datos.insectosInternos?.sectoresCriticos, datos.insectosInternos?.colorSeccionPlano)],
+    ['Observaciones', valueAt(datos.insectosInternos?.observaciones, datos.insectosInternos?.metodologia)]
   ], 1, { fontSize: 7.6, minHeight: 20 });
 
   sectionTitle(doc, 'Otras plagas');
@@ -412,14 +417,15 @@ function renderAviso(documento, datos, doc) {
 
   sectionTitle(doc, 'Áreas externas y espacios verdes');
   fichaGrid(doc, [
-    ['Sectores', datos.areasExternas?.sectores],
-    ['Actividades / observaciones', [datos.areasExternas?.actividades, datos.areasExternas?.observaciones].map(clean).filter(Boolean).join(' · ')]
+    ['Sectores mantenidos', valueAt(datos.areasExternas?.sectoresMantenidos, datos.areasExternas?.sectores)],
+    ['Sectores críticos', datos.areasExternas?.sectoresCriticos],
+    ['Observaciones', valueAt(datos.areasExternas?.observaciones, datos.areasExternas?.actividades)]
   ], 2, { fontSize: 7.6, minHeight: 20 });
 
   sectionTitle(doc, 'Hermeticidad');
   fichaGrid(doc, [
-    ['Sectores', datos.hermeticidad?.sectores],
-    ['Elementos / observaciones', [datos.hermeticidad?.elementos, datos.hermeticidad?.observaciones].map(clean).filter(Boolean).join(' · ')]
+    ['Sectores evaluados', valueAt(datos.hermeticidad?.sectoresEvaluados, datos.hermeticidad?.sectores)],
+    ['Observaciones', valueAt(datos.hermeticidad?.observaciones, datos.hermeticidad?.elementos)]
   ], 2, { fontSize: 7.6, minHeight: 20 });
 }
 
