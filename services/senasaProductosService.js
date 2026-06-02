@@ -2,22 +2,25 @@ const CATEGORIA_AGROQUIMICOS_SENASA = 'AGROQUÍMICOS SENASA';
 
 const PRODUCTOS_SENASA_MIP = [
   ['Fendona 6 SC', 'Alfacipermetrina', '6%', 'ANMAT', 'RNPUD', '0250058'],
-  ['K-Othrina', 'Deltametrina', '2,5%', 'ANMAT', 'RNPUD', '0250006'],
+  ['Sipertrin', 'Cipermetrina', '', 'ANMAT', 'RNPUD', '0250075', 'DI-2021-5216-APN-ANMAT#MS'],
+  ['K-Othrina', 'Deltametrina', '2,5%', 'ANMAT', 'RNPUD', '0250079', 'DI-2022-7452-APN-ANMAT#MS'],
   ['Aqua K-Othrine', 'Deltametrina', '2%', 'ANMAT', 'RNPUD', '0250052'],
   ['Solfac EW 50', 'Cyfluthrin', '5%', 'ANMAT', 'RNPUD', '0250005'],
   ['Blattanex Gel', 'Fipronil', '0,05%', 'ANMAT', 'RNPUD', '0250034'],
   ['Maxforce Gel', 'Imidacloprid', '2,15%', 'ANMAT', 'RNPUD', '0250044'],
   ['Klerat', 'Brodifacoum', '0,005%', 'ANMAT', 'RNPUD', '0250012'],
-  ['Storm', 'Flocoumafen', '0,005%', 'ANMAT', 'RNPUD', '0250019'],
+  ['Storm', 'Flocoumafen', '0,005%', 'ANMAT', '', ''],
   ['Rodilon Bloque', 'Difethialone', '0,0025%', 'ANMAT', 'RNPUD', '0250071'],
   ['Mirex-S', 'Sulfluramida', '0,3%', 'SENASA', 'SENASA', '36.184']
-].map(([nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro]) => ({
+].map(([nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro, disposicionRegistro = '', empresaTitularRegistro = '']) => ({
   nombreComercial,
   principioActivo,
   concentracion,
   organismoHabilitante,
   tipoRegistro,
   numeroRegistro,
+  disposicionRegistro,
+  empresaTitularRegistro,
   usoPrincipal: 'MIP'
 }));
 
@@ -35,12 +38,17 @@ function normalizarProductoMipPayload(payload = {}) {
     organismoHabilitante: String(payload.organismoHabilitante ?? payload.organismoRegulador ?? payload.habilitacionHabitual ?? '').trim(),
     tipoRegistro: String(payload.tipoRegistro || '').trim(),
     numeroRegistro: String(payload.numeroRegistro ?? payload.resolucionSenasa ?? '').trim(),
+    disposicionRegistro: String(payload.disposicionRegistro ?? '').trim(),
+    fechaResolucionSenasa: payload.fechaResolucionSenasa || null,
+    fechaVencimientoRegistro: payload.fechaVencimientoRegistro || null,
+    empresaTitularRegistro: String(payload.empresaTitularRegistro ?? '').trim(),
+    observacionesRegulatorias: String(payload.observacionesRegulatorias ?? '').trim(),
     usoPrincipal: String(payload.usoPrincipal || 'MIP').trim() || 'MIP'
   };
 }
 
 function validarProductoMipPayload(data = {}) {
-  const faltantes = ['nombreComercial', 'principioActivo', 'concentracion', 'organismoHabilitante', 'tipoRegistro', 'numeroRegistro']
+  const faltantes = ['nombreComercial', 'principioActivo', 'concentracion', 'organismoHabilitante']
     .filter((campo) => !String(data[campo] || '').trim());
   return faltantes.length ? `Faltan campos obligatorios: ${faltantes.join(', ')}` : null;
 }
@@ -77,6 +85,7 @@ function mapearProductoSenasaApi(producto = {}) {
   const organismoHabilitante = producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '';
   const tipoRegistro = producto.tipoRegistro || '';
   const numeroRegistro = producto.numeroRegistro || producto.resolucionSenasa || '';
+  const resolucionSenasa = tipoRegistro && numeroRegistro ? `${tipoRegistro} ${numeroRegistro}` : numeroRegistro;
   return {
     ...producto,
     nombreComercial,
@@ -88,7 +97,12 @@ function mapearProductoSenasaApi(producto = {}) {
     habilitacionHabitual: organismoHabilitante,
     tipoRegistro,
     numeroRegistro,
-    resolucionSenasa: [tipoRegistro, numeroRegistro].filter(Boolean).join(' '),
+    resolucionSenasa,
+    disposicionRegistro: producto.disposicionRegistro || '',
+    fechaResolucionSenasa: producto.fechaResolucionSenasa || null,
+    fechaVencimientoRegistro: producto.fechaVencimientoRegistro || null,
+    empresaTitularRegistro: producto.empresaTitularRegistro || '',
+    observacionesRegulatorias: producto.observacionesRegulatorias || '',
     habilitacionCompleta: [organismoHabilitante, tipoRegistro, numeroRegistro ? `N° ${numeroRegistro}` : ''].filter(Boolean).join(' '),
     usoPrincipal: producto.usoPrincipal || 'MIP',
     aptoSenasaMip: true,

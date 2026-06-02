@@ -1062,6 +1062,61 @@ function normalizarSenasaDatosJson(datos = {}) {
   return datos;
 }
 
+
+function senasaProductoIdsEnDatos(datos = {}) {
+  const ids = new Set();
+  ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas', 'ejecucion'].forEach((key) => {
+    const id = parsePositiveInt(datos?.[key]?.productoId ?? datos?.[key]?.producto?.id);
+    if (id) ids.add(id);
+  });
+  return [...ids];
+}
+
+function completarSenasaSeccionConProducto(seccion = {}, productosPorId = new Map()) {
+  if (!seccion || typeof seccion !== 'object') return seccion;
+  const id = parsePositiveInt(seccion.productoId ?? seccion.producto?.id);
+  const producto = id ? productosPorId.get(id) : null;
+  if (!producto) return seccion;
+  const snapshot = {
+    productoId: producto.id,
+    productoNombre: producto.nombre || producto.nombreComercial || '',
+    principioActivo: producto.principioActivo || '',
+    concentracion: producto.concentracion || '',
+    habilitacionHabitual: producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador || '',
+    organismoHabilitante: producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '',
+    organismoRegulador: producto.organismoRegulador || producto.organismoHabilitante || producto.habilitacionHabitual || '',
+    tipoRegistro: producto.tipoRegistro || '',
+    numeroRegistro: producto.numeroRegistro || '',
+    resolucionSenasa: producto.resolucionSenasa || '',
+    fechaResolucionSenasa: producto.fechaResolucionSenasa || null,
+    fechaVencimientoRegistro: producto.fechaVencimientoRegistro || null,
+    disposicionRegistro: producto.disposicionRegistro || '',
+    empresaTitularRegistro: producto.empresaTitularRegistro || '',
+    observacionesRegulatorias: producto.observacionesRegulatorias || ''
+  };
+  Object.entries(snapshot).forEach(([key, value]) => {
+    if (seccion[key] == null || seccion[key] === '') seccion[key] = value;
+  });
+  seccion.producto = { ...(seccion.producto || {}) };
+  Object.entries({ id: producto.id, nombre: snapshot.productoNombre, ...snapshot }).forEach(([key, value]) => {
+    if (seccion.producto[key] == null || seccion.producto[key] === '') seccion.producto[key] = value;
+  });
+  return seccion;
+}
+
+async function hidratarSenasaDocumentoConProductos(documento = {}) {
+  const datosJson = normalizarSenasaDatosJson(documento.datosJson || {});
+  const ids = senasaProductoIdsEnDatos(datosJson);
+  if (!ids.length) return documento;
+  const productos = await prisma.productoMip.findMany({ where: { id: { in: ids } } });
+  const productosPorId = new Map(productos.map((producto) => [producto.id, mapearProductoSenasaApi(producto)]));
+  const datosHidratados = { ...datosJson };
+  ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas', 'ejecucion'].forEach((key) => {
+    if (datosHidratados[key]) datosHidratados[key] = completarSenasaSeccionConProducto({ ...datosHidratados[key] }, productosPorId);
+  });
+  return { ...documento, datosJson: datosHidratados };
+}
+
 function extraerSenasaResumen(payload = {}) {
   const datosJson = normalizarSenasaDatosJson(payload.datosJson || payload.datos || {});
   const clienteId = parsePositiveInt(payload.clienteId ?? datosJson.clienteId);
@@ -1216,7 +1271,7 @@ app.get('/api/senasa/documentos/:id', asyncHandler(async (req, res) => {
   if (!id) return res.status(400).json({ error: 'id inválido' });
   const documento = await prisma.senasaDocumento.findUnique({ where: { id }, include: { cliente: { include: { senasaConfiguracion: true } } } });
   if (!documento) return res.status(404).json({ error: 'Documento no encontrado' });
-  res.json(documento);
+  res.json(await hidratarSenasaDocumentoConProductos(documento));
 }));
 
 app.post('/api/senasa/documentos', asyncHandler(async (req, res) => {
@@ -1261,9 +1316,10 @@ app.get('/api/senasa/documentos/:id/pdf', asyncHandler(async (req, res) => {
     include: { cliente: { include: { senasaConfiguracion: true } } }
   });
   if (!documento) return res.status(404).json({ error: 'Documento no encontrado' });
+  const documentoHidratado = await hidratarSenasaDocumentoConProductos(documento);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="senasa-${id}.pdf"`);
-  renderSenasaPdf(documento, res);
+  renderSenasaPdf(documentoHidratado, res);
 }));
 
 app.get('/productos', async (req, res) => {
