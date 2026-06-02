@@ -1230,13 +1230,18 @@ app.get('/api/senasa/productos', asyncHandler(async (_req, res) => {
 }));
 
 app.get('/api/senasa/bootstrap', asyncHandler(async (_req, res) => {
-  const [clientes, productos, resoluciones, documentos, plantillas] = await Promise.all([
+  const [clientes, resoluciones, documentos, plantillas] = await Promise.all([
     prisma.persona.findMany({ where: { eliminado: false, activo: true, tipo: 'CLIENTE' }, include: { senasaConfiguracion: true }, orderBy: { nombre: 'asc' } }),
-    listarProductosSenasaMip(),
     prisma.senasaResolucion.findMany({ orderBy: { updatedAt: 'desc' }, include: { producto: true } }),
     prisma.senasaDocumento.findMany({ where: { esPlantilla: false }, orderBy: { updatedAt: 'desc' }, take: 50, include: { cliente: true } }),
     prisma.senasaDocumento.findMany({ where: { esPlantilla: true }, orderBy: { updatedAt: 'desc' }, include: { cliente: true } })
   ]);
+  let productos = [];
+  try {
+    productos = await listarProductosSenasaMip();
+  } catch (error) {
+    console.error('[senasa/bootstrap] no se pudieron cargar productos MIP', error);
+  }
   const tipoCambioActual = await obtenerTipoCambioActual();
   res.json({
     clientes,
