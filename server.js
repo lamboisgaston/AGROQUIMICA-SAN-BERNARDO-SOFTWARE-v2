@@ -1145,11 +1145,12 @@ function senasaProductoDatosValidacion(item = {}) {
 }
 
 function productosPrevistosValidacion(datos = {}) {
+  const seccionesOriginales = [datos.roedores, datos.insectosExternos, datos.insectosInternos, datos.otrasPlagas?.voladoras || datos.otrasPlagas, datos.otrasPlagas?.caminadoras]
+    .filter((item) => senasaProductoDatosValidacion(item || {}).nombre);
+  if (seccionesOriginales.length) return seccionesOriginales;
   const base = Array.isArray(datos.productosPrevistos) ? datos.productosPrevistos : [];
   if (base.length) return base;
-  return ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas']
-    .map((key) => datos[key])
-    .filter((item) => senasaProductoDatosValidacion(item || {}).nombre);
+  return [];
 }
 
 function validarDocumentoAvisoMipParaPdf(documento = {}) {
