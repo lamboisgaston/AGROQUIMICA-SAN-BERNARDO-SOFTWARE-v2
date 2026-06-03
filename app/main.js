@@ -3654,6 +3654,8 @@ let senasaPasoMipActual = 1;
 let senasaProductoPrevistoSeleccionado = '';
 const SENASA_TEXTO_PENDIENTE = '—';
 const SENASA_REGISTRO_PENDIENTE = SENASA_TEXTO_PENDIENTE;
+const SENASA_FRECUENCIA_DEFAULT_AVISO = '30 DIAS';
+const SENASA_SECTORES_DEFAULT_AVISO = 'A';
 
 function senasaFecha(value) {
   if (!value) return '';
@@ -3763,7 +3765,22 @@ function senasaDefaultRows(tipo) {
   if (tipo === 'hermeticidad') return [{ sector: '', elemento: 'Cortinas de aire' }];
   return [{}];
 }
+function senasaDefaultsFrecuenciaSectoresAviso() {
+  return {
+    frecuenciaGrupo1: SENASA_FRECUENCIA_DEFAULT_AVISO,
+    sectoresGrupo1: SENASA_SECTORES_DEFAULT_AVISO,
+    frecuenciaGrupo2: SENASA_FRECUENCIA_DEFAULT_AVISO,
+    sectoresGrupo2: SENASA_SECTORES_DEFAULT_AVISO
+  };
+}
+function senasaDefaultsSeccionSimpleAviso() {
+  return {
+    frecuenciaGrupo1: SENASA_FRECUENCIA_DEFAULT_AVISO,
+    sectoresGrupo1: SENASA_SECTORES_DEFAULT_AVISO
+  };
+}
 function senasaDocumentoBase(tipoDocumento = 'AVISO_MIP') {
+  const defaultsAviso = tipoDocumento === 'AVISO_MIP';
   return {
     id: null,
     tipoDocumento,
@@ -3780,12 +3797,12 @@ function senasaDocumentoBase(tipoDocumento = 'AVISO_MIP') {
     cliente: {},
     establecimiento: {},
     productosPrevistos: [],
-    roedores: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('roedores') } : {},
-    insectosExternos: {},
-    insectosInternos: {},
-    otrasPlagas: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('otrasPlagas') } : {},
-    areasExternas: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('areasExternas') } : {},
-    hermeticidad: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('hermeticidad') } : {},
+    roedores: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('roedores') } : (defaultsAviso ? senasaDefaultsFrecuenciaSectoresAviso() : {}),
+    insectosExternos: defaultsAviso ? senasaDefaultsFrecuenciaSectoresAviso() : {},
+    insectosInternos: defaultsAviso ? senasaDefaultsFrecuenciaSectoresAviso() : {},
+    otrasPlagas: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('otrasPlagas') } : (defaultsAviso ? { voladoras: senasaDefaultsFrecuenciaSectoresAviso(), caminadoras: senasaDefaultsFrecuenciaSectoresAviso() } : {}),
+    areasExternas: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('areasExternas') } : (defaultsAviso ? senasaDefaultsSeccionSimpleAviso() : {}),
+    hermeticidad: tipoDocumento === 'INFORME_CONTROL_PLAGAS' ? { filas: senasaDefaultRows('hermeticidad') } : (defaultsAviso ? senasaDefaultsSeccionSimpleAviso() : {}),
     verificacion: {}
   };
 }
