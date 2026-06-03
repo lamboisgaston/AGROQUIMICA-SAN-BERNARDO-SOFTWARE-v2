@@ -1069,6 +1069,10 @@ function senasaProductoIdsEnDatos(datos = {}) {
     const id = parsePositiveInt(datos?.[key]?.productoId ?? datos?.[key]?.producto?.id);
     if (id) ids.add(id);
   });
+  [datos.otrasPlagas?.voladoras, datos.otrasPlagas?.caminadoras].forEach((item) => {
+    const id = parsePositiveInt(item?.productoId ?? item?.producto?.id);
+    if (id) ids.add(id);
+  });
   (Array.isArray(datos.productosPrevistos) ? datos.productosPrevistos : []).forEach((item) => {
     const id = parsePositiveInt(item?.productoId ?? item?.producto?.id);
     if (id) ids.add(id);
@@ -1119,6 +1123,8 @@ async function hidratarSenasaDocumentoConProductos(documento = {}) {
   ['roedores', 'insectosExternos', 'insectosInternos', 'otrasPlagas', 'ejecucion'].forEach((key) => {
     if (datosHidratados[key]) datosHidratados[key] = completarSenasaSeccionConProducto({ ...datosHidratados[key] }, productosPorId);
   });
+  if (datosHidratados.otrasPlagas?.voladoras) datosHidratados.otrasPlagas.voladoras = completarSenasaSeccionConProducto({ ...datosHidratados.otrasPlagas.voladoras }, productosPorId);
+  if (datosHidratados.otrasPlagas?.caminadoras) datosHidratados.otrasPlagas.caminadoras = completarSenasaSeccionConProducto({ ...datosHidratados.otrasPlagas.caminadoras }, productosPorId);
   if (Array.isArray(datosHidratados.productosPrevistos)) {
     datosHidratados.productosPrevistos = datosHidratados.productosPrevistos.map((item) => completarSenasaSeccionConProducto({ ...item }, productosPorId));
   }
@@ -1129,17 +1135,30 @@ function senasaTextoCompleto(value) {
   return value == null ? '' : String(value).trim();
 }
 
+function senasaValorRegulatorioServidor(value = '') {
+  const texto = senasaTextoCompleto(value);
+  if (!texto || /^pendiente$/i.test(texto)) return '';
+  return texto;
+}
+
 function senasaProductoDatosValidacion(item = {}) {
   const producto = item?.producto && typeof item.producto === 'object' ? item.producto : {};
   const organismo = senasaTextoCompleto(item.organismoHabilitante || producto.organismoHabilitante || item.organismoRegulador || producto.organismoRegulador || item.habilitacionHabitual || producto.habilitacionHabitual);
   const tipo = senasaTextoCompleto(item.tipoRegistro || producto.tipoRegistro);
-  const numero = senasaTextoCompleto(item.numeroRegistro || producto.numeroRegistro || item.resolucionSenasa || producto.resolucionSenasa);
+  const numero = senasaTextoCompleto(item.numeroRegistro || producto.numeroRegistro);
+  const resolucion = senasaTextoCompleto(item.resolucionSenasa || producto.resolucionSenasa);
+  const disposicion = senasaTextoCompleto(item.disposicionRegistro || producto.disposicionRegistro);
   const habilitacionCompleta = senasaTextoCompleto(item.habilitacionCompleta || producto.habilitacionCompleta || [organismo, tipo && tipo.toLowerCase() !== organismo.toLowerCase() ? tipo : '', numero ? `N° ${numero}` : ''].filter(Boolean).join(' '));
+  const registroResolucion = senasaValorRegulatorioServidor(numero)
+    || senasaValorRegulatorioServidor(resolucion)
+    || senasaValorRegulatorioServidor(disposicion)
+    || senasaValorRegulatorioServidor(organismo);
   return {
     nombre: senasaTextoCompleto(item.productoNombre || item.nombre || producto.nombre || producto.nombreComercial),
     principioActivo: senasaTextoCompleto(item.principioActivo || producto.principioActivo),
     concentracion: senasaTextoCompleto(item.concentracion || producto.concentracion),
     numeroRegistro: numero,
+    registroResolucion,
     habilitacionCompleta
   };
 }
@@ -1160,7 +1179,7 @@ function validarDocumentoAvisoMipParaPdf(documento = {}) {
   if (!senasaTextoCompleto(datos.periodoDesde || documento.periodoDesde) || !senasaTextoCompleto(datos.periodoHasta || documento.periodoHasta)) return 'Falta completar el periodo del MIP.';
   const productos = productosPrevistosValidacion(datos);
   if (!productos.length) return 'Falta agregar al menos un producto MIP.';
-  if (productos.some((item) => !senasaProductoDatosValidacion(item).numeroRegistro)) return 'Falta completar número de registro del producto seleccionado.';
+  if (productos.some((item) => !senasaProductoDatosValidacion(item).registroResolucion)) return 'Falta completar registro / resolución del producto seleccionado.';
   if (productos.some((item) => !senasaProductoDatosValidacion(item).habilitacionCompleta)) return 'Falta completar habilitación completa del producto seleccionado.';
   return '';
 }
@@ -1331,6 +1350,7 @@ app.get('/api/senasa/documentos/:id', asyncHandler(async (req, res) => {
 app.post('/api/senasa/documentos', asyncHandler(async (req, res) => {
   const data = extraerSenasaResumen(req.body || {});
   if (!['AVISO_MIP', 'INFORME_CONTROL_PLAGAS'].includes(data.tipoDocumento)) return res.status(400).json({ error: 'tipoDocumento inválido' });
+  data.datosJson = (await hidratarSenasaDocumentoConProductos({ datosJson: data.datosJson })).datosJson;
   const documento = await prisma.senasaDocumento.create({ data });
   res.status(201).json(documento);
 }));
@@ -1340,6 +1360,7 @@ app.put('/api/senasa/documentos/:id', asyncHandler(async (req, res) => {
   if (!id) return res.status(400).json({ error: 'id inválido' });
   const data = extraerSenasaResumen(req.body || {});
   if (!['AVISO_MIP', 'INFORME_CONTROL_PLAGAS'].includes(data.tipoDocumento)) return res.status(400).json({ error: 'tipoDocumento inválido' });
+  data.datosJson = (await hidratarSenasaDocumentoConProductos({ datosJson: data.datosJson })).datosJson;
   res.json(await prisma.senasaDocumento.update({ where: { id }, data }));
 }));
 
