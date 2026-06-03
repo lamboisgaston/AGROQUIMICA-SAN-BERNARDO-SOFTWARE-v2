@@ -3879,11 +3879,11 @@ function renderSenasaListas() {
   $('#senasa-informes').innerHTML = informes.length ? informes.map(renderDocumentoItem).join('') : '<div class="item">Sin informes realizados.</div>';
   $('#senasa-documentos').innerHTML = senasaDocumentos.length ? senasaDocumentos.map(renderDocumentoItem).join('') : '<div class="item">Sin documentos.</div>';
   $('#senasa-plantillas').innerHTML = senasaPlantillas.length ? senasaPlantillas.map((d) => `<div class="item"><b>${escapeHtmlClient(d.nombrePlantilla || `Plantilla #${d.id}`)}</b><br>${d.tipoDocumento}<br><button data-senasa-plantilla="${d.id}">Crear desde plantilla</button></div>`).join('') : '<div class="item">Sin plantillas.</div>';
-  $('#senasa-resoluciones').innerHTML = '<div class="item">Los datos regulatorios se mantienen dentro del producto SENASA / ANMAT seleccionado. Use la tabla de productos para revisar o editar cada ficha; no hay carga de resoluciones sueltas.</div>';
+  $('#senasa-resoluciones').innerHTML = '<div class="item">Los datos regulatorios se mantienen dentro del producto SENASA / ANMAT seleccionado. Use la tabla de productos para revisar cada ficha; no hay carga manual de resoluciones sueltas.</div>';
   const tabla = $('#senasa-productos-tabla');
   if (tabla) {
-    const rows = senasaProductos.filter(productoEsSenasaMip).map((p) => `<tr><td>${escapeHtmlClient(senasaValor(p.nombre || p.nombreComercial))}</td><td>${escapeHtmlClient(senasaValor(p.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(p.concentracion))}</td><td>${escapeHtmlClient(senasaRegistroValor(p))}</td><td>${escapeHtmlClient(senasaValor(p.disposicionRegistro))}</td><td>${escapeHtmlClient(senasaProductoEstado({ productoNombre: p.nombre || p.nombreComercial, ...p }))}</td><td><button type="button" data-senasa-producto-editar="${p.id}">Editar</button> <button type="button" data-senasa-producto-detalle="${p.id}">Ver</button> <button type="button" data-senasa-producto-eliminar="${p.id}">Baja lógica</button></td></tr>`).join('');
-    tabla.innerHTML = `<button type="button" class="btn-primary" data-senasa-producto-nuevo>+ Agregar producto MIP</button><div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Registro</th><th>Disposición</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Sin productos SENASA.</td></tr>'}</tbody></table></div>`;
+    const rows = senasaProductos.filter(productoEsSenasaMip).map((p) => `<tr><td>${escapeHtmlClient(senasaValor(p.nombre || p.nombreComercial))}</td><td>${escapeHtmlClient(senasaValor(p.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(p.concentracion))}</td><td>${escapeHtmlClient(senasaRegistroValor(p))}</td><td>${escapeHtmlClient(senasaValor(p.disposicionRegistro))}</td><td>${escapeHtmlClient(senasaProductoEstado({ productoNombre: p.nombre || p.nombreComercial, ...p }))}</td><td><button type="button" data-senasa-producto-detalle="${p.id}">Ver</button></td></tr>`).join('');
+    tabla.innerHTML = `<div class="item">Productos oficiales precargados: al seleccionarlos, el formulario autocompleta los datos regulatorios y los muestra de solo lectura.</div><div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto comercial</th><th>Principio activo</th><th>Concentración</th><th>Registro</th><th>Disposición</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows || '<tr><td colspan="7">Sin productos SENASA.</td></tr>'}</tbody></table></div>`;
   }
 }
 function renderSenasaResolucionForm() {
@@ -4205,7 +4205,16 @@ function recogerSenasaForm() {
 function senasaLinea(label, value, fallback = SENASA_TEXTO_PENDIENTE) { return `<p><strong>${label}:</strong> ${escapeHtmlClient(senasaValor(value, fallback))}</p>`; }
 function senasaProductoPreviewHtml(titulo, datos = {}) {
   const producto = senasaProductoDatos(datos);
-  return `<div class="senasa-box senasa-producto-doc"><h5>${escapeHtmlClient(titulo)}</h5>${senasaLinea('Producto', producto.nombre)}${senasaLinea('Principio activo', producto.principioActivo)}${senasaLinea('Concentración', producto.concentracion)}${senasaLinea('Organismo habilitante', producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador)}${senasaLinea('Tipo de registro', producto.tipoRegistro, SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Registro / Resolución', senasaRegistroValor(producto), SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Disposición', producto.disposicionRegistro, SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Fecha', producto.fechaResolucionSenasa, SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Vencimiento', producto.fechaVencimientoRegistro, SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Titular', producto.empresaTitularRegistro, SENASA_REGISTRO_PENDIENTE)}</div>`;
+  return `<div class="senasa-box senasa-producto-doc"><h5>${escapeHtmlClient(titulo)}</h5>${senasaLinea('Producto', producto.nombre)}${senasaLinea('Principio activo', producto.principioActivo)}${senasaLinea('Concentración', producto.concentracion)}${senasaLinea('Organismo', producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador)}${senasaLinea('RNPUD / Registro', senasaRegistroValor(producto), SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Disposición', producto.disposicionRegistro, SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Vencimiento', producto.fechaVencimientoRegistro, SENASA_REGISTRO_PENDIENTE)}${senasaLinea('Titular', producto.empresaTitularRegistro, SENASA_REGISTRO_PENDIENTE)}</div>`;
+}
+function senasaProductosRegulatoriosHtml(d = {}) {
+  const productos = senasaProductosPrevistosDocumento(d);
+  if (!productos.length) return '<div class="senasa-empty-box">No hay productos MIP seleccionados.</div>';
+  const rows = productos.map((item) => {
+    const producto = senasaProductoDatos(item);
+    return `<tr><td>${escapeHtmlClient(senasaValor(producto.nombre))}</td><td>${escapeHtmlClient(senasaValor(producto.principioActivo))}</td><td>${escapeHtmlClient(senasaValor(producto.concentracion))}</td><td>${escapeHtmlClient(senasaValor(producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador))}</td><td>${escapeHtmlClient(senasaRegistroValor(producto))}</td><td>${escapeHtmlClient(senasaValor(producto.disposicionRegistro))}</td><td>${escapeHtmlClient(senasaValor(producto.fechaVencimientoRegistro))}</td><td>${escapeHtmlClient(senasaValor(producto.empresaTitularRegistro))}</td></tr>`;
+  }).join('');
+  return `<div class="senasa-table-wrap"><table class="senasa-productos-table"><thead><tr><th>Producto</th><th>Principio activo</th><th>Concentración</th><th>Organismo</th><th>RNPUD / Registro</th><th>Disposición</th><th>Vencimiento</th><th>Titular</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function senasaValorPrimerNoVacio(...values) {
   return values.find((value) => senasaValor(value, '') !== '') || '';
@@ -4234,7 +4243,7 @@ function senasaProductoTexto(seccion = {}) {
   return {
     nombre: senasaPuntos(producto.nombre),
     principio: senasaPuntos(producto.principioActivo),
-    registro: senasaPuntos(producto.numeroRegistro || producto.resolucionSenasa),
+    registro: escapeHtmlClient(senasaRegistroValor(producto)),
     metodologia: senasaPuntos(seccion.metodologia || seccion.metodo),
     frecuencia1: senasaPuntos(seccion.frecuenciaGrupo1 || seccion.frecuenciaVerificacion || seccion.frecuenciaHoras || seccion.frecuencia),
     sectores1: senasaPuntos(seccion.sectoresGrupo1),
@@ -4264,7 +4273,7 @@ function renderSenasaPreview() {
   preview.innerHTML = `<div class="senasa-doc-title"><h2>${titulo}</h2><h3>${subtitulo}</h3><b>CIRCULAR N.º ${escapeHtmlClient(d.numeroCircular || '........')}</b></div>
     <p class="senasa-fecha">FECHA DE RECEPCIÓN: ${escapeHtmlClient(d.fechaRecepcion || '__/__/20__')}</p>
     <h4>ESTABLECIMIENTO</h4><div class="senasa-box"><p>Establecimiento Nº Oficial <b>${escapeHtmlClient(est.establecimientoOficial || '')}</b> &nbsp; Razón Social <b>${escapeHtmlClient(cliente.nombre || '')}</b></p><p>Domicilio: <b>${escapeHtmlClient(cliente.domicilio || '')}</b> &nbsp; Tel/Fax: <b>${escapeHtmlClient(cliente.telefono || '')}</b></p><p>Localidad: <b>${escapeHtmlClient(cliente.localidad || '')}</b> &nbsp; Dpto/Partido: <b>${escapeHtmlClient(est.departamentoPartido || '')}</b> &nbsp; Provincia: <b>${escapeHtmlClient(cliente.provincia || '')}</b></p><p>Supervisor: <b>${escapeHtmlClient(est.supervisor || '')}</b> &nbsp; Responsable por el S.I.V. <b>${escapeHtmlClient(est.responsableSiv || '')}</b></p></div>
-    ${esAviso ? senasaAvisoOriginalPreviewHtml(d) : `<h4>EJECUCIÓN REAL</h4><div class="senasa-box">${senasaLinea('Aviso vinculado', avisoVinculado, '')}${senasaLinea('Fecha real', d.fechaActividad)}${senasaLinea('Hora real', d.horaActividad)}${senasaLinea('Sectores recorridos', d.ejecucion?.sectoresRecorridos)}${senasaLinea('Casillas revisadas', d.ejecucion?.casillasRevisadas)}${senasaLinea('Trampas revisadas', d.ejecucion?.trampasRevisadas)}${senasaLinea('Actividad detectada / hallazgos', d.ejecucion?.actividadDetectada)}${senasaLinea('Productos utilizados', d.ejecucion?.productosUtilizados)}${senasaProductoPreviewHtml('Producto utilizado', d.ejecucion)}${senasaLinea('Observaciones', d.ejecucion?.observaciones)}${senasaLinea('Medidas correctivas', d.ejecucion?.medidasCorrectivas)}</div><h4>ROEDORES</h4>${roedoresTabla}<h4>VERIFICACIÓN</h4><div class="senasa-box">${senasaLinea('Acompañamiento', `${d.verificacion?.fechaAcompanamiento || ''} de ${d.verificacion?.horaDesde || ''} a ${d.verificacion?.horaHasta || ''}`)}${senasaLinea('Incrementar actividades', d.verificacion?.incrementarActividades)}${senasaLinea('Observaciones finales', d.verificacion?.observacionesFinales)}</div>`}
+    ${esAviso ? `<h4>DATOS REGULATORIOS DE PRODUCTOS</h4>${senasaProductosRegulatoriosHtml(d)}${senasaAvisoOriginalPreviewHtml(d)}` : `<h4>EJECUCIÓN REAL</h4><div class="senasa-box">${senasaLinea('Aviso vinculado', avisoVinculado, '')}${senasaLinea('Fecha real', d.fechaActividad)}${senasaLinea('Hora real', d.horaActividad)}${senasaLinea('Sectores recorridos', d.ejecucion?.sectoresRecorridos)}${senasaLinea('Casillas revisadas', d.ejecucion?.casillasRevisadas)}${senasaLinea('Trampas revisadas', d.ejecucion?.trampasRevisadas)}${senasaLinea('Actividad detectada / hallazgos', d.ejecucion?.actividadDetectada)}${senasaLinea('Productos utilizados', d.ejecucion?.productosUtilizados)}${senasaProductoPreviewHtml('Producto utilizado', d.ejecucion)}${senasaLinea('Observaciones', d.ejecucion?.observaciones)}${senasaLinea('Medidas correctivas', d.ejecucion?.medidasCorrectivas)}</div><h4>ROEDORES</h4>${roedoresTabla}<h4>VERIFICACIÓN</h4><div class="senasa-box">${senasaLinea('Acompañamiento', `${d.verificacion?.fechaAcompanamiento || ''} de ${d.verificacion?.horaDesde || ''} a ${d.verificacion?.horaHasta || ''}`)}${senasaLinea('Incrementar actividades', d.verificacion?.incrementarActividades)}${senasaLinea('Observaciones finales', d.verificacion?.observacionesFinales)}</div>`}
     <h4>FIRMAS</h4><div class="senasa-firmas"><span>Responsable Técnico MIP</span><span>Recibido SIV</span></div>`;
   $('#senasa-editable').value = JSON.stringify(d, null, 2);
 }
@@ -4405,28 +4414,9 @@ $('#senasa-form')?.addEventListener('click', (e) => {
 });
 
 
-function senasaProductoPayloadDesdePrompt(producto = {}) {
-  const nombreComercial = prompt('Producto comercial', producto.nombreComercial || producto.nombre || '');
-  if (nombreComercial === null) return null;
-  const principioActivo = prompt('Principio activo / droga', producto.principioActivo || '');
-  if (principioActivo === null) return null;
-  const concentracion = prompt('Concentración', producto.concentracion || '');
-  if (concentracion === null) return null;
-  const organismoHabilitante = prompt('Organismo habilitante (ANMAT o SENASA)', producto.organismoHabilitante || producto.habilitacionHabitual || producto.organismoRegulador || 'ANMAT');
-  if (organismoHabilitante === null) return null;
-  const tipoRegistro = prompt('Tipo de registro (RNPUD, RNE, SENASA, etc.)', producto.tipoRegistro || 'RNPUD');
-  if (tipoRegistro === null) return null;
-  const numeroRegistro = prompt('Número de registro / habilitación', producto.numeroRegistro || '');
-  if (numeroRegistro === null) return null;
-  const disposicionRegistro = prompt('Disposición', producto.disposicionRegistro || '');
-  if (disposicionRegistro === null) return null;
-  const empresaTitularRegistro = prompt('Titular', producto.empresaTitularRegistro || '');
-  if (empresaTitularRegistro === null) return null;
-  const fechaVencimientoRegistro = prompt('Vencimiento del registro (AAAA-MM-DD)', senasaFecha(producto.fechaVencimientoRegistro));
-  if (fechaVencimientoRegistro === null) return null;
-  const usoPrincipal = prompt('Uso principal', producto.usoPrincipal || 'MIP');
-  if (usoPrincipal === null) return null;
-  return { nombreComercial, principioActivo, concentracion, organismoHabilitante, tipoRegistro, numeroRegistro, disposicionRegistro, fechaVencimientoRegistro: fechaVencimientoRegistro || null, empresaTitularRegistro, usoPrincipal };
+function senasaProductoPayloadDesdePrompt() {
+  setMsg('Los datos regulatorios SENASA / ANMAT se precargan automáticamente desde el producto oficial; no se solicitan al usuario.', 'info');
+  return null;
 }
 $('#senasa-productos-tabla')?.addEventListener('click', async (e) => {
   const nuevo = e.target.closest('[data-senasa-producto-nuevo]');
