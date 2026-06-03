@@ -36,6 +36,7 @@ const PRODUCTOS_SENASA_MIP = [
     principioActivo: 'Deltametrina',
     concentracion: '2.5%',
     organismoHabilitante: 'ANMAT',
+    organismoRegulador: 'ANMAT',
     tipoRegistro: 'RNPUD',
     numeroRegistro: '0250079',
     disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
@@ -87,6 +88,7 @@ function normalizarNombreSenasa(nombre = '') {
 
 function productoMipDataPrisma(producto = {}) {
   const { aliases: _aliases, marca: _marca, denominacion: _denominacion, organismoRegulador: _organismoRegulador, habilitacionHabitual: _habilitacionHabitual, ...data } = producto;
+  data.habilitacionCompleta = data.habilitacionCompleta || habilitacionCompletaProducto(data);
   return data;
 }
 

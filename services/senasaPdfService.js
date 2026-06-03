@@ -414,6 +414,8 @@ function renderAviso(documento, datos, doc) {
     `Supervisor: ${dotted(valueAt(establecimiento.supervisor, cfg.supervisor), '')}        Responsable por el S.I.V. ${dotted(valueAt(establecimiento.responsableSiv, cfg.responsableSiv), '')}`
   ]);
 
+  renderProductosAAplicar(doc, productosAAplicarAviso(datos), 'Datos regulatorios de productos');
+
   avisoSectionTitle(doc, 'ROEDORES');
   avisoBox(doc, [
     `En el periodo comprendido del mes de ${dotted(datos.periodoDesde)} , se empleará como cebo rodenticida el producto: ${r.nombre}; cuyo principio activo es: ${r.principio}, aprobado por SENASA por la Resolución Nº ${r.registro}.`,
