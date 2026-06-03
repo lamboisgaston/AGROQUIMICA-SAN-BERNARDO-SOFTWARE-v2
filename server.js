@@ -1153,8 +1153,7 @@ function senasaProductoDatosValidacion(item = {}) {
   const habilitacionCompleta = senasaTextoCompleto(item.habilitacionCompleta || producto.habilitacionCompleta || [organismo, tipo && tipo.toLowerCase() !== organismo.toLowerCase() ? tipo : '', numero ? `N° ${numero}` : ''].filter(Boolean).join(' '));
   const registroResolucion = senasaValorRegulatorioServidor(numero)
     || senasaValorRegulatorioServidor(resolucion)
-    || senasaValorRegulatorioServidor(disposicion)
-    || senasaValorRegulatorioServidor(organismo);
+    || senasaValorRegulatorioServidor(disposicion);
   return {
     nombre: senasaTextoCompleto(item.productoNombre || item.nombre || producto.nombre || producto.nombreComercial),
     principioActivo: senasaTextoCompleto(item.principioActivo || producto.principioActivo),

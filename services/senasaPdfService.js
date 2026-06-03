@@ -158,7 +158,7 @@ function registroCompleto(producto = {}) {
   }
   return valorRegulatorio(producto.resolucionSenasa)
     || valorRegulatorio(producto.disposicionRegistro)
-    || valorRegulatorio(producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador);
+    || '';
 }
 
 function habilitacionCompleta(producto = {}) {
