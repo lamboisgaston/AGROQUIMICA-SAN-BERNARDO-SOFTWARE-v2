@@ -143,12 +143,23 @@ function numeroRegistroDesdeResolucion(resolucion = '', tipoRegistro = '') {
   return texto;
 }
 
-function registroCompleto(producto = {}) {
-  const numero = clean(producto.numeroRegistro);
-  if (!numero) return '';
-  return [clean(producto.tipoRegistro), numero].filter(Boolean).join(' ');
+function valorRegulatorio(value = '') {
+  const text = clean(value);
+  if (!text || /^pendiente$/i.test(text)) return '';
+  return text;
 }
 
+function registroCompleto(producto = {}) {
+  const numero = valorRegulatorio(producto.numeroRegistro);
+  if (numero) {
+    const tipo = valorRegulatorio(producto.tipoRegistro);
+    const yaIncluyeTipo = tipo && numero.toLowerCase().startsWith(tipo.toLowerCase());
+    return [!yaIncluyeTipo ? tipo : '', numero].filter(Boolean).join(' ');
+  }
+  return valorRegulatorio(producto.resolucionSenasa)
+    || valorRegulatorio(producto.disposicionRegistro)
+    || valorRegulatorio(producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador);
+}
 
 function habilitacionCompleta(producto = {}) {
   const completa = clean(producto.habilitacionCompleta);
@@ -172,6 +183,7 @@ function productoSeleccionado(datos = {}) {
     habilitacionCompleta: valueAt(producto.habilitacionCompleta, datos.habilitacionCompleta),
     tipoRegistro,
     numeroRegistro,
+    resolucionSenasa,
     disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
     fechaResolucionSenasa: valueAt(producto.fechaResolucionSenasa, datos.fechaResolucionSenasa),
     fechaVencimientoRegistro: valueAt(producto.fechaVencimientoRegistro, datos.fechaVencimientoRegistro),
@@ -234,20 +246,24 @@ const PRODUCTOS_A_APLICAR_COLUMNS = [
   { key: 'productoComercial', label: 'Producto', ratio: 0.15 },
   { key: 'principioActivo', label: 'Principio activo', ratio: 0.15 },
   { key: 'concentracion', label: 'Concentración', ratio: 0.11 },
-  { key: 'habilitacionRegistro', label: 'Habilitación / Registro', ratio: 0.18 },
-  { key: 'areaSector', label: 'Área / sector', ratio: 0.16 },
-  { key: 'frecuencia', label: 'Frecuencia', ratio: 0.12 },
-  { key: 'metodo', label: 'Método', ratio: 0.13 }
+  { key: 'habilitacionRegistro', label: 'Habilitación', ratio: 0.14 },
+  { key: 'registroResolucion', label: 'Registro / Resolución', ratio: 0.15 },
+  { key: 'disposicionRegistro', label: 'Disposición', ratio: 0.14 },
+  { key: 'areaSector', label: 'Área / sector', ratio: 0.13 },
+  { key: 'frecuencia', label: 'Frecuencia', ratio: 0.10 },
+  { key: 'metodo', label: 'Método', ratio: 0.08 }
 ];
 
 function productoAAplicarRow(datos = {}) {
   const producto = productoSeleccionado(datos);
-  if (!clean(producto.nombre) && !clean(producto.principioActivo) && !clean(producto.numeroRegistro)) return null;
+  if (!clean(producto.nombre) && !clean(producto.principioActivo) && !registroCompleto(producto)) return null;
   return {
     productoComercial: producto.nombre,
     principioActivo: producto.principioActivo,
     concentracion: producto.concentracion,
-    habilitacionRegistro: habilitacionCompleta(producto) || registroCompleto(producto),
+    habilitacionRegistro: habilitacionCompleta(producto),
+    registroResolucion: registroCompleto(producto),
+    disposicionRegistro: producto.disposicionRegistro,
     areaSector: valueAt(datos.areaSector, datos.area, datos.sector),
     frecuencia: datos.frecuencia,
     metodo: valueAt(datos.metodo, datos.metodologia)
@@ -263,7 +279,7 @@ function productosAAplicarAviso(datos = {}) {
     .map((item) => productoAAplicarRow(item))
     .filter(Boolean)
     .filter((row) => {
-      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacionRegistro, row.areaSector, row.frecuencia, row.metodo].join('|');
+      const firma = [row.productoComercial, row.principioActivo, row.concentracion, row.habilitacionRegistro, row.registroResolucion, row.disposicionRegistro, row.areaSector, row.frecuencia, row.metodo].join('|');
       if (vistos.has(firma)) return false;
       vistos.add(firma);
       return true;
@@ -317,7 +333,7 @@ function avisoProductoTexto(seccion = {}) {
   return {
     nombre: dotted(producto.nombre),
     principio: dotted(producto.principioActivo),
-    registro: dotted(valueAt(producto.numeroRegistro, seccion.resolucionSenasa)),
+    registro: dotted(registroCompleto(producto)),
     metodologia: dotted(valueAt(seccion.metodologia, seccion.metodo)),
     frecuencia1: dotted(valueAt(seccion.frecuenciaGrupo1, seccion.frecuenciaVerificacion, seccion.frecuenciaHoras, seccion.frecuencia)),
     sectores1: dotted(seccion.sectoresGrupo1),
