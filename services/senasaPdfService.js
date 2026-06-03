@@ -145,8 +145,12 @@ function numeroRegistroDesdeResolucion(resolucion = '', tipoRegistro = '') {
 
 function valorRegulatorio(value = '') {
   const text = clean(value);
-  if (!text || /^pendiente$/i.test(text)) return '';
+  if (!text || /^pendiente$/i.test(text) || /^[—-]+$/.test(text)) return '';
   return text;
+}
+
+function valueRegulatorioAt(...values) {
+  return values.find((value) => valorRegulatorio(value));
 }
 
 function registroCompleto(producto = {}) {
@@ -156,35 +160,38 @@ function registroCompleto(producto = {}) {
     const yaIncluyeTipo = tipo && numero.toLowerCase().startsWith(tipo.toLowerCase());
     return [!yaIncluyeTipo ? tipo : '', numero].filter(Boolean).join(' ');
   }
-  return valorRegulatorio(producto.resolucionSenasa)
-    || valorRegulatorio(producto.disposicionRegistro)
-    || '';
+  return valorRegulatorio(producto.resolucionSenasa) || '';
 }
 
 function habilitacionCompleta(producto = {}) {
   const completa = clean(producto.habilitacionCompleta);
   if (completa) return completa;
-  const organismo = clean(producto.habilitacionHabitual);
-  const tipo = clean(producto.tipoRegistro);
-  const numero = clean(producto.numeroRegistro);
+  const organismo = clean(valueAt(producto.organismoHabilitante, producto.organismoRegulador, producto.habilitacionHabitual));
+  const tipo = valorRegulatorio(producto.tipoRegistro);
+  const numero = valorRegulatorio(producto.numeroRegistro);
   return [organismo, tipo && tipo.toLowerCase() !== organismo.toLowerCase() ? tipo : '', numero ? `N° ${numero}` : ''].filter(Boolean).join(' ');
 }
 
 function productoSeleccionado(datos = {}) {
   const producto = datos.producto && typeof datos.producto === 'object' ? datos.producto : {};
-  const tipoRegistro = valueAt(producto.tipoRegistro, datos.tipoRegistro);
-  const resolucionSenasa = valueAt(producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion);
-  const numeroRegistro = valueAt(producto.numeroRegistro, datos.numeroRegistro, datos.resolucionNumero, numeroRegistroDesdeResolucion(resolucionSenasa, tipoRegistro));
+  const tipoRegistro = valueRegulatorioAt(producto.tipoRegistro, datos.tipoRegistro);
+  const resolucionSenasa = valueRegulatorioAt(producto.resolucionSenasa, datos.resolucionSenasa, datos.registroResolucion);
+  const numeroRegistro = valueRegulatorioAt(
+    producto.numeroRegistro,
+    datos.numeroRegistro,
+    datos.resolucionNumero,
+    numeroRegistroDesdeResolucion(resolucionSenasa, tipoRegistro)
+  );
   return {
-    nombre: valueAt(producto.nombre, datos.productoNombre, datos.nombre),
+    nombre: valueAt(producto.nombre, producto.nombreComercial, datos.productoNombre, datos.nombre, datos.nombreComercial),
     principioActivo: valueAt(producto.principioActivo, datos.principioActivo),
     concentracion: valueAt(producto.concentracion, datos.concentracion),
-    habilitacionHabitual: valueAt(producto.habilitacionHabitual, datos.habilitacionHabitual, producto.organismoHabilitante, datos.organismoHabilitante, producto.organismoRegulador, datos.organismoRegulador),
+    habilitacionHabitual: valueAt(producto.organismoHabilitante, datos.organismoHabilitante, producto.organismoRegulador, datos.organismoRegulador, producto.habilitacionHabitual, datos.habilitacionHabitual),
     habilitacionCompleta: valueAt(producto.habilitacionCompleta, datos.habilitacionCompleta),
     tipoRegistro,
     numeroRegistro,
     resolucionSenasa,
-    disposicionRegistro: valueAt(producto.disposicionRegistro, datos.disposicionRegistro),
+    disposicionRegistro: valueRegulatorioAt(producto.disposicionRegistro, datos.disposicionRegistro),
     fechaResolucionSenasa: valueAt(producto.fechaResolucionSenasa, datos.fechaResolucionSenasa),
     fechaVencimientoRegistro: valueAt(producto.fechaVencimientoRegistro, datos.fechaVencimientoRegistro),
     empresaTitularRegistro: valueAt(producto.empresaTitularRegistro, datos.empresaTitularRegistro)
