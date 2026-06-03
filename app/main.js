@@ -3729,7 +3729,6 @@ function senasaRegistroValor(datos = {}, fallback = SENASA_TEXTO_PENDIENTE) {
   }
   return senasaValorRegulatorio(producto.resolucionSenasa)
     || senasaValorRegulatorio(producto.disposicionRegistro)
-    || senasaValorRegulatorio(producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador)
     || fallback;
 }
 function senasaProductoLabel(p = {}) {
