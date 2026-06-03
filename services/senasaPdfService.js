@@ -243,15 +243,17 @@ function renderTable(doc, titleText, columns, rows) {
 }
 
 const PRODUCTOS_A_APLICAR_COLUMNS = [
-  { key: 'productoComercial', label: 'Producto', ratio: 0.15 },
-  { key: 'principioActivo', label: 'Principio activo', ratio: 0.15 },
-  { key: 'concentracion', label: 'Concentración', ratio: 0.11 },
-  { key: 'habilitacionRegistro', label: 'Habilitación', ratio: 0.14 },
-  { key: 'registroResolucion', label: 'Registro / Resolución', ratio: 0.15 },
-  { key: 'disposicionRegistro', label: 'Disposición', ratio: 0.14 },
-  { key: 'areaSector', label: 'Área / sector', ratio: 0.13 },
-  { key: 'frecuencia', label: 'Frecuencia', ratio: 0.10 },
-  { key: 'metodo', label: 'Método', ratio: 0.08 }
+  { key: 'productoComercial', label: 'Producto', ratio: 0.12 },
+  { key: 'principioActivo', label: 'Principio activo', ratio: 0.12 },
+  { key: 'concentracion', label: 'Conc.', ratio: 0.07 },
+  { key: 'habilitacionRegistro', label: 'Organismo / hab.', ratio: 0.10 },
+  { key: 'registroResolucion', label: 'RNPUD / Registro', ratio: 0.11 },
+  { key: 'disposicionRegistro', label: 'Disposición', ratio: 0.12 },
+  { key: 'fechaVencimientoRegistro', label: 'Vencimiento', ratio: 0.09 },
+  { key: 'empresaTitularRegistro', label: 'Titular', ratio: 0.12 },
+  { key: 'areaSector', label: 'Área / sector', ratio: 0.07 },
+  { key: 'frecuencia', label: 'Frecuencia', ratio: 0.05 },
+  { key: 'metodo', label: 'Método', ratio: 0.04 }
 ];
 
 function productoAAplicarRow(datos = {}) {
@@ -264,6 +266,8 @@ function productoAAplicarRow(datos = {}) {
     habilitacionRegistro: habilitacionCompleta(producto),
     registroResolucion: registroCompleto(producto),
     disposicionRegistro: producto.disposicionRegistro,
+    fechaVencimientoRegistro: formatDate(producto.fechaVencimientoRegistro),
+    empresaTitularRegistro: producto.empresaTitularRegistro,
     areaSector: valueAt(datos.areaSector, datos.area, datos.sector),
     frecuencia: datos.frecuencia,
     metodo: valueAt(datos.metodo, datos.metodologia)
