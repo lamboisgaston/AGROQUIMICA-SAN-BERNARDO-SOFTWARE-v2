@@ -11,7 +11,7 @@ function fechaRegistroOrNull(value) {
 }
 
 const PRODUCTOS_SENASA_MIP = [
-  { nombreComercial: 'Storm', principioActivo: 'Flocoumafen', concentracion: '0,005%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250019' },
+  { nombreComercial: 'Storm', principioActivo: 'Flocoumafen', concentracion: '0,005%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '' },
   { nombreComercial: 'Fendona 6 SC', principioActivo: 'Alfacipermetrina', concentracion: '6%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250058' },
   {
     nombreComercial: 'Sipertrin',
