@@ -1088,6 +1088,8 @@ function completarSenasaSeccionConProducto(seccion = {}, productosPorId = new Ma
   const snapshot = {
     productoId: producto.id,
     productoNombre: producto.nombre || producto.nombreComercial || '',
+    marca: producto.marca || producto.nombre || producto.nombreComercial || '',
+    denominacion: producto.denominacion || '',
     principioActivo: producto.principioActivo || '',
     concentracion: producto.concentracion || '',
     habilitacionHabitual: producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador || '',
@@ -1179,8 +1181,6 @@ function validarDocumentoAvisoMipParaPdf(documento = {}) {
   if (!senasaTextoCompleto(datos.periodoDesde || documento.periodoDesde) || !senasaTextoCompleto(datos.periodoHasta || documento.periodoHasta)) return 'Falta completar el periodo del MIP.';
   const productos = productosPrevistosValidacion(datos);
   if (!productos.length) return 'Falta agregar al menos un producto MIP.';
-  if (productos.some((item) => !senasaProductoDatosValidacion(item).registroResolucion)) return 'Falta completar registro / resolución del producto seleccionado.';
-  if (productos.some((item) => !senasaProductoDatosValidacion(item).habilitacionCompleta)) return 'Falta completar habilitación completa del producto seleccionado.';
   return '';
 }
 

@@ -3670,6 +3670,9 @@ function senasaInput(name, label, type = 'text', value = '', extra = '') {
 function senasaTextarea(name, label, value = '') {
   return `<label>${label}<textarea name="${name}" rows="2">${escapeHtmlClient(value || '')}</textarea></label>`;
 }
+function senasaReadonlyInput(_name, label, value = '') {
+  return `<label>${label}<input type="text" value="${escapeHtmlClient(senasaValor(value))}" readonly disabled aria-readonly="true" /></label>`;
+}
 function senasaValor(value, fallback = SENASA_TEXTO_PENDIENTE) {
   const text = value == null ? '' : String(value)
     .replace(/[{}[\]"]/g, '')
@@ -3692,7 +3695,9 @@ function senasaProductoDatos(datos = {}) {
   const numeroRegistro = datos.numeroRegistro || producto.numeroRegistro || datos.resolucionNumero || senasaNumeroRegistroDesdeResolucion(resolucionSenasa || datos.registroResolucion, tipoRegistro);
   return {
     id: producto.id || datos.productoId || '',
-    nombre: datos.productoNombre || datos.nombre || producto.nombre || '',
+    nombre: datos.productoNombre || datos.nombre || producto.nombre || producto.nombreComercial || '',
+    marca: datos.marca || producto.marca || producto.nombreComercial || '',
+    denominacion: datos.denominacion || producto.denominacion || '',
     principioActivo: datos.principioActivo || producto.principioActivo || '',
     concentracion: datos.concentracion || producto.concentracion || '',
     habilitacionHabitual: datos.habilitacionHabitual || producto.habilitacionHabitual || datos.organismoHabilitante || producto.organismoHabilitante || datos.organismoRegulador || producto.organismoRegulador || '',
@@ -3728,7 +3733,7 @@ function senasaRegistroValor(datos = {}, fallback = SENASA_TEXTO_PENDIENTE) {
     || fallback;
 }
 function senasaProductoLabel(p = {}) {
-  return [p.nombre || p.nombreComercial, p.principioActivo, p.concentracion, p.habilitacionHabitual || p.organismoHabilitante || p.organismoRegulador].map((item) => senasaValor(item, '')).filter(Boolean).join(' — ') || 'Producto SENASA / MIP';
+  return [p.nombre || p.nombreComercial || p.marca, p.principioActivo, p.concentracion, senasaRegistroValor(p, '')].map((item) => senasaValor(item, '')).filter(Boolean).join(' — ') || 'Producto SENASA / MIP';
 }
 function senasaProductoEstado(datos = {}) {
   const producto = senasaProductoDatos(datos);
@@ -3742,6 +3747,7 @@ function senasaProductoResumenHtml(datos = {}) {
   }
   const rows = [
     ['Producto seleccionado', producto.nombre],
+    ['Denominación', producto.denominacion],
     ['Principio activo', producto.principioActivo],
     ['Concentración', producto.concentracion],
     ['Organismo habilitante', producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador],
@@ -3752,8 +3758,7 @@ function senasaProductoResumenHtml(datos = {}) {
     ['Fecha resolución', producto.fechaResolucionSenasa],
     ['Vencimiento registro', producto.fechaVencimientoRegistro],
     ['Titular', producto.empresaTitularRegistro],
-    ['Observaciones regulatorias', producto.observacionesRegulatorias],
-    ['Estado documental', senasaProductoEstado(producto)]
+    ['Observaciones regulatorias', producto.observacionesRegulatorias]
   ];
   return `<article class="senasa-producto-resumen">${rows.map(([label, value]) => `<div><span>${escapeHtmlClient(label)}</span><strong>${escapeHtmlClient(senasaValor(value))}</strong></div>`).join('')}</article>`;
 }
@@ -3836,7 +3841,9 @@ function senasaAplicarCliente(clienteId) {
 function senasaProductoSnapshot(p = {}) {
   return {
     id: p.id || '',
-    nombre: p.nombre || '',
+    nombre: p.nombre || p.nombreComercial || '',
+    marca: p.marca || p.nombre || p.nombreComercial || '',
+    denominacion: p.denominacion || '',
     principioActivo: p.principioActivo || '',
     concentracion: p.concentracion || '',
     habilitacionHabitual: p.habilitacionHabitual || p.organismoHabilitante || '',
@@ -3857,7 +3864,7 @@ function senasaProductoTecnico(productoId) {
   const p = senasaProductos.find((x) => String(x.id) === String(productoId));
   if (!p) return {};
   const producto = senasaProductoSnapshot(p);
-  return { producto, productoId: producto.id, productoNombre: producto.nombre, principioActivo: producto.principioActivo, concentracion: producto.concentracion, habilitacionHabitual: producto.habilitacionHabitual, organismoHabilitante: producto.organismoHabilitante, organismoRegulador: producto.organismoRegulador, tipoRegistro: producto.tipoRegistro, numeroRegistro: producto.numeroRegistro, resolucionSenasa: producto.resolucionSenasa, habilitacionCompleta: producto.habilitacionCompleta, fechaResolucionSenasa: producto.fechaResolucionSenasa, fechaVencimientoRegistro: producto.fechaVencimientoRegistro, disposicionRegistro: producto.disposicionRegistro, empresaTitularRegistro: producto.empresaTitularRegistro, observacionesRegulatorias: producto.observacionesRegulatorias, aptoSenasaMip: Boolean(p.aptoSenasaMip), categoria: p.categoria || '', tipoSenasa: p.tipoSenasa || '', usoSenasa: p.usoSenasa || '' };
+  return { producto, productoId: producto.id, productoNombre: producto.nombre, marca: producto.marca, denominacion: producto.denominacion, principioActivo: producto.principioActivo, concentracion: producto.concentracion, habilitacionHabitual: producto.habilitacionHabitual, organismoHabilitante: producto.organismoHabilitante, organismoRegulador: producto.organismoRegulador, tipoRegistro: producto.tipoRegistro, numeroRegistro: producto.numeroRegistro, resolucionSenasa: producto.resolucionSenasa, habilitacionCompleta: producto.habilitacionCompleta, fechaResolucionSenasa: producto.fechaResolucionSenasa, fechaVencimientoRegistro: producto.fechaVencimientoRegistro, disposicionRegistro: producto.disposicionRegistro, empresaTitularRegistro: producto.empresaTitularRegistro, observacionesRegulatorias: producto.observacionesRegulatorias, aptoSenasaMip: Boolean(p.aptoSenasaMip), categoria: p.categoria || '', tipoSenasa: p.tipoSenasa || '', usoSenasa: p.usoSenasa || '' };
 }
 function senasaResolucionTecnica(resolucionId) {
   const r = senasaResoluciones.find((x) => String(x.id) === String(resolucionId));
@@ -3938,10 +3945,6 @@ function senasaValidarAvisoMip(d = {}) {
   if (!senasaValor(d.periodoDesde, '') || !senasaValor(d.periodoHasta, '')) return 'Falta completar el periodo del MIP.';
   const productos = senasaProductosPrevistosDocumento(d);
   if (!productos.length) return 'Falta agregar al menos un producto MIP.';
-  const incompleto = productos.find((item) => !senasaValorRegulatorio(senasaRegistroValor(item, '')));
-  if (incompleto) return 'Falta completar número de registro del producto seleccionado.';
-  const sinHabilitacion = productos.find((item) => !senasaValor(senasaHabilitacionCompleta(item), ''));
-  if (sinHabilitacion) return 'Falta completar habilitación completa del producto seleccionado.';
   return '';
 }
 
@@ -3959,8 +3962,14 @@ function senasaSeccionProductoCampos(key, titulo, seccion = {}) {
       ${senasaInput(`${key}.periodoHasta`, 'Periodo hasta', 'date', seccion.periodoHasta || (senasaDocumentoActual?.periodoHasta || ''))}
       <label>Metodología / sistema ${senasaMetodoSelect(`${key}.metodologia`, seccion.metodologia || seccion.metodo)}</label>
       ${senasaSelectProducto(`${key}.productoId`, 'Producto a emplear', seccion.productoId, seccion)}
-      ${senasaInput(`${key}.principioActivo`, 'Principio activo', 'text', producto.principioActivo)}
-      ${senasaInput(`${key}.numeroRegistro`, 'Registro / Resolución', 'text', senasaRegistroValor(producto, ''))}
+      ${senasaReadonlyInput(`${key}.productoNombre`, 'Producto', producto.nombre)}
+      ${senasaReadonlyInput(`${key}.principioActivo`, 'Principio activo', producto.principioActivo)}
+      ${senasaReadonlyInput(`${key}.concentracion`, 'Concentración', producto.concentracion)}
+      ${senasaReadonlyInput(`${key}.organismoHabilitante`, 'Organismo', producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador)}
+      ${senasaReadonlyInput(`${key}.numeroRegistro`, 'RNPUD / Registro', senasaRegistroValor(producto, ''))}
+      ${senasaReadonlyInput(`${key}.disposicionRegistro`, 'Disposición', producto.disposicionRegistro)}
+      ${senasaReadonlyInput(`${key}.fechaVencimientoRegistro`, 'Vencimiento', producto.fechaVencimientoRegistro)}
+      ${senasaReadonlyInput(`${key}.empresaTitularRegistro`, 'Titular', producto.empresaTitularRegistro)}
       ${senasaInput(`${key}.frecuenciaGrupo1`, 'Frecuencia', 'text', seccion.frecuenciaGrupo1 || seccion.frecuenciaVerificacion || seccion.frecuenciaHoras || seccion.frecuencia)}
       ${senasaTextarea(`${key}.sectoresGrupo1`, 'Sectores grupo 1 / letras', seccion.sectoresGrupo1)}
       ${senasaInput(`${key}.frecuenciaGrupo2`, 'Frecuencia grupo 2', 'text', seccion.frecuenciaGrupo2)}
@@ -4061,11 +4070,14 @@ function renderSenasaForm() {
       ${senasaInput('ejecucion.trampasRevisadas', 'Trampas revisadas', 'text', d.ejecucion?.trampasRevisadas)}
       ${senasaTextarea('ejecucion.actividadDetectada', 'Actividad detectada / hallazgos reales', d.ejecucion?.actividadDetectada)}
       ${senasaSelectProducto('ejecucion.productoId', 'Producto utilizado', d.ejecucion?.productoId, d.ejecucion)}
-      ${senasaInput('ejecucion.principioActivo', 'Principio activo', 'text', d.ejecucion?.principioActivo)}
-      ${senasaInput('ejecucion.concentracion', 'Concentración', 'text', d.ejecucion?.concentracion)}
-      ${senasaInput('ejecucion.habilitacionHabitual', 'Organismo habilitante', 'text', d.ejecucion?.habilitacionHabitual || d.ejecucion?.organismoHabilitante)}
-      ${senasaInput('ejecucion.tipoRegistro', 'Tipo de registro', 'text', d.ejecucion?.tipoRegistro)}
-      ${senasaInput('ejecucion.numeroRegistro', 'Registro / Resolución', 'text', senasaRegistroValor(d.ejecucion || {}, ''))}
+      ${senasaReadonlyInput('ejecucion.productoNombre', 'Producto', senasaProductoDatos(d.ejecucion || {}).nombre)}
+      ${senasaReadonlyInput('ejecucion.principioActivo', 'Principio activo', d.ejecucion?.principioActivo)}
+      ${senasaReadonlyInput('ejecucion.concentracion', 'Concentración', d.ejecucion?.concentracion)}
+      ${senasaReadonlyInput('ejecucion.habilitacionHabitual', 'Organismo', d.ejecucion?.habilitacionHabitual || d.ejecucion?.organismoHabilitante)}
+      ${senasaReadonlyInput('ejecucion.numeroRegistro', 'RNPUD / Registro', senasaRegistroValor(d.ejecucion || {}, ''))}
+      ${senasaReadonlyInput('ejecucion.disposicionRegistro', 'Disposición', d.ejecucion?.disposicionRegistro)}
+      ${senasaReadonlyInput('ejecucion.fechaVencimientoRegistro', 'Vencimiento', d.ejecucion?.fechaVencimientoRegistro)}
+      ${senasaReadonlyInput('ejecucion.empresaTitularRegistro', 'Titular', d.ejecucion?.empresaTitularRegistro)}
       ${senasaTextarea('ejecucion.productosUtilizados', 'Productos efectivamente utilizados (observaciones)', d.ejecucion?.productosUtilizados)}
       ${senasaTextarea('ejecucion.observaciones', 'Observaciones de actividad', d.ejecucion?.observaciones)}
       ${senasaTextarea('ejecucion.medidasCorrectivas', 'Medidas correctivas reales', d.ejecucion?.medidasCorrectivas)}
@@ -4148,6 +4160,8 @@ function senasaSincronizarProductoSeccion(seccion = {}) {
   seccion.producto = producto;
   seccion.productoId = producto.id;
   seccion.productoNombre = producto.nombre;
+  seccion.marca = producto.marca;
+  seccion.denominacion = producto.denominacion;
   seccion.principioActivo = producto.principioActivo;
   seccion.concentracion = producto.concentracion;
   seccion.habilitacionHabitual = producto.habilitacionHabitual;
@@ -4352,7 +4366,7 @@ $('#senasa-form')?.addEventListener('change', (e) => {
   const prodSel = e.target.closest('[data-senasa-producto-select]');
   if (prodSel) {
     const basePath = prodSel.name.replace(/\.productoId$/, '');
-    const limpio = prodSel.value ? senasaProductoTecnico(prodSel.value) : { producto: {}, productoNombre: '', principioActivo: '', concentracion: '', habilitacionHabitual: '', organismoHabilitante: '', organismoRegulador: '', tipoRegistro: '', numeroRegistro: '', resolucionSenasa: '', fechaResolucionSenasa: '', fechaVencimientoRegistro: '', disposicionRegistro: '', empresaTitularRegistro: '', observacionesRegulatorias: '' };
+    const limpio = prodSel.value ? senasaProductoTecnico(prodSel.value) : { producto: {}, productoNombre: '', principioActivo: '', concentracion: '', habilitacionHabitual: '', organismoHabilitante: '', organismoRegulador: '', tipoRegistro: '', numeroRegistro: '', resolucionSenasa: '', fechaResolucionSenasa: '', fechaVencimientoRegistro: '', disposicionRegistro: '', empresaTitularRegistro: '', observacionesRegulatorias: '', marca: '', denominacion: '' };
     Object.assign(senasaDocumentoActual[basePath] ||= {}, limpio, { productoId: prodSel.value });
     if (!prodSel.value) delete senasaDocumentoActual[basePath].producto;
     senasaSincronizarProductoSeccion(senasaDocumentoActual[basePath]);

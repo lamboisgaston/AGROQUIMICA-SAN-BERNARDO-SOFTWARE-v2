@@ -15,36 +15,33 @@ const PRODUCTOS_SENASA_MIP = [
   { nombreComercial: 'Fendona 6 SC', principioActivo: 'Alfacipermetrina', concentracion: '6%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250058' },
   {
     nombreComercial: 'Sipertrin',
+    marca: 'Sipertrin',
+    denominacion: 'Insecticida vinchuquicida',
     principioActivo: 'Beta-cipermetrina',
-    concentracion: '0,5%',
+    concentracion: '0.5%',
     organismoHabilitante: 'ANMAT',
+    organismoRegulador: 'ANMAT',
     tipoRegistro: 'RNPUD',
     numeroRegistro: '0250075',
     disposicionRegistro: 'DI-2021-5216-APN-ANMAT#MS',
     fechaVencimientoRegistro: '2026-06-23',
-    empresaTitularRegistro: 'Chemotecnica S.A. - RNE N° 020033120'
+    empresaTitularRegistro: 'Chemotecnica S.A. - RNE N° 020033120',
+    habilitacionHabitual: 'ANMAT'
   },
   {
-    nombreComercial: 'K-Othrina',
+    nombreComercial: 'K-Othrine Floable 2.5',
+    marca: 'K-Othrine Floable 2.5',
+    denominacion: 'Insecticida vinchuquicida',
+    aliases: ['K-Othrina', 'K-Othrine'],
     principioActivo: 'Deltametrina',
-    concentracion: '2,5%',
+    concentracion: '2.5%',
     organismoHabilitante: 'ANMAT',
     tipoRegistro: 'RNPUD',
     numeroRegistro: '0250079',
     disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
     fechaVencimientoRegistro: '2026-10-03',
-    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212'
-  },
-  {
-    nombreComercial: 'K-Othrine',
-    principioActivo: 'Deltametrina',
-    concentracion: '2,5%',
-    organismoHabilitante: 'ANMAT',
-    tipoRegistro: 'RNPUD',
-    numeroRegistro: '0250079',
-    disposicionRegistro: 'DI-2022-7452-APN-ANMAT#MS',
-    fechaVencimientoRegistro: '2026-10-03',
-    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212'
+    empresaTitularRegistro: 'Bayer S.A. - RNE N° 020032212',
+    habilitacionHabitual: 'ANMAT'
   },
   { nombreComercial: 'Aqua K-Othrine', principioActivo: 'Deltametrina', concentracion: '2%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250052' },
   { nombreComercial: 'Solfac EW 50', principioActivo: 'Cyfluthrin', concentracion: '5%', organismoHabilitante: 'ANMAT', tipoRegistro: 'RNPUD', numeroRegistro: '0250005' },
@@ -55,6 +52,12 @@ const PRODUCTOS_SENASA_MIP = [
   { nombreComercial: 'Mirex-S', principioActivo: 'Sulfluramida', concentracion: '0,3%', organismoHabilitante: 'SENASA', tipoRegistro: 'SENASA', numeroRegistro: '36.184' }
 ].map((producto) => ({
   ...producto,
+  organismoHabilitante: producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '',
+  organismoRegulador: producto.organismoRegulador || producto.organismoHabilitante || producto.habilitacionHabitual || '',
+  habilitacionHabitual: producto.habilitacionHabitual || producto.organismoHabilitante || producto.organismoRegulador || '',
+  marca: producto.marca || producto.nombreComercial || '',
+  denominacion: producto.denominacion || '',
+  aliases: producto.aliases || [],
   habilitacionCompleta: producto.habilitacionCompleta || habilitacionCompletaProducto(producto),
   disposicionRegistro: producto.disposicionRegistro || '',
   fechaResolucionSenasa: fechaRegistroOrNull(producto.fechaResolucionSenasa),
@@ -79,6 +82,32 @@ function habilitacionCompletaProducto({ organismoHabilitante = '', tipoRegistro 
 
 function normalizarNombreSenasa(nombre = '') {
   return String(nombre).trim().toLocaleLowerCase('es-AR');
+}
+
+
+function productoMipDataPrisma(producto = {}) {
+  const { aliases: _aliases, marca: _marca, denominacion: _denominacion, organismoRegulador: _organismoRegulador, habilitacionHabitual: _habilitacionHabitual, ...data } = producto;
+  return data;
+}
+
+function nombresUpsertProducto(producto = {}) {
+  return [producto.nombreComercial, producto.marca, ...(Array.isArray(producto.aliases) ? producto.aliases : [])]
+    .map(normalizarNombreSenasa)
+    .filter(Boolean);
+}
+
+
+const PRODUCTOS_SENASA_MIP_METADATA = new Map();
+PRODUCTOS_SENASA_MIP.forEach((producto) => {
+  nombresUpsertProducto(producto).forEach((nombre) => PRODUCTOS_SENASA_MIP_METADATA.set(nombre, producto));
+  if (producto.numeroRegistro) PRODUCTOS_SENASA_MIP_METADATA.set(`registro:${normalizarNombreSenasa(producto.numeroRegistro)}`, producto);
+});
+
+function metadataProductoMip(producto = {}) {
+  const claves = [producto.nombreComercial, producto.nombre, producto.numeroRegistro ? `registro:${producto.numeroRegistro}` : '']
+    .map(normalizarNombreSenasa)
+    .filter(Boolean);
+  return claves.map((clave) => PRODUCTOS_SENASA_MIP_METADATA.get(clave)).find(Boolean) || {};
 }
 
 function normalizarProductoMipPayload(payload = {}) {
@@ -113,12 +142,15 @@ async function upsertProductosSenasaMip(prisma) {
   let actualizados = 0;
 
   for (const producto of PRODUCTOS_SENASA_MIP) {
-    const existente = existentesPorNombre.get(normalizarNombreSenasa(producto.nombreComercial));
-    await prisma.productoMip.upsert({
+    const nombresBusqueda = nombresUpsertProducto(producto);
+    const existente = nombresBusqueda.map((nombre) => existentesPorNombre.get(nombre)).find(Boolean);
+    const data = productoMipDataPrisma(producto);
+    const upserted = await prisma.productoMip.upsert({
       where: { id: existente?.id || -1 },
-      update: producto,
-      create: { ...producto, activo: true }
+      update: data,
+      create: { ...data, activo: true }
     });
+    nombresBusqueda.forEach((nombre) => existentesPorNombre.set(nombre, upserted));
     if (existente) actualizados += 1;
     else creados += 1;
   }
@@ -134,8 +166,9 @@ async function bootstrapProductosSenasaMipSiVacio(prisma) {
 }
 
 function mapearProductoSenasaApi(producto = {}) {
-  const nombreComercial = producto.nombreComercial || producto.nombre || '';
-  const organismoHabilitante = producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || '';
+  const meta = metadataProductoMip(producto);
+  const nombreComercial = producto.nombreComercial || producto.nombre || meta.nombreComercial || '';
+  const organismoHabilitante = producto.organismoHabilitante || producto.organismoRegulador || producto.habilitacionHabitual || meta.organismoHabilitante || meta.organismoRegulador || meta.habilitacionHabitual || '';
   const tipoRegistro = producto.tipoRegistro || '';
   const numeroRegistro = producto.numeroRegistro || producto.resolucionSenasa || '';
   const resolucionSenasa = tipoRegistro && numeroRegistro ? `${tipoRegistro} ${numeroRegistro}` : numeroRegistro;
@@ -143,11 +176,13 @@ function mapearProductoSenasaApi(producto = {}) {
     ...producto,
     nombreComercial,
     nombre: nombreComercial,
+    marca: meta.marca || nombreComercial,
+    denominacion: meta.denominacion || '',
     principioActivo: producto.principioActivo || '',
     concentracion: producto.concentracion || '',
     organismoHabilitante,
-    organismoRegulador: organismoHabilitante,
-    habilitacionHabitual: organismoHabilitante,
+    organismoRegulador: producto.organismoRegulador || meta.organismoRegulador || organismoHabilitante,
+    habilitacionHabitual: producto.habilitacionHabitual || meta.habilitacionHabitual || organismoHabilitante,
     tipoRegistro,
     numeroRegistro,
     resolucionSenasa,
