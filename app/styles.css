@@ -576,3 +576,16 @@ details[open] { display: grid; gap: 5px; }
   .senasa-sector-cards,
   .senasa-resumen-grid { grid-template-columns: 1fr; }
 }
+.senasa-label-row { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; width: 100%; }
+.senasa-recomendado { display: inline-flex; align-items: center; width: max-content; padding: 2px 8px; border-radius: 999px; background: #e0f2fe; color: #075985; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; }
+.senasa-ayuda-bloque { margin: 6px 0 12px; padding: 10px 12px; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 10px; background: #eff6ff; color: #1e3a8a; font-size: 0.9rem; line-height: 1.35; }
+.senasa-mini-card-grid { display: grid; gap: 12px; margin: 10px 0; }
+.senasa-mini-card { padding: 12px; border: 1px solid #dbe4ee; border-radius: 14px; background: #fbfdff; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); }
+.senasa-mini-card-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.senasa-mini-card h5 { margin: 0; color: #1e3a5f; font-size: 0.95rem; }
+.senasa-mini-card p { margin: 0; color: #64748b; font-size: 0.84rem; line-height: 1.35; }
+.senasa-paso-indicador { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 10px; }
+.senasa-paso-indicador span { padding: 4px 10px; border-radius: 999px; background: #1d4ed8; color: #fff; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; }
+.senasa-paso-indicador strong { color: #243b53; font-size: 0.95rem; }
+@media (min-width: 1180px) { .senasa-mini-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .senasa-original-edit-block .senasa-mini-card-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .senasa-label-row { align-items: flex-start; } }
