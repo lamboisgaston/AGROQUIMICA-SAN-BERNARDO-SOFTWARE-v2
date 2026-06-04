@@ -8,9 +8,12 @@ const { mapearProductoSenasaApi, normalizarProductoMipPayload, upsertProductosSe
 
 const app = express();
 const prisma = new PrismaClient();
+const path = require('path');
+const { execSync } = require('child_process');
 
 const DATABASE_URL_EFECTIVA = process.env.DATABASE_URL || 'file:./dev.db';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const SERVER_START_TIME = new Date().toISOString();
 console.log(`[db] Prisma DATABASE_URL efectiva: ${DATABASE_URL_EFECTIVA}`);
 
 app.use(express.json());
@@ -381,10 +384,56 @@ function esDominioSemillasYa(hostname = '') {
   return hostname.includes('semillasya.com');
 }
 
+function obtenerArchivoInicio(hostname = '') {
+  return esDominioSemillasYa(hostname) ? 'semillasya.html' : 'public.html';
+}
+
+function obtenerCommitDeploy() {
+  const commitDesdeEntorno = process.env.RAILWAY_GIT_COMMIT_SHA
+    || process.env.RAILWAY_GIT_COMMIT
+    || process.env.GIT_COMMIT_SHA
+    || process.env.GITHUB_SHA
+    || process.env.COMMIT_SHA
+    || '';
+  if (commitDesdeEntorno) return commitDesdeEntorno;
+
+  try {
+    return execSync('git rev-parse HEAD', { cwd: __dirname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function obtenerFechaBuildDeploy() {
+  return process.env.RAILWAY_DEPLOYMENT_CREATED_AT
+    || process.env.RAILWAY_BUILD_CREATED_AT
+    || process.env.BUILD_DATE
+    || process.env.DEPLOY_DATE
+    || process.env.SOURCE_DATE_EPOCH
+    || SERVER_START_TIME;
+}
+
+app.get('/api/version', (req, res) => {
+  const hostname = obtenerHostname(req);
+  const archivoInicio = obtenerArchivoInicio(hostname);
+  res.json({
+    commit: obtenerCommitDeploy(),
+    archivoQueSirveRoot: path.join('app', archivoInicio),
+    fechaBuildDeploy: obtenerFechaBuildDeploy(),
+    hostnameDetectado: hostname,
+    serverStartTime: SERVER_START_TIME,
+    railway: {
+      environment: process.env.RAILWAY_ENVIRONMENT || null,
+      serviceName: process.env.RAILWAY_SERVICE_NAME || null,
+      deploymentId: process.env.RAILWAY_DEPLOYMENT_ID || null
+    }
+  });
+});
+
 app.get('/', (req, res) => {
   const hostname = obtenerHostname(req);
-  const archivoInicio = esDominioSemillasYa(hostname) ? 'semillasya.html' : 'public.html';
-  res.sendFile(require('path').join(__dirname, 'app', archivoInicio));
+  const archivoInicio = obtenerArchivoInicio(hostname);
+  res.sendFile(path.join(__dirname, 'app', archivoInicio));
 });
 
 app.post('/login', (req, res) => {
@@ -4589,10 +4638,10 @@ function extraerDatoUbicacion(observaciones, campo) {
 }
 
 app.get('/semillasya', (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'app', 'semillasya.html'));
+  res.sendFile(path.join(__dirname, 'app', 'semillasya.html'));
 });
 
-app.use('/semillasya', express.static(require('path').join(__dirname, 'app')));
+app.use('/semillasya', express.static(path.join(__dirname, 'app')));
 
 app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
   const { nombre, telefono, cuitDni, pais, provincia, provinciaId, ciudad, localidad, localidadId } = req.body || {};
@@ -4690,15 +4739,15 @@ app.post('/api/semillasya/ingreso', asyncHandler(async (req, res) => {
 }));
 
 app.get(['/senasa', '/dashboard/senasa'], (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
+  res.sendFile(path.join(__dirname, 'app', 'index.html'));
 });
 
 app.get('/app', (req, res) => {
-  res.sendFile(require('path').join(__dirname, 'app', 'index.html'));
+  res.sendFile(path.join(__dirname, 'app', 'index.html'));
 });
 
-app.use('/app', express.static(require('path').join(__dirname, 'app')));
-app.use('/data', express.static(require('path').join(__dirname, 'data')));
+app.use('/app', express.static(path.join(__dirname, 'app')));
+app.use('/data', express.static(path.join(__dirname, 'data')));
 
 const PORT = process.env.PORT || 3000;
 
