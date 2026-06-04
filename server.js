@@ -383,7 +383,7 @@ function esDominioSemillasYa(hostname = '') {
 
 app.get('/', (req, res) => {
   const hostname = obtenerHostname(req);
-  const archivoInicio = esDominioSemillasYa(hostname) ? 'semillasya.html' : 'index.html';
+  const archivoInicio = esDominioSemillasYa(hostname) ? 'semillasya.html' : 'public.html';
   res.sendFile(require('path').join(__dirname, 'app', archivoInicio));
 });
 
