@@ -332,6 +332,15 @@ h3 { color: var(--green-950); line-height: 1.15; }
 .footer-grid { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .footer-grid p { margin: 0; }
 .footer-grid strong { color: #fff; }
+.footer-system-link {
+  color: rgba(255,255,255,0.72);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: rgba(255,255,255,0.32);
+  text-underline-offset: 4px;
+}
+.footer-system-link:hover { color: #fff; text-decoration-color: var(--industrial-yellow); }
 .floating-whatsapp {
   position: fixed;
   right: 18px;
