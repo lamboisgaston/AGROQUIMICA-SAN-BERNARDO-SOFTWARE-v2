@@ -57,6 +57,7 @@
         <article class="dashboard-card" data-module-card="stock" data-business-card="AGROQUIMICA"><h3>Stock</h3><p>Control de existencias y ajustes.</p><button data-abrir-modulo="stock">Entrar</button></article>
         <article class="dashboard-card" data-module-card="remitos" data-business-card="AGROQUIMICA"><h3>Remitos</h3><p>Recepción de mercadería y actualización de stock.</p><button data-abrir-modulo="remitos">Entrar</button></article>
         <article class="dashboard-card" data-module-card="reportes" data-business-card="AGROQUIMICA"><h3>Reportes</h3><p>Reportes operativos y comerciales.</p><button data-abrir-modulo="reportes">Entrar</button></article>
+        <article class="dashboard-card" data-module-card="estadisticas-historico" data-business-card="AGROQUIMICA"><h3>Estadísticas</h3><p>Histórico diario, mensual y anual en ARS y USD.</p><button data-abrir-modulo="estadisticas-historico">Histórico</button></article>
         <article class="dashboard-card" data-module-card="eliminados" data-business-card="AGROQUIMICA"><h3>Papelera / Eliminados</h3><p>Restauración de registros eliminados.</p><button data-abrir-modulo="eliminados">Entrar</button></article>
         <article class="dashboard-card" data-module-card="estado-sistema" data-business-card="AGROQUIMICA"><h3>Estado del sistema</h3><p>Centro de control y auditoría operativa.</p><button data-abrir-modulo="estado-sistema">Entrar</button></article>
         <article class="dashboard-card" data-module-card="usuarios" data-business-card="AGROQUIMICA"><h3>Usuarios</h3><p>Gestión de usuarios y permisos.</p><button data-abrir-modulo="usuarios">Entrar</button></article>
@@ -306,7 +307,19 @@
       <div id="estado-sistema-panel" class="lista">Sin lectura aún</div>
     </section>
 
-<section class="bloque app-shell compact-form" data-modulo="reportes">
+    <section class="bloque app-shell compact-form estadisticas-historico" data-modulo="estadisticas-historico">
+      <h2>Estadísticas → Histórico</h2>
+      <p>Datos importados desde CSV/Excel, agrupados por Año → Mes → Día y valuados en ARS / USD histórico.</p>
+      <div class="filters estadisticas-filtros">
+        <label>Desde <input id="hist-desde" type="date" /></label>
+        <label>Hasta <input id="hist-hasta" type="date" /></label>
+        <button id="btn-hist-refrescar" type="button">Actualizar histórico</button>
+      </div>
+      <div id="hist-resumen" class="estadisticas-resumen">Sin datos cargados.</div>
+      <div id="hist-arbol" class="estadisticas-arbol lista">Sin lectura aún.</div>
+    </section>
+
+    <section class="bloque app-shell compact-form" data-modulo="reportes">
       <h2>7) Ventas cobradas</h2>
       <label>Fecha <input id="ventas-cobradas-fecha" type="date" /></label>
       <button id="btn-ventas-cobradas-buscar">Buscar</button>
