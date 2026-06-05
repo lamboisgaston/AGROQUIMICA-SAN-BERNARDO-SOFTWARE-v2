@@ -669,6 +669,119 @@ async function refreshVenta() {
 }
 
 
+
+function htmlSafe(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function moneyNullable(value, moneda = '$') {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${moneda}${parsed.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+}
+
+function buildHistoricoQuery() {
+  const params = new URLSearchParams();
+  const desde = $('#hist-desde')?.value;
+  const hasta = $('#hist-hasta')?.value;
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+function historicoMetricasHtml(item, incluirDolar = false) {
+  return `
+    <div class="estadisticas-metricas">
+      <span>Ventas ARS <strong>${moneyNullable(item.ventasArs)}</strong></span>
+      <span>Ventas USD <strong>${moneyNullable(item.ventasUsd, 'USD ')}</strong></span>
+      <span>Compras ARS <strong>${moneyNullable(item.comprasArs)}</strong></span>
+      <span>Compras USD <strong>${moneyNullable(item.comprasUsd, 'USD ')}</strong></span>
+      <span>Margen ARS <strong>${moneyNullable(item.margenBrutoArs)}</strong></span>
+      <span>Margen USD <strong>${moneyNullable(item.margenBrutoUsd, 'USD ')}</strong></span>
+      <span>Facturado ARS <strong>${moneyNullable(item.facturadoArs)}</strong></span>
+      <span>Facturado USD <strong>${moneyNullable(item.facturadoUsd, 'USD ')}</strong></span>
+      <span>Sin respaldo ARS <strong>${moneyNullable(item.sinRespaldoArs)}</strong></span>
+      <span>Transferencias ARS <strong>${moneyNullable(item.recTransferenciaArs)}</strong></span>
+      ${incluirDolar ? `<span>Dólar BNA venta <strong>${moneyNullable(item.dolarBnaVenta || item.dolarBnaVentaPromedio)}</strong></span>` : ''}
+    </div>
+  `;
+}
+
+function renderEstadisticasHistorico(diario, mensual, anual) {
+  const resumen = $('#hist-resumen');
+  const arbol = $('#hist-arbol');
+  if (!arbol) return;
+  const dias = diario?.data || [];
+  const meses = mensual?.data || [];
+  const anios = anual?.data || [];
+  if (resumen) {
+    resumen.innerHTML = `
+      <div class="estadistica-resumen-card"><strong>${anios.length}</strong><span>Años</span></div>
+      <div class="estadistica-resumen-card"><strong>${meses.length}</strong><span>Meses</span></div>
+      <div class="estadistica-resumen-card"><strong>${dias.length}</strong><span>Días importados</span></div>
+    `;
+  }
+  if (!dias.length) {
+    arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas para el rango seleccionado.</div>';
+    return;
+  }
+
+  const mesesPorAnio = new Map();
+  meses.forEach((m) => {
+    const key = String(m.anio);
+    if (!mesesPorAnio.has(key)) mesesPorAnio.set(key, []);
+    mesesPorAnio.get(key).push(m);
+  });
+  const diasPorMes = new Map();
+  dias.forEach((d) => {
+    const key = d.fecha.slice(0, 7);
+    if (!diasPorMes.has(key)) diasPorMes.set(key, []);
+    diasPorMes.get(key).push(d);
+  });
+
+  arbol.innerHTML = anios.map((anio) => `
+    <details class="hist-nivel hist-anio" open>
+      <summary><strong>${anio.anio}</strong> · ${anio.cantidadDias} días ${historicoMetricasHtml(anio)}</summary>
+      ${(mesesPorAnio.get(String(anio.anio)) || []).map((mes) => {
+        const mesKey = `${mes.anio}-${String(mes.mes).padStart(2, '0')}`;
+        return `
+          <details class="hist-nivel hist-mes" open>
+            <summary><strong>${mesKey}</strong> · ${mes.cantidadDias} días ${historicoMetricasHtml(mes, true)}</summary>
+            ${(diasPorMes.get(mesKey) || []).map((dia) => `
+              <div class="hist-dia item">
+                <div><strong>${htmlSafe(dia.fecha)}</strong>${dia.etiquetaOriginal ? ` · ${htmlSafe(dia.etiquetaOriginal)}` : ''}</div>
+                ${historicoMetricasHtml(dia, true)}
+              </div>
+            `).join('') || '<div class="item">Sin días para este mes.</div>'}
+          </details>
+        `;
+      }).join('') || '<div class="item">Sin meses para este año.</div>'}
+    </details>
+  `).join('');
+}
+
+async function loadEstadisticasHistorico() {
+  const arbol = $('#hist-arbol');
+  if (arbol) arbol.innerHTML = '<div class="item">Cargando histórico...</div>';
+  try {
+    const query = buildHistoricoQuery();
+    const [diario, mensual, anual] = await Promise.all([
+      api(`/api/estadisticas/historico/diario${query}`),
+      api(`/api/estadisticas/historico/mensual${query}`),
+      api(`/api/estadisticas/historico/anual${query}`)
+    ]);
+    renderEstadisticasHistorico(diario, mensual, anual);
+  } catch (error) {
+    if (arbol) arbol.innerHTML = `<div class="item">Error al cargar histórico: ${htmlSafe(error.message || error)}</div>`;
+    setMsg(`Error al cargar histórico: ${error.message || error}`, 'warning');
+  }
+}
+
 async function loadResumenCaja() {
   const query = fechaCajaSeleccionada ? `?fecha=${encodeURIComponent(fechaCajaSeleccionada)}` : '';
   const turno = $('#caja-turno')?.value || 'DIARIO';
@@ -1200,6 +1313,7 @@ const HOME_MODULES_BASE = [
   'stock',
   'remitos',
   'reportes',
+  'estadisticas-historico',
   'eliminados',
   'estado-sistema',
   'productos-precampania',
@@ -1219,7 +1333,7 @@ let activeRole = null;
 let activeRoleName = '';
 let activeBusiness = null;
 const BUSINESS_MODULES = {
-  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'eliminados', 'estado-sistema', 'usuarios', 'configuracion'],
+  AGROQUIMICA: ['clientes', 'productos', 'categorias', 'presupuestos', 'pedidos', 'ventas', 'caja', 'cuenta-corriente', 'proveedores', 'stock', 'remitos', 'reportes', 'estadisticas-historico', 'eliminados', 'estado-sistema', 'usuarios', 'configuracion'],
   SEMILLASYA: ['productos-precampania', 'clientes-semillasya', 'presupuestos-semillasya', 'operaciones-semillasya', 'territorios-semillasya']
 };
 
@@ -1312,6 +1426,9 @@ async function abrirModulo(modulo) {
   }
   if (modulo === 'estado-sistema') {
     await loadEstadoSistema();
+  }
+  if (modulo === 'estadisticas-historico') {
+    await loadEstadisticasHistorico();
   }
   if (modulo === 'cuenta-corriente') {
     await loadResumenCuentaCorriente();
@@ -1680,6 +1797,7 @@ document.querySelectorAll('[data-select-role]').forEach((btn) => {
 document.querySelectorAll('[data-select-business]').forEach((btn) => {
   btn.addEventListener('click', () => seleccionarBusiness(btn.dataset.selectBusiness));
 });
+$('#btn-hist-refrescar')?.addEventListener('click', loadEstadisticasHistorico);
 $('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
 const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);

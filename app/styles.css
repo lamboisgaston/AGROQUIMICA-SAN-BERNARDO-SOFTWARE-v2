@@ -308,3 +308,75 @@ details[open] { display: grid; gap: 5px; }
 .pre-drawer-header{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;padding-bottom:8px}
 .pre-aux-filters{display:grid;grid-template-columns:180px 220px 1fr;gap:6px;margin-bottom:8px}
 @media (max-width:900px){.pre-aux-filters{grid-template-columns:1fr}.pre-presentacion-item{grid-template-columns:1fr}}
+
+.estadisticas-historico .estadisticas-filtros {
+  align-items: end;
+}
+.estadisticas-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.estadistica-resumen-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  display: grid;
+  gap: 4px;
+}
+.estadistica-resumen-card strong {
+  font-size: 26px;
+  color: #14532d;
+}
+.estadistica-resumen-card span {
+  color: #475569;
+  font-size: 13px;
+}
+.estadisticas-arbol {
+  display: grid;
+  gap: 10px;
+  max-height: none;
+}
+.hist-nivel {
+  border: 1px solid #d1dbe8;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+.hist-nivel summary {
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+}
+.hist-anio > summary {
+  color: #0f172a;
+}
+.hist-mes {
+  margin: 10px 0 0 12px;
+  background: #f8fbff;
+}
+.hist-dia {
+  margin-left: 24px;
+  display: grid;
+  gap: 8px;
+}
+.estadisticas-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px;
+}
+.estadisticas-metricas span {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #475569;
+  font-size: 12px;
+}
+.estadisticas-metricas strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+}

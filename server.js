@@ -35,6 +35,125 @@ function escapeHtml(value) {
 }
 
 
+const CAMPOS_ESTADISTICA_HISTORICA = [
+  'ventasArs',
+  'recTransferenciaArs',
+  'sinRespaldoArs',
+  'facContadoArs',
+  'facBContadoArs',
+  'fcCuentaCorrienteArs',
+  'ffArs',
+  'facturadoArs',
+  'comprasArs',
+  'ventasUsd',
+  'comprasUsd',
+  'facturadoUsd',
+  'margenBrutoArs',
+  'margenBrutoUsd'
+];
+
+function fechaUtcDesdeYmd(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
+}
+
+function ymdFromDate(date) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+function construirWhereHistorico(query = {}) {
+  const where = {};
+  const gte = fechaUtcDesdeYmd(query.desde);
+  const lte = fechaUtcDesdeYmd(query.hasta);
+  if (gte || lte) {
+    where.fecha = {};
+    if (gte) where.fecha.gte = gte;
+    if (lte) {
+      const fin = new Date(lte);
+      fin.setUTCDate(fin.getUTCDate() + 1);
+      where.fecha.lt = fin;
+    }
+  }
+  return where;
+}
+
+function sumarNumero(actual, value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? actual + parsed : actual;
+}
+
+function crearAcumuladorHistorico(key, extra = {}) {
+  return {
+    key,
+    ...extra,
+    cantidadDias: 0,
+    ventasArs: 0,
+    recTransferenciaArs: 0,
+    sinRespaldoArs: 0,
+    facContadoArs: 0,
+    facBContadoArs: 0,
+    fcCuentaCorrienteArs: 0,
+    ffArs: 0,
+    facturadoArs: 0,
+    comprasArs: 0,
+    ventasUsd: 0,
+    comprasUsd: 0,
+    facturadoUsd: 0,
+    margenBrutoArs: 0,
+    margenBrutoUsd: 0,
+    dolarBnaVentaPromedio: null
+  };
+}
+
+function agregarHistorico(acc, row) {
+  acc.cantidadDias += 1;
+  CAMPOS_ESTADISTICA_HISTORICA.forEach((field) => {
+    acc[field] = sumarNumero(acc[field], row[field]);
+  });
+  const dolar = Number(row.dolarBnaVenta);
+  if (Number.isFinite(dolar) && dolar > 0) {
+    acc._dolarSuma = sumarNumero(acc._dolarSuma || 0, dolar);
+    acc._dolarCantidad = (acc._dolarCantidad || 0) + 1;
+    acc.dolarBnaVentaPromedio = acc._dolarSuma / acc._dolarCantidad;
+  }
+}
+
+function limpiarAcumuladorHistorico(acc) {
+  const { _dolarSuma, _dolarCantidad, ...clean } = acc;
+  return clean;
+}
+
+function formatearEstadisticaDiaria(row) {
+  return {
+    id: row.id,
+    fecha: ymdFromDate(row.fecha),
+    etiquetaOriginal: row.etiquetaOriginal,
+    dolarBnaVenta: row.dolarBnaVenta,
+    ventasArs: row.ventasArs,
+    ventasUsd: row.ventasUsd,
+    comprasArs: row.comprasArs,
+    comprasUsd: row.comprasUsd,
+    margenBrutoArs: row.margenBrutoArs,
+    margenBrutoUsd: row.margenBrutoUsd,
+    facturadoArs: row.facturadoArs,
+    facturadoUsd: row.facturadoUsd,
+    sinRespaldoArs: row.sinRespaldoArs,
+    recTransferenciaArs: row.recTransferenciaArs,
+    facContadoArs: row.facContadoArs,
+    facBContadoArs: row.facBContadoArs,
+    fcCuentaCorrienteArs: row.fcCuentaCorrienteArs,
+    ffArs: row.ffArs
+  };
+}
+
+
 
 function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
@@ -324,6 +443,54 @@ app.post('/login', (req, res) => {
   });
 });
 
+
+
+app.get('/api/estadisticas/historico/diario', asyncHandler(async (req, res) => {
+  const rows = await prisma.estadisticaHistorica.findMany({
+    where: construirWhereHistorico(req.query),
+    orderBy: { fecha: 'desc' }
+  });
+  res.json({ agrupacion: 'diario', total: rows.length, data: rows.map(formatearEstadisticaDiaria) });
+}));
+
+app.get('/api/estadisticas/historico/mensual', asyncHandler(async (req, res) => {
+  const rows = await prisma.estadisticaHistorica.findMany({
+    where: construirWhereHistorico(req.query),
+    orderBy: { fecha: 'asc' }
+  });
+  const byMonth = new Map();
+  rows.forEach((row) => {
+    const fecha = ymdFromDate(row.fecha);
+    const [year, month] = fecha.split('-');
+    const key = `${year}-${month}`;
+    if (!byMonth.has(key)) byMonth.set(key, crearAcumuladorHistorico(key, { anio: Number(year), mes: Number(month) }));
+    agregarHistorico(byMonth.get(key), row);
+  });
+  res.json({
+    agrupacion: 'mensual',
+    total: byMonth.size,
+    data: Array.from(byMonth.values()).map(limpiarAcumuladorHistorico).sort((a, b) => b.key.localeCompare(a.key))
+  });
+}));
+
+app.get('/api/estadisticas/historico/anual', asyncHandler(async (req, res) => {
+  const rows = await prisma.estadisticaHistorica.findMany({
+    where: construirWhereHistorico(req.query),
+    orderBy: { fecha: 'asc' }
+  });
+  const byYear = new Map();
+  rows.forEach((row) => {
+    const fecha = ymdFromDate(row.fecha);
+    const year = fecha.slice(0, 4);
+    if (!byYear.has(year)) byYear.set(year, crearAcumuladorHistorico(year, { anio: Number(year) }));
+    agregarHistorico(byYear.get(year), row);
+  });
+  res.json({
+    agrupacion: 'anual',
+    total: byYear.size,
+    data: Array.from(byYear.values()).map(limpiarAcumuladorHistorico).sort((a, b) => b.key.localeCompare(a.key))
+  });
+}));
 
 app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDiagnosticoRole : (_req, _res, next) => next(), asyncHandler(async (_req, res) => {
   const inicioLectura = new Date();

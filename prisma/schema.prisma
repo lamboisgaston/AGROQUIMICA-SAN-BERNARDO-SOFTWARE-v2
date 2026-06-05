@@ -487,3 +487,40 @@ enum TipoReglaComercial {
   MARGEN_PORCENTAJE
   FINANCIACION_PORCENTAJE
 }
+
+model EstadisticaHistorica {
+  id                       Int      @id @default(autoincrement())
+  fecha                    DateTime @unique
+  etiquetaOriginal         String?
+  ventasArs                Float?
+  recTransferenciaArs      Float?
+  sinRespaldoArs           Float?
+  facContadoArs            Float?
+  facBContadoArs           Float?
+  fcCuentaCorrienteArs     Float?
+  ffArs                    Float?
+  facturadoArs             Float?
+  comprasArs               Float?
+  dolarBnaVenta            Float?
+  ventasUsd                Float?
+  comprasUsd               Float?
+  facturadoUsd             Float?
+  margenBrutoArs           Float?
+  margenBrutoUsd           Float?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([fecha])
+}
+
+model CotizacionDolar {
+  id            Int      @id @default(autoincrement())
+  fecha         DateTime
+  fuente        String   @default("BNA")
+  dolarBnaVenta Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([fecha, fuente])
+  @@index([fecha])
+}
