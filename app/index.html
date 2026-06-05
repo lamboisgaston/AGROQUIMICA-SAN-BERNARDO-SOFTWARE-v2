@@ -171,47 +171,58 @@
     <section class="bloque app-shell mostrador-ux compact-form ventas-workbench" data-modulo="ventas clientes">
       <div class="workbench-grid">
         <div class="workbench-main">
-      <h2>1) Cliente</h2>
-      <div class="cliente-buscador-row">
-        <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
-        <button id="btn-buscar-cliente">Buscar cliente</button>
-        <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
-        <button id="btn-consumidor-final" class="btn-grande">Venta sin cliente</button>
-      </div>
-      <div id="resultados-clientes" class="lista"></div>
-      <details id="alta-rapida-panel">
-        <summary>Formulario de alta rápida</summary>
-        <label>¿Qué tipo de cliente desea crear?</label>
-        <select id="nuevo-tipo-cliente">
-          <option value="PERSONAL">Personal</option>
-          <option value="EMPRESA">Empresa</option>
-        </select>
-        <input id="nuevo-nombre" placeholder="Nombre / Razón social" />
-        <input id="nuevo-cuit" placeholder="CUIT" />
-        <input id="nuevo-telefono" placeholder="Teléfono" />
-        <input id="nuevo-mail" placeholder="Mail" />
-        <button id="btn-crear-cliente">Crear cliente</button>
-      </details>
-      <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
-      <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
-      <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
-      <h2>2) Productos</h2>
-      <div class="mostrador-toolbar">
-        <label>Tipo de venta
-          <select id="tipo-operacion-venta">
-            <option value="MOSTRADOR">MOSTRADOR</option>
-            <option value="PRECAMPAÑA">PRECAMPAÑA</option>
+      <section class="mostrador-flow-card product-search-card" aria-labelledby="mostrador-productos-titulo">
+        <div class="section-kicker">Paso 1 · Buscar y agregar</div>
+        <h2 id="mostrador-productos-titulo">Buscador de productos</h2>
+        <div class="mostrador-toolbar">
+          <label>Tipo de venta
+            <select id="tipo-operacion-venta">
+              <option value="MOSTRADOR">MOSTRADOR</option>
+              <option value="PRECAMPAÑA">PRECAMPAÑA</option>
+            </select>
+          </label>
+          <label id="label-lista-comercial" class="hidden">Lista comercial
+            <select id="lista-comercial-select"></select>
+          </label>
+        </div>
+        <input id="buscar-producto" class="input-grande mostrador-search-main" placeholder="Buscar producto, marca, categoría o código…" autofocus />
+        <div id="mostrador-categorias-chips" class="mostrador-categorias-chips" aria-label="Filtros de categorías"></div>
+        <div id="resultados-productos" class="lista productos-resultados-pos"></div>
+        <div id="precio-precampania-detalle" class="lista"></div>
+        <div id="stock-alertas" class="lista"></div>
+      </section>
+
+      <section class="mostrador-flow-card cliente-compacto" aria-labelledby="mostrador-cliente-titulo">
+        <div class="section-kicker">Paso 3 · Solo si corresponde</div>
+        <h2 id="mostrador-cliente-titulo">Cliente</h2>
+        <p class="helper-text">Seleccione o dé de alta un cliente para utilizar descuentos. La venta sin cliente continúa como consumidor final.</p>
+        <div class="cliente-buscador-row">
+          <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
+          <button id="btn-buscar-cliente">Buscar cliente</button>
+          <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
+          <button id="btn-consumidor-final" class="btn-grande">Venta sin cliente</button>
+        </div>
+        <div id="resultados-clientes" class="lista cliente-resultados-compactos"></div>
+        <details id="alta-rapida-panel">
+          <summary>Formulario de alta rápida</summary>
+          <label>¿Qué tipo de cliente desea crear?</label>
+          <select id="nuevo-tipo-cliente">
+            <option value="PERSONAL">Personal</option>
+            <option value="EMPRESA">Empresa</option>
           </select>
-        </label>
-        <label id="label-lista-comercial" class="hidden">Lista comercial
-          <select id="lista-comercial-select"></select>
-        </label>
-      </div>
-      <input id="buscar-producto" class="input-grande mostrador-search-main" placeholder="Buscar producto, marca, categoría o código…" autofocus />
-      <div id="mostrador-categorias-chips" class="mostrador-categorias-chips"></div>
-      <div id="resultados-productos" class="lista"></div>
-      <div id="precio-precampania-detalle" class="lista"></div>
-      <div id="stock-alertas" class="lista"></div>
+          <input id="nuevo-nombre" placeholder="Nombre / Razón social" />
+          <input id="nuevo-cuit" placeholder="CUIT" />
+          <input id="nuevo-telefono" placeholder="Teléfono" />
+          <input id="nuevo-mail" placeholder="Mail" />
+          <button id="btn-crear-cliente">Crear cliente</button>
+        </details>
+        <div class="cliente-resumen-compacto">
+          <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
+          <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
+          <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
+        </div>
+      </section>
+
       <section id="catalogo-guasch-panel" class="hidden">
         <h3>Catálogo técnico-comercial GUASCH (auditoría de importación)</h3>
         <div id="catalogo-guasch-resumen" class="lista"></div>
@@ -219,18 +230,28 @@
       </section>
         </div>
         <aside class="workbench-side sticky-summary ventas-side-panel">
-          <section class="side-card">
-            <h3>Carrito</h3>
+          <section class="side-card carrito-card" aria-labelledby="mostrador-carrito-titulo">
+            <div class="side-card-heading">
+              <div>
+                <div class="section-kicker">Paso 2 · Siempre visible</div>
+                <h3 id="mostrador-carrito-titulo">Carrito</h3>
+              </div>
+              <strong id="carrito-cantidad-productos" class="cart-count-pill">0 productos</strong>
+            </div>
             <div id="carrito" class="mostrador-cart-list"></div>
-            <p>Cliente seleccionado: <strong id="carrito-cliente">Consumidor final</strong></p>
-            <p>Subtotal: <span id="subtotal">$0.00</span></p>
-            <p>Descuento: <span id="resumen-descuento-pct">0.00%</span></p>
-            <p>Descuento aplicado: <span id="importe-descuento">$0.00</span></p>
-            <p>Ajuste redondeo: <span id="monto-ajuste">$0.00</span></p>
-            <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
+            <div class="venta-resumen-box">
+              <h4>Venta</h4>
+              <p>Subtotal: <span id="subtotal">$0.00</span></p>
+              <p>Descuento: <span id="resumen-descuento-pct">0.00%</span></p>
+              <p>Descuento aplicado: <span id="importe-descuento">$0.00</span></p>
+              <p>Redondeo: <span id="monto-ajuste">$0.00</span></p>
+              <p class="total-grande"><b>Total final: <span id="total-final">$0.00</span></b></p>
+            </div>
+            <p class="cliente-en-carrito">Cliente: <strong id="carrito-cliente">Consumidor final</strong></p>
           </section>
-          <section class="side-card">
-            <h3>Cobro y cierre</h3>
+          <section class="side-card cobro-card" aria-labelledby="mostrador-cobro-titulo">
+            <div class="section-kicker">Paso 4 · Cobro y cierre</div>
+            <h3 id="mostrador-cobro-titulo">Cobro</h3>
             <div class="compact-cierre-grid">
               <label>Descuento %
                 <select id="descuento-tipo">
@@ -247,11 +268,19 @@
               <button class="btn-redondeo" data-redondeo="500">$500</button>
               <button class="btn-redondeo" data-redondeo="1000">$1000</button>
             </div>
-            <p id="msg-descuento-cliente" class="msg-info">Para aplicar descuento debe seleccionar o dar de alta un cliente.</p>
-            <label>condicionPagoPrevista
-              <select id="condicion-pago-prevista"><option value="">Seleccione</option><option value="EFECTIVO">EFECTIVO</option><option value="TRANSFERENCIA">TRANSFERENCIA</option><option value="TARJETA">TARJETA</option><option value="CUENTA_CORRIENTE">CUENTA_CORRIENTE</option><option value="OTRO">OTRO</option></select>
-            </label>
-            <p>Condición prevista: <strong id="resumen-condicion-pago">No aplica</strong></p>
+            <p id="msg-descuento-cliente" class="msg-info descuento-helper">Descuentos habilitados al seleccionar un cliente.</p>
+            <div class="cobro-opciones-box">
+              <h4>Cobro</h4>
+              <div class="cobro-metodos-visual" aria-hidden="true">
+                <span>💵 Efectivo</span>
+                <span>🏦 Transferencia</span>
+                <span>📒 Cuenta corriente</span>
+              </div>
+              <label>Condición de pago
+                <select id="condicion-pago-prevista"><option value="">Seleccione</option><option value="EFECTIVO">EFECTIVO</option><option value="TRANSFERENCIA">TRANSFERENCIA</option><option value="TARJETA">TARJETA</option><option value="CUENTA_CORRIENTE">CUENTA_CORRIENTE</option><option value="OTRO">OTRO</option></select>
+              </label>
+              <p>Condición prevista: <strong id="resumen-condicion-pago">No aplica</strong></p>
+            </div>
             <button id="btn-cerrar" class="btn-primary">Cerrar venta</button>
           </section>
         </aside>

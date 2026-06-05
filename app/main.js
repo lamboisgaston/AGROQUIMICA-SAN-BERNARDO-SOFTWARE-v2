@@ -408,6 +408,19 @@ function filtrarProductosMostrador(query = '', categoria = 'TODAS') {
     .map(({ p }) => p);
 }
 
+
+function iconoCategoriaMostrador(categoria = '') {
+  const texto = normalizarBusquedaTexto(categoria);
+  if (texto.includes('semilla') || texto.includes('pastura') || texto.includes('hortaliza')) return '🌱';
+  if (texto.includes('agroquim') || texto.includes('senasa') || texto.includes('insect') || texto.includes('herbic') || texto.includes('fungic')) return '🧪';
+  if (texto.includes('fertiliz') || texto.includes('nutric')) return '🌿';
+  if (texto.includes('riego') || texto.includes('agua')) return '💧';
+  if (texto.includes('herramient') || texto.includes('ferreter')) return '🔧';
+  if (texto === 'todas') return '🛒';
+  if (texto === 'general') return '⭐';
+  return '🏷️';
+}
+
 function renderCategoriasMostrador() {
   const cont = $('#mostrador-categorias-chips');
   if (!cont) return;
@@ -415,10 +428,10 @@ function renderCategoriasMostrador() {
     .flatMap((p) => (p.categorias || []).map((c) => c.nombre).concat(p.categoria ? [p.categoria] : []))
     .filter(Boolean)))
     .sort((a, b) => a.localeCompare(b, 'es'));
-  const base = ['GENERAL', 'SEMILLAS', 'FERTILIZANTES', 'AGROQUÍMICOS', 'RIEGO'];
+  const base = ['SEMILLAS', 'AGROQUÍMICOS', 'FERTILIZANTES', 'RIEGO', 'HERRAMIENTAS'];
   const visibles = Array.from(new Set([...base, ...categorias])).slice(0, 20);
-  cont.innerHTML = [`<button type="button" class="mostrador-chip ${categoriaMostradorActiva === 'TODAS' ? 'is-active' : ''}" data-cat-mostrador="TODAS">TODAS</button>`,
-    ...visibles.map((cat) => `<button type="button" class="mostrador-chip ${categoriaMostradorActiva === cat ? 'is-active' : ''}" data-cat-mostrador="${cat}">${cat}</button>`)].join('');
+  const chip = (cat, label = cat) => `<button type="button" class="mostrador-chip ${categoriaMostradorActiva === cat ? 'is-active' : ''}" data-cat-mostrador="${cat}">${iconoCategoriaMostrador(cat)} ${label}</button>`;
+  cont.innerHTML = [chip('TODAS', 'Todos'), ...visibles.map((cat) => chip(cat))].join('');
 }
 
 async function agregarProductoAlCarrito(productoId) {
@@ -692,6 +705,9 @@ function renderCarrito() {
     }).join('')
     : '<div class="mostrador-cart-empty">Sin productos</div>';
 
+  const cantidadProductos = items.reduce((acc, i) => acc + Number(i.cantidad || 0), 0);
+  const contadorCarrito = $('#carrito-cantidad-productos');
+  if (contadorCarrito) contadorCarrito.textContent = `${cantidadProductos} ${cantidadProductos === 1 ? 'producto' : 'productos'}`;
   const subtotal = Number((venta?.items || []).reduce((acc, i) => acc + Number(calcularItemConDescuento(i).subtotalFinal || 0), 0));
   const descuento = Math.max(0, Number($('#descuento').value || 0));
   const descuentoAplicado = subtotal * (descuento / 100);
