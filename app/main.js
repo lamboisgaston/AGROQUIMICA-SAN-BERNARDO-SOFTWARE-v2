@@ -703,8 +703,9 @@ function renderCarrito() {
         </article>
       `;
     }).join('')
-    : '<div class="mostrador-cart-empty">Sin productos</div>';
+    : '<div class="mostrador-cart-empty">No hay productos en el carrito.</div>';
 
+  document.querySelector('.cobro-card')?.classList.toggle('sin-productos', items.length === 0);
   const cantidadProductos = items.reduce((acc, i) => acc + Number(i.cantidad || 0), 0);
   const contadorCarrito = $('#carrito-cantidad-productos');
   if (contadorCarrito) contadorCarrito.textContent = `${cantidadProductos} ${cantidadProductos === 1 ? 'producto' : 'productos'}`;
