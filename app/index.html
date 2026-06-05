@@ -192,37 +192,6 @@
         <div id="stock-alertas" class="lista"></div>
       </section>
 
-      <section class="mostrador-flow-card cliente-compacto" aria-labelledby="mostrador-cliente-titulo">
-        <div class="section-kicker">Paso 3 · Solo si corresponde</div>
-        <h2 id="mostrador-cliente-titulo">Cliente</h2>
-        <p class="helper-text">Seleccione o dé de alta un cliente para utilizar descuentos. La venta sin cliente continúa como consumidor final.</p>
-        <div class="cliente-buscador-row">
-          <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
-          <button id="btn-buscar-cliente">Buscar cliente</button>
-          <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
-          <button id="btn-consumidor-final" class="btn-grande">Venta sin cliente</button>
-        </div>
-        <div id="resultados-clientes" class="lista cliente-resultados-compactos"></div>
-        <details id="alta-rapida-panel">
-          <summary>Formulario de alta rápida</summary>
-          <label>¿Qué tipo de cliente desea crear?</label>
-          <select id="nuevo-tipo-cliente">
-            <option value="PERSONAL">Personal</option>
-            <option value="EMPRESA">Empresa</option>
-          </select>
-          <input id="nuevo-nombre" placeholder="Nombre / Razón social" />
-          <input id="nuevo-cuit" placeholder="CUIT" />
-          <input id="nuevo-telefono" placeholder="Teléfono" />
-          <input id="nuevo-mail" placeholder="Mail" />
-          <button id="btn-crear-cliente">Crear cliente</button>
-        </details>
-        <div class="cliente-resumen-compacto">
-          <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
-          <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
-          <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
-        </div>
-      </section>
-
       <section id="catalogo-guasch-panel" class="hidden">
         <h3>Catálogo técnico-comercial GUASCH (auditoría de importación)</h3>
         <div id="catalogo-guasch-resumen" class="lista"></div>
@@ -233,7 +202,7 @@
           <section class="side-card carrito-card" aria-labelledby="mostrador-carrito-titulo">
             <div class="side-card-heading">
               <div>
-                <div class="section-kicker">Paso 2 · Siempre visible</div>
+                <div class="section-kicker">Paso 3 · Carrito</div>
                 <h3 id="mostrador-carrito-titulo">Carrito</h3>
               </div>
               <strong id="carrito-cantidad-productos" class="cart-count-pill">0 productos</strong>
@@ -249,10 +218,11 @@
             </div>
             <p class="cliente-en-carrito">Cliente: <strong id="carrito-cliente">Consumidor final</strong></p>
           </section>
-          <section class="side-card cobro-card" aria-labelledby="mostrador-cobro-titulo">
-            <div class="section-kicker">Paso 4 · Cobro y cierre</div>
+          <section class="side-card cobro-card sin-productos" aria-labelledby="mostrador-cobro-titulo">
+            <div class="section-kicker">Paso 5 · Cobro y cierre</div>
             <h3 id="mostrador-cobro-titulo">Cobro</h3>
-            <div class="compact-cierre-grid">
+            <p id="cobro-carrito-vacio" class="mostrador-cart-empty">No hay productos en el carrito.</p>
+            <div class="compact-cierre-grid cobro-avanzado">
               <label>Descuento %
                 <select id="descuento-tipo">
                   <option value="PORCENTAJE">Porcentaje</option>
@@ -263,13 +233,13 @@
                 <div class="inline-control"><button id="ajuste-menos">-</button><input id="ajuste-redondeo" type="number" value="0" step="0.01" /><button id="ajuste-mas">+</button></div>
               </label>
             </div>
-            <div class="action-row compact-redondeo">
+            <div class="action-row compact-redondeo cobro-avanzado">
               <button class="btn-redondeo" data-redondeo="100">$100</button>
               <button class="btn-redondeo" data-redondeo="500">$500</button>
               <button class="btn-redondeo" data-redondeo="1000">$1000</button>
             </div>
-            <p id="msg-descuento-cliente" class="msg-info descuento-helper">Descuentos habilitados al seleccionar un cliente.</p>
-            <div class="cobro-opciones-box">
+            <p id="msg-descuento-cliente" class="msg-info descuento-helper cobro-avanzado">Descuentos habilitados al seleccionar un cliente.</p>
+            <div class="cobro-opciones-box cobro-avanzado">
               <h4>Cobro</h4>
               <div class="cobro-metodos-visual" aria-hidden="true">
                 <span>💵 Efectivo</span>
@@ -281,9 +251,40 @@
               </label>
               <p>Condición prevista: <strong id="resumen-condicion-pago">No aplica</strong></p>
             </div>
-            <button id="btn-cerrar" class="btn-primary">Cerrar venta</button>
+            <button id="btn-cerrar" class="btn-primary cobro-avanzado">Cerrar venta</button>
           </section>
         </aside>
+
+        <section class="mostrador-flow-card cliente-compacto" aria-labelledby="mostrador-cliente-titulo">
+          <div class="section-kicker">Paso 4 · Cliente</div>
+          <h2 id="mostrador-cliente-titulo">Cliente</h2>
+          <p class="helper-text">Seleccione o dé de alta un cliente para utilizar descuentos. La venta sin cliente continúa como consumidor final.</p>
+          <div class="cliente-buscador-row">
+            <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
+            <button id="btn-buscar-cliente">Buscar cliente</button>
+            <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
+            <button id="btn-consumidor-final" class="btn-grande">Venta sin cliente</button>
+          </div>
+          <div id="resultados-clientes" class="lista cliente-resultados-compactos"></div>
+          <details id="alta-rapida-panel">
+            <summary>Formulario de alta rápida</summary>
+            <label>¿Qué tipo de cliente desea crear?</label>
+            <select id="nuevo-tipo-cliente">
+              <option value="PERSONAL">Personal</option>
+              <option value="EMPRESA">Empresa</option>
+            </select>
+            <input id="nuevo-nombre" placeholder="Nombre / Razón social" />
+            <input id="nuevo-cuit" placeholder="CUIT" />
+            <input id="nuevo-telefono" placeholder="Teléfono" />
+            <input id="nuevo-mail" placeholder="Mail" />
+            <button id="btn-crear-cliente">Crear cliente</button>
+          </details>
+          <div class="cliente-resumen-compacto">
+            <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
+            <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
+            <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
+          </div>
+        </section>
       </div>
     </section>
 
@@ -578,6 +579,37 @@
       <button id="btn-guardar-producto">Guardar producto</button>
       <button id="btn-nuevo-producto">Nuevo</button>
         </aside>
+
+        <section class="mostrador-flow-card cliente-compacto" aria-labelledby="mostrador-cliente-titulo">
+          <div class="section-kicker">Paso 4 · Cliente</div>
+          <h2 id="mostrador-cliente-titulo">Cliente</h2>
+          <p class="helper-text">Seleccione o dé de alta un cliente para utilizar descuentos. La venta sin cliente continúa como consumidor final.</p>
+          <div class="cliente-buscador-row">
+            <input id="buscar-cliente" placeholder="Buscar por nombre, teléfono, razón social o CUIT" />
+            <button id="btn-buscar-cliente">Buscar cliente</button>
+            <button id="btn-alta-rapida" class="btn-grande">Alta rápida</button>
+            <button id="btn-consumidor-final" class="btn-grande">Venta sin cliente</button>
+          </div>
+          <div id="resultados-clientes" class="lista cliente-resultados-compactos"></div>
+          <details id="alta-rapida-panel">
+            <summary>Formulario de alta rápida</summary>
+            <label>¿Qué tipo de cliente desea crear?</label>
+            <select id="nuevo-tipo-cliente">
+              <option value="PERSONAL">Personal</option>
+              <option value="EMPRESA">Empresa</option>
+            </select>
+            <input id="nuevo-nombre" placeholder="Nombre / Razón social" />
+            <input id="nuevo-cuit" placeholder="CUIT" />
+            <input id="nuevo-telefono" placeholder="Teléfono" />
+            <input id="nuevo-mail" placeholder="Mail" />
+            <button id="btn-crear-cliente">Crear cliente</button>
+          </details>
+          <div class="cliente-resumen-compacto">
+            <p>Cliente seleccionado: <strong id="cliente-activo">Ninguno</strong></p>
+            <p>Saldo actual: <strong id="cliente-saldo" class="estado-monto estado-cero">$0.00</strong></p>
+            <p>Total deuda: <strong id="cliente-deuda" class="estado-monto estado-cero">$0.00</strong></p>
+          </div>
+        </section>
       </div>
     </section>
 
