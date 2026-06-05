@@ -27,7 +27,8 @@
     "import:guasch:blends": "node scripts/cargar-guasch-blends-cesped.js",
     "normalizar:guasch": "node scripts/normalizar-guasch-cultivos.js",
     "import:ggch:lista137": "node scripts/cargar-ggch-lista-137-semillasya.js",
-    "seed:senasa": "prisma generate && node scripts/seed-agroquimicos-senasa.js"
+    "seed:senasa": "prisma generate && node scripts/seed-agroquimicos-senasa.js",
+    "normalizar:productos-mostrador": "node scripts/normalizar-productos-mostrador.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",

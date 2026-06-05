@@ -471,7 +471,13 @@
       </div>
       <p>Tipo de cambio USD: <input id="tipo-cambio" type="number" min="0.01" step="0.01" /> <button id="btn-guardar-tipo-cambio">Guardar</button></p>
       <div id="panel-editar-productos">
-        <input id="admin-buscar-producto" placeholder="Buscar producto por nombre, categoría o marca" />
+        <input id="admin-buscar-producto" placeholder="Buscar producto por nombre, categoría, proveedor o marca" />
+        <div class="action-row">
+          <label for="admin-filtro-categoria">Categoría</label>
+          <select id="admin-filtro-categoria"><option value="TODAS">Todas las categorías</option></select>
+          <label for="admin-filtro-proveedor">Proveedor</label>
+          <select id="admin-filtro-proveedor"><option value="TODOS">Todos los proveedores</option></select>
+        </div>
         <div id="productos-admin" class="lista"></div>
       </div>
       </div>
@@ -482,7 +488,7 @@
         <input id="prod-nombre" />
       </div>
       <div class="campo-producto">
-        <label for="prod-categoria">Categorías (Ctrl/Cmd + click para múltiple)</label>
+        <label for="prod-categoria">Categoría *</label>
         <select id="prod-categoria" multiple size="5"></select>
       </div>
       <div class="campo-producto">
@@ -518,7 +524,7 @@
         <input id="prod-ganancia" type="number" step="0.01" />
       </div>
       <div class="campo-producto">
-        <label for="prod-proveedor">Proveedores (Ctrl/Cmd + click para múltiple)</label>
+        <label for="prod-proveedor">Proveedor *</label>
         <select id="prod-proveedor" multiple size="4"></select>
       </div>
       <div class="senasa-producto-tecnico">

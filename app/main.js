@@ -20,6 +20,8 @@ let proveedoresFiltrados = [];
 let proveedorSeleccionadoId = null;
 let remitoDetalles = [];
 let filtroProductosAdmin = '';
+let filtroCategoriaProductosAdmin = 'TODAS';
+let filtroProveedorProductosAdmin = 'TODOS';
 let modoProducto = 'AGREGAR';
 let categoriasProducto = [];
 let presupuestoClienteId = null;
@@ -976,6 +978,7 @@ function limpiarFormularioProducto() {
   $('#prod-id').value = '';
   $('#prod-nombre').value = '';
   Array.from($('#prod-categoria').options || []).forEach(o => { o.selected = false; });
+  seleccionarFallbackCategoriaProducto();
   $('#prod-marca').value = '';
   $('#prod-unidad').value = '';
   $('#prod-stock').value = '0';
@@ -993,6 +996,7 @@ function limpiarFormularioProducto() {
   $('#prod-tipo-senasa').value = '';
   $('#prod-uso-senasa').value = '';
   Array.from($('#prod-proveedor').options || []).forEach(o => { o.selected = false; });
+  seleccionarFallbackProveedorProducto();
   renderResumenPreciosProducto();
 }
 function renderResumenPreciosProducto() {
@@ -1007,13 +1011,59 @@ function renderResumenPreciosProducto() {
   $('#prod-precio-final').textContent = money(c.precioVentaPesos);
 }
 
+function idCategoriaMostradorDefault() {
+  return categoriasProducto.find((c) => String(c.nombre || '').trim().toUpperCase() === 'SIN CATEGORÍA')?.id || null;
+}
+
+function idProveedorMostradorDefault() {
+  return proveedores.find((p) => String(p.razonSocial || '').trim().toUpperCase() === 'SIN PROVEEDOR')?.id || null;
+}
+
+function renderFiltrosProductosAdmin() {
+  const selCategoria = $('#admin-filtro-categoria');
+  if (selCategoria) {
+    const categorias = Array.from(new Set([
+      ...categoriasProducto.map((c) => c.nombre).filter(Boolean),
+      ...productos.flatMap((p) => (p.categorias || []).map((c) => c.nombre).concat(p.categoria ? [p.categoria] : [])).filter(Boolean)
+    ])).sort((a, b) => a.localeCompare(b, 'es'));
+    selCategoria.innerHTML = '<option value="TODAS">Todas las categorías</option>' + categorias.map((cat) => `<option value="${escapeHtmlClient(cat)}">${escapeHtmlClient(cat)}</option>`).join('');
+    selCategoria.value = categorias.includes(filtroCategoriaProductosAdmin) ? filtroCategoriaProductosAdmin : 'TODAS';
+    filtroCategoriaProductosAdmin = selCategoria.value;
+  }
+
+  const selProveedor = $('#admin-filtro-proveedor');
+  if (selProveedor) {
+    selProveedor.innerHTML = '<option value="TODOS">Todos los proveedores</option>' + proveedores.map((pr) => `<option value="${pr.id}">${escapeHtmlClient(pr.razonSocial || '')}</option>`).join('');
+    const existeProveedor = proveedores.some((pr) => String(pr.id) === String(filtroProveedorProductosAdmin));
+    selProveedor.value = existeProveedor ? String(filtroProveedorProductosAdmin) : 'TODOS';
+    filtroProveedorProductosAdmin = selProveedor.value;
+  }
+}
+
+function seleccionarFallbackCategoriaProducto() {
+  const sel = $('#prod-categoria');
+  if (!sel || Array.from(sel.selectedOptions || []).length) return;
+  const defaultId = idCategoriaMostradorDefault();
+  const option = defaultId ? Array.from(sel.options).find((opt) => String(opt.value) === String(defaultId)) : sel.options[0];
+  if (option) option.selected = true;
+}
+
+function seleccionarFallbackProveedorProducto() {
+  const sel = $('#prod-proveedor');
+  if (!sel || Array.from(sel.selectedOptions || []).length) return;
+  const defaultId = idProveedorMostradorDefault();
+  const option = defaultId ? Array.from(sel.options).find((opt) => String(opt.value) === String(defaultId)) : sel.options[0];
+  if (option) option.selected = true;
+}
+
 function renderCategoriasProducto(selected = []) {
   const sel = $('#prod-categoria');
   if (!sel) return;
-  const opciones = categoriasProducto.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  const opciones = categoriasProducto.map(c => `<option value="${c.id}">${escapeHtmlClient(c.nombre)}</option>`).join('');
   sel.innerHTML = opciones;
   const selectedSet = new Set((selected || []).map(String));
   Array.from(sel.options).forEach((opt) => { opt.selected = selectedSet.has(opt.value); });
+  seleccionarFallbackCategoriaProducto();
   const avisoId = 'prod-categoria-aviso';
   let aviso = document.getElementById(avisoId);
   if (!categoriasProducto.length) {
@@ -1023,10 +1073,11 @@ function renderCategoriasProducto(selected = []) {
       aviso.className = 'msg msg-info';
       sel.insertAdjacentElement('afterend', aviso);
     }
-    aviso.textContent = 'Primero debe crear una categoría desde el módulo Categorías.';
+    aviso.textContent = 'Se creará/seleccionará automáticamente SIN CATEGORÍA si no hay categorías disponibles.';
   } else if (aviso) {
     aviso.remove();
   }
+  renderFiltrosProductosAdmin();
 }
 
 function setModoProducto(nuevoModo) {
@@ -1038,8 +1089,20 @@ function setModoProducto(nuevoModo) {
 
 function renderProductosAdmin() {
   const container = $('#productos-admin');
-  const f = filtroProductosAdmin.toLowerCase();
-  const lista = productos.filter(p => !f || p.nombre.toLowerCase().includes(f) || ((p.categorias || []).map((c) => c.nombre).join(' ').toLowerCase().includes(f)) || (p.categoria || '').toLowerCase().includes(f) || (p.marca || '').toLowerCase().includes(f));
+  renderFiltrosProductosAdmin();
+  const f = normalizarBusquedaTexto(filtroProductosAdmin);
+  const categoriaFiltro = normalizarBusquedaTexto(filtroCategoriaProductosAdmin);
+  const proveedorFiltro = String(filtroProveedorProductosAdmin || 'TODOS');
+  const lista = productos.filter((p) => {
+    const categorias = (p.categorias || []).map((c) => normalizarBusquedaTexto(c.nombre));
+    const categoriaTexto = normalizarBusquedaTexto(p.categoria || '');
+    const proveedoresProducto = (p.proveedores || []).map((pp) => String(pp.proveedorId || pp.proveedor?.id || ''));
+    const proveedorTexto = (p.proveedores || []).map((pp) => pp.proveedor?.razonSocial).filter(Boolean).join(' ');
+    const coincideTexto = !f || construirIndiceBusquedaProducto({ ...p, observaciones: [p.observaciones, proveedorTexto].filter(Boolean).join(' ') }).includes(f);
+    const coincideCategoria = categoriaFiltro === 'todas' || categorias.includes(categoriaFiltro) || categoriaTexto === categoriaFiltro;
+    const coincideProveedor = proveedorFiltro === 'TODOS' || proveedoresProducto.includes(proveedorFiltro);
+    return coincideTexto && coincideCategoria && coincideProveedor;
+  });
   container.innerHTML = lista.length
     ? lista.map(p => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', mostrarCosto: true, proveedoresTexto: ((p.proveedores || []).map(pp => pp.proveedor?.razonSocial).filter(Boolean).join(', ') || '-') , extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button> <button class="btn-accion-eliminar" data-eliminar-producto="${p.id}">Eliminar</button>` })).join('')
     : '<div class="item">Sin productos</div>';
@@ -1271,9 +1334,15 @@ function renderProveedores() {
   $('#proveedores-lista').innerHTML = proveedoresFiltrados.length
     ? proveedoresFiltrados.map(pr => `<div class="item proveedor-row ${proveedorSeleccionadoId === pr.id ? 'item-seleccionado' : ''}" data-proveedor-select="${pr.id}"><span class="proveedor-meta"><span class="proveedor-id">#${pr.id}</span><b>${pr.razonSocial}</b><small>CUIT: ${pr.cuit || '-'} | Tel: ${pr.telefono || '-'} | Mail: ${pr.mail || '-'}</small></span><button data-eliminar-proveedor="${pr.id}">Eliminar</button></div>`).join('')
     : '<div class="item">Sin proveedores</div>';
-  const opt = proveedores.map(pr => `<option value="${pr.id}">${pr.razonSocial}</option>`);
+  const opt = proveedores.map(pr => `<option value="${pr.id}">${escapeHtmlClient(pr.razonSocial || '')}</option>`);
   const sel = $('#prod-proveedor');
-  if (sel) sel.innerHTML = opt.join('');
+  if (sel) {
+    const seleccionados = Array.from(sel.selectedOptions || []).map((o) => String(o.value));
+    sel.innerHTML = opt.join('');
+    Array.from(sel.options).forEach((o) => { o.selected = seleccionados.includes(o.value); });
+    seleccionarFallbackProveedorProducto();
+  }
+  renderFiltrosProductosAdmin();
   const detalleSel = $('#proveedor-detalle-select');
   if (detalleSel) {
     detalleSel.innerHTML = '<option value="">Seleccione proveedor</option>' + opt.join('');
@@ -2957,15 +3026,22 @@ $('#btn-guardar-producto').addEventListener('click', async () => {
   try {
     const nombre = $('#prod-nombre').value.trim();
     const categoriaIds = Array.from($('#prod-categoria').selectedOptions || []).map((o) => Number(o.value)).filter((id) => Number.isInteger(id) && id > 0);
-    const categoriaTexto = categoriasProducto.filter((c) => categoriaIds.includes(c.id)).map((c) => c.nombre).join(', ');
 
     if (!nombre) return setMsg('El nombre del producto es obligatorio', 'error');
-    if (categoriasProducto.length > 0 && !categoriaIds.length) return setMsg('Debe seleccionar al menos una categoría', 'error');
-    if (!categoriasProducto.length) return setMsg('Primero debe crear una categoría desde el módulo Categorías.', 'error');
+    if (!categoriaIds.length) {
+      const fallbackCategoriaId = idCategoriaMostradorDefault();
+      if (fallbackCategoriaId) categoriaIds.push(Number(fallbackCategoriaId));
+    }
 
     const proveedorIds = Array.from($('#prod-proveedor').selectedOptions || [])
       .map((o) => Number(o.value))
       .filter((id) => Number.isInteger(id) && id > 0);
+    if (!proveedorIds.length) {
+      const fallbackProveedorId = idProveedorMostradorDefault();
+      if (fallbackProveedorId) proveedorIds.push(Number(fallbackProveedorId));
+    }
+
+    const categoriaTexto = categoriasProducto.filter((c) => categoriaIds.includes(c.id)).map((c) => c.nombre).join(', ');
 
     const payload = {
       nombre,
@@ -3050,20 +3126,17 @@ $('#categorias-lista')?.addEventListener('click', async (e) => {
     await loadCategoriasProducto();
   } catch (err) { setMsg(err.message, 'error'); }
 });
-$('#admin-buscar-producto').addEventListener('input', async (e) => {
-  const q = e.target.value.trim();
-  if (!q) {
-    filtroProductosAdmin = '';
-    return renderProductosAdmin();
-  }
-  try {
-    const lista = await buscarProductos(q);
-    $('#productos-admin').innerHTML = lista.length
-      ? lista.map((p) => renderProductoCard(p, { accion: 'data-editar-producto', accionLabel: 'Editar', accionClass: 'btn-accion-editar', extraBotones: `<button class="btn-accion-precio" data-editar-producto="${p.id}">Cambiar precio</button>` })).join('')
-      : '<div class="item">Sin resultados</div>';
-  } catch (error) {
-    mostrarErrorBusqueda('#productos-admin', error);
-  }
+$('#admin-buscar-producto').addEventListener('input', (e) => {
+  filtroProductosAdmin = e.target.value.trim();
+  renderProductosAdmin();
+});
+$('#admin-filtro-categoria')?.addEventListener('change', (e) => {
+  filtroCategoriaProductosAdmin = e.target.value || 'TODAS';
+  renderProductosAdmin();
+});
+$('#admin-filtro-proveedor')?.addEventListener('change', (e) => {
+  filtroProveedorProductosAdmin = e.target.value || 'TODOS';
+  renderProductosAdmin();
 });
 $('#productos-admin').addEventListener('click', (e) => {
   const id = e.target.dataset.editarProducto;
@@ -3092,6 +3165,8 @@ $('#productos-admin').addEventListener('click', (e) => {
   $('#prod-uso-senasa').value = p.usoSenasa || '';
   const ids = (p.proveedores || []).map(pp => String(pp.proveedorId));
   Array.from($('#prod-proveedor').options).forEach(o => { o.selected = ids.includes(o.value); });
+  seleccionarFallbackProveedorProducto();
+  seleccionarFallbackCategoriaProducto();
   renderResumenPreciosProducto();
   setModoProducto('EDITAR');
 });

@@ -924,14 +924,98 @@ function calcularPrecioFinalPesos(producto = {}, tipoCambioActual = 1) {
 }
 
 
-function obtenerCategoriaDelegate() {
-  const delegate = prisma.categoria;
+const CATEGORIA_MOSTRADOR_DEFAULT = 'SIN CATEGORÍA';
+const PROVEEDOR_MOSTRADOR_DEFAULT = 'SIN PROVEEDOR';
+
+function obtenerCategoriaDelegate(client = prisma) {
+  const delegate = client.categoria;
   if (!delegate) {
     const error = new Error('El modelo Prisma "Categoria" no está disponible en Prisma Client. Ejecutá "npx prisma generate" y reiniciá el servidor.');
     error.status = 500;
     throw error;
   }
   return delegate;
+}
+
+async function obtenerCategoriaMostradorDefault(client = prisma) {
+  return obtenerCategoriaDelegate(client).upsert({
+    where: { nombre: CATEGORIA_MOSTRADOR_DEFAULT },
+    update: { activo: true },
+    create: { nombre: CATEGORIA_MOSTRADOR_DEFAULT, descripcion: 'Categoría automática para productos de Mostrador sin categoría asignada.', activo: true }
+  });
+}
+
+async function obtenerProveedorMostradorDefault(client = prisma) {
+  const existente = await client.proveedor.findFirst({ where: { razonSocial: PROVEEDOR_MOSTRADOR_DEFAULT } });
+  if (existente) {
+    if (!existente.activo || existente.eliminado) {
+      return client.proveedor.update({ where: { id: existente.id }, data: { activo: true, eliminado: false, eliminadoAt: null, eliminadoPor: null, motivoEliminacion: null } });
+    }
+    return existente;
+  }
+  return client.proveedor.create({
+    data: { razonSocial: PROVEEDOR_MOSTRADOR_DEFAULT, observaciones: 'Proveedor automático para productos de Mostrador sin proveedor asignado.', activo: true, eliminado: false }
+  });
+}
+
+function normalizarIdsPositivos(raw = []) {
+  return [...new Set((Array.isArray(raw) ? raw : []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+async function asegurarCategoriaIdsMostrador(categoriaIds = [], client = prisma) {
+  const ids = normalizarIdsPositivos(categoriaIds);
+  if (ids.length) return ids;
+  const categoria = await obtenerCategoriaMostradorDefault(client);
+  return [categoria.id];
+}
+
+async function asegurarProveedorIdsMostrador(proveedorIds = [], client = prisma) {
+  const ids = normalizarIdsPositivos(proveedorIds);
+  if (ids.length) return ids;
+  const proveedor = await obtenerProveedorMostradorDefault(client);
+  return [proveedor.id];
+}
+
+async function normalizarProductosMostrador(client = prisma) {
+  const [categoriaDefault, proveedorDefault, productos] = await Promise.all([
+    obtenerCategoriaMostradorDefault(client),
+    obtenerProveedorMostradorDefault(client),
+    client.producto.findMany({
+      where: { eliminado: false },
+      include: { categorias: true, proveedores: true }
+    })
+  ]);
+
+  let corregidosCategoria = 0;
+  let corregidosProveedor = 0;
+
+  for (const producto of productos) {
+    const sinCategoriaTexto = !String(producto.categoria || '').trim();
+    const sinCategoriaRelacion = !(producto.categorias || []).length;
+    const sinProveedor = !(producto.proveedores || []).length;
+    const data = {};
+
+    if (sinCategoriaTexto || sinCategoriaRelacion) {
+      corregidosCategoria += 1;
+      data.categoria = sinCategoriaTexto ? CATEGORIA_MOSTRADOR_DEFAULT : producto.categoria;
+      data.categorias = sinCategoriaRelacion ? { connect: [{ id: categoriaDefault.id }] } : undefined;
+    }
+
+    if (Object.keys(data).length) {
+      await client.producto.update({ where: { id: producto.id }, data });
+    }
+
+    if (sinProveedor) {
+      corregidosProveedor += 1;
+      await client.productoProveedor.create({ data: { productoId: producto.id, proveedorId: proveedorDefault.id } }).catch(() => null);
+    }
+  }
+
+  return {
+    productosAnalizados: productos.length,
+    sinCategoriaCorregidos: corregidosCategoria,
+    sinProveedorCorregidos: corregidosProveedor
+  };
 }
 
 
@@ -1078,7 +1162,7 @@ function validarPayloadProducto(payload = {}) {
 }
 
 function parseCategoriaIds(raw = []) {
-  return [...new Set((Array.isArray(raw) ? raw : []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  return normalizarIdsPositivos(raw);
 }
 
 function construirFiltroBusquedaProductos(q = '') {
@@ -1091,7 +1175,8 @@ function construirFiltroBusquedaProductos(q = '') {
     { marca: { contains: termino } },
     { unidad: { contains: termino } },
     { observaciones: { contains: termino } },
-    { categorias: { some: { nombre: { contains: termino } } } }
+    { categorias: { some: { nombre: { contains: termino } } } },
+    { proveedores: { some: { proveedor: { razonSocial: { contains: termino } } } } }
   ];
   if (Number.isInteger(idBuscado) && idBuscado > 0) {
     or.push({ id: idBuscado });
@@ -1451,8 +1536,20 @@ app.get('/productos', async (req, res) => {
   try {
     const tipoCambioActual = await obtenerTipoCambioActual();
     const q = String(req.query.q || '').trim();
+    const categoria = String(req.query.categoria || '').trim();
+    const proveedorId = parsePositiveInt(req.query.proveedorId);
+    const proveedor = String(req.query.proveedor || '').trim();
+    const filtros = [
+      construirFiltroBusquedaProductos(q),
+      categoria ? { OR: [{ categoria: { contains: categoria } }, { categorias: { some: { nombre: categoria } } }] } : null,
+      proveedorId ? { proveedores: { some: { proveedorId } } } : proveedor ? { proveedores: { some: { proveedor: { razonSocial: { contains: proveedor } } } } } : null
+    ].filter(Boolean);
     const productos = await prisma.producto.findMany({
-      where: { ...(construirFiltroBusquedaProductos(q) || {}), eliminado: false, activo: true },
+      where: {
+        eliminado: false,
+        activo: true,
+        ...(filtros.length ? { AND: filtros } : {})
+      },
       include: { proveedores: { include: { proveedor: true } }, categorias: true },
       orderBy: { nombre: 'asc' }
     });
@@ -1479,19 +1576,18 @@ app.post('/productos', asyncHandler(async (req, res) => {
   try {
     const { id: _idIgnorado, ...payloadSinId } = req.body || {};
     console.log('[producto-guardado][backend] POST /productos payload', payloadSinId);
-    const totalCategoriasActivas = await obtenerCategoriaDelegate().count({ where: { activo: true } });
-    const errorValidacion = validarPayloadProducto({ ...payloadSinId, __requiereCategoria: totalCategoriasActivas > 0 });
+    const errorValidacion = validarPayloadProducto(payloadSinId);
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] POST /productos validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
     }
     const tipoCambioActual = await obtenerTipoCambioActual();
-    const categoriaIds = parseCategoriaIds(payloadSinId?.categoriaIds);
+    const categoriaIds = await asegurarCategoriaIdsMostrador(parseCategoriaIds(payloadSinId?.categoriaIds));
     const categorias = await obtenerCategoriaDelegate().findMany({ where: { id: { in: categoriaIds }, activo: true } });
     if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
-    const data = normalizarPayloadProducto({ ...payloadSinId, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
+    const data = normalizarPayloadProducto({ ...payloadSinId, categoria: categorias.map((c) => c.nombre).join(', ') || CATEGORIA_MOSTRADOR_DEFAULT }, tipoCambioActual);
     console.log('[producto-guardado][backend] POST /productos normalizado', data);
-    const proveedorIds = Array.isArray(payloadSinId?.proveedorIds) ? Array.from(new Set(payloadSinId.proveedorIds.map(Number).filter(Number.isInteger))) : [];
+    const proveedorIds = await asegurarProveedorIdsMostrador(payloadSinId?.proveedorIds);
     const producto = await prisma.producto.create({ data: { ...data, categorias: { connect: categoriaIds.map((id) => ({ id })) } } });
     console.log('[producto-guardado][backend] POST /productos creado', { id: producto.id, nombre: producto.nombre });
     if (proveedorIds.length) {
@@ -1542,8 +1638,7 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     console.log('[producto-guardado][backend] PUT /productos/:id payload', { id, body: req.body });
     if (!id) return res.status(400).json({ error: 'id inválido' });
-    const totalCategoriasActivas = await obtenerCategoriaDelegate().count({ where: { activo: true } });
-    const errorValidacion = validarPayloadProducto({ ...req.body, __requiereCategoria: totalCategoriasActivas > 0 });
+    const errorValidacion = validarPayloadProducto(req.body);
     if (errorValidacion) {
       console.warn('[producto-guardado][backend] PUT /productos/:id validacion', { error: errorValidacion, payload: req.body });
       return res.status(400).json({ error: errorValidacion });
@@ -1552,20 +1647,16 @@ app.put('/productos/:id', asyncHandler(async (req, res) => {
     const existente = await prisma.producto.findUnique({ where: { id }, include: { categorias: true } });
     if (!existente) return res.status(404).json({ error: 'Producto no encontrado' });
 
-    const categoriaIds = parseCategoriaIds(req.body?.categoriaIds);
+    const categoriaIds = await asegurarCategoriaIdsMostrador(parseCategoriaIds(req.body?.categoriaIds));
     const categorias = await obtenerCategoriaDelegate().findMany({ where: { id: { in: categoriaIds }, activo: true } });
     if (categorias.length !== categoriaIds.length) return res.status(400).json({ error: 'Una o más categorías no existen o están inactivas' });
-    const data = normalizarPayloadProducto({ ...existente, ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') }, tipoCambioActual);
+    const data = normalizarPayloadProducto({ ...existente, ...req.body, categoria: categorias.map((c) => c.nombre).join(', ') || CATEGORIA_MOSTRADOR_DEFAULT }, tipoCambioActual);
     console.log('[producto-guardado][backend] PUT /productos/:id normalizado', { id, data });
-    const proveedorIds = Array.isArray(req.body?.proveedorIds) ? Array.from(new Set(req.body.proveedorIds.map(Number).filter(Number.isInteger))) : [];
+    const proveedorIds = await asegurarProveedorIdsMostrador(req.body?.proveedorIds);
     await prisma.$transaction(async tx => {
       await tx.producto.update({ where: { id }, data: { ...data, categorias: { set: categoriaIds.map((cid) => ({ id: cid })) } } });
-      if (Array.isArray(req.body?.proveedorIds)) {
-        await tx.productoProveedor.deleteMany({ where: { productoId: id } });
-        if (proveedorIds.length) {
-          await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })) });
-        }
-      }
+      await tx.productoProveedor.deleteMany({ where: { productoId: id } });
+      await tx.productoProveedor.createMany({ data: proveedorIds.map(proveedorId => ({ productoId: id, proveedorId })) });
     });
     const producto = await prisma.producto.findUnique({ where: { id }, include: { proveedores: { include: { proveedor: true } }, categorias: true } });
     console.log('[producto-guardado][backend] PUT /productos/:id actualizado', { id: producto?.id, nombre: producto?.nombre });
@@ -4752,6 +4843,15 @@ app.use('/data', express.static(path.join(__dirname, 'data')));
 const PORT = process.env.PORT || 3000;
 
 async function iniciarServidor() {
+  try {
+    const auditoriaMostrador = await normalizarProductosMostrador(prisma);
+    console.log(`[mostrador] Productos analizados: ${auditoriaMostrador.productosAnalizados}`);
+    console.log(`[mostrador] Sin categoría corregidos: ${auditoriaMostrador.sinCategoriaCorregidos}`);
+    console.log(`[mostrador] Sin proveedor corregidos: ${auditoriaMostrador.sinProveedorCorregidos}`);
+  } catch (error) {
+    console.warn('[mostrador] No se pudo completar la normalización automática de productos:', error.message);
+  }
+
   try {
     const resultadoBootstrap = await upsertProductosSenasaMip(prisma);
     console.log(`[senasa] Productos MIP base sincronizados: ${resultadoBootstrap.creados} creados, ${resultadoBootstrap.actualizados} actualizados, ${resultadoBootstrap.total} base.`);
