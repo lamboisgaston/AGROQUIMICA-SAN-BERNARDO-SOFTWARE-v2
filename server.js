@@ -155,6 +155,29 @@ function formatearEstadisticaDiaria(row) {
 
 
 
+function completarUsdConDolarHistorico(row, dolarBnaVenta) {
+  const dolar = Number(dolarBnaVenta ?? row.dolarBnaVenta);
+  if (!Number.isFinite(dolar) || dolar <= 0) return null;
+  const data = { dolarBnaVenta: dolar };
+  if (row.ventasUsd == null && Number.isFinite(Number(row.ventasArs))) data.ventasUsd = Number(row.ventasArs) / dolar;
+  if (row.comprasUsd == null && Number.isFinite(Number(row.comprasArs))) data.comprasUsd = Number(row.comprasArs) / dolar;
+  if (row.facturadoUsd == null && Number.isFinite(Number(row.facturadoArs))) data.facturadoUsd = Number(row.facturadoArs) / dolar;
+  const margenArs = row.margenBrutoArs == null && Number.isFinite(Number(row.ventasArs)) && Number.isFinite(Number(row.comprasArs))
+    ? Number(row.ventasArs) - Number(row.comprasArs)
+    : Number(row.margenBrutoArs);
+  if (row.margenBrutoArs == null && Number.isFinite(margenArs)) data.margenBrutoArs = margenArs;
+  if (row.margenBrutoUsd == null && Number.isFinite(margenArs)) data.margenBrutoUsd = margenArs / dolar;
+  return Object.keys(data).length > 1 || row.dolarBnaVenta == null ? data : null;
+}
+
+async function buscarCotizacionBnaPorFecha(fecha) {
+  const cotizacion = await prisma.cotizacionDolar.findFirst({
+    where: { fecha, fuente: 'BNA' },
+    orderBy: { updatedAt: 'desc' }
+  });
+  return cotizacion?.dolarBnaVenta ?? null;
+}
+
 function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
@@ -490,6 +513,25 @@ app.get('/api/estadisticas/historico/anual', asyncHandler(async (req, res) => {
     total: byYear.size,
     data: Array.from(byYear.values()).map(limpiarAcumuladorHistorico).sort((a, b) => b.key.localeCompare(a.key))
   });
+}));
+
+app.post('/api/estadisticas/historico/completar-usd-bna', asyncHandler(async (_req, res) => {
+  const rows = await prisma.estadisticaHistorica.findMany({ orderBy: { fecha: 'asc' } });
+  const resultado = { revisados: rows.length, actualizados: 0, sinCotizacion: 0 };
+
+  for (const row of rows) {
+    const cotizacionBna = row.dolarBnaVenta ?? await buscarCotizacionBnaPorFecha(row.fecha);
+    if (!cotizacionBna) {
+      resultado.sinCotizacion += 1;
+      continue;
+    }
+    const data = completarUsdConDolarHistorico(row, cotizacionBna);
+    if (!data) continue;
+    await prisma.estadisticaHistorica.update({ where: { id: row.id }, data });
+    resultado.actualizados += 1;
+  }
+
+  res.json(resultado);
 }));
 
 app.get('/api/estado-sistema', process.env.NODE_ENV === 'production' ? requireDiagnosticoRole : (_req, _res, next) => next(), asyncHandler(async (_req, res) => {

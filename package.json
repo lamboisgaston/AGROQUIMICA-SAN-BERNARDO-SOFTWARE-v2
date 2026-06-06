@@ -26,7 +26,8 @@
     "import:guasch:cesped": "node scripts/cargar-guasch-cesped.js",
     "import:guasch:blends": "node scripts/cargar-guasch-blends-cesped.js",
     "normalizar:guasch": "node scripts/normalizar-guasch-cultivos.js",
-    "import:historico-estadistico": "node scripts/importar-historico-estadistico.js"
+    "import:historico-estadistico": "node scripts/importar-historico-estadistico.js",
+    "historico:completar-usd-bna": "node scripts/completar-historico-usd-bna.js"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",

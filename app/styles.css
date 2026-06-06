@@ -380,3 +380,90 @@ details[open] { display: grid; gap: 5px; }
   color: #0f172a;
   font-size: 14px;
 }
+
+.estadisticas-resumen-anual,
+.estadisticas-comparacion,
+.estadisticas-graficos {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.hist-resumen-anual-grid,
+.hist-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+.hist-anual-card,
+.hist-chart-card {
+  border: 1px solid #d1dbe8;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.hist-anual-card h4,
+.hist-chart-card h4 {
+  margin: 0;
+  color: #14532d;
+}
+.hist-anual-card div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 6px;
+  color: #475569;
+}
+.hist-table-scroll {
+  overflow-x: auto;
+}
+.hist-comparacion-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #d1dbe8;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.hist-comparacion-tabla th,
+.hist-comparacion-tabla td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+.hist-comparacion-tabla th {
+  background: #f1f5f9;
+  color: #334155;
+}
+.hist-var-pos { color: #15803d; font-weight: 700; }
+.hist-var-neg { color: #b91c1c; font-weight: 700; }
+.hist-chart {
+  min-height: 210px;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 8px 2px 0;
+  border-top: 1px solid #e2e8f0;
+}
+.hist-bar-wrap {
+  min-width: 28px;
+  display: grid;
+  justify-items: center;
+  align-items: end;
+  gap: 4px;
+  color: #64748b;
+  font-size: 11px;
+}
+.hist-bar {
+  width: 20px;
+  min-height: 6px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #22c55e, #15803d);
+}
+.hist-bar-neg {
+  background: linear-gradient(180deg, #f87171, #b91c1c);
+}
