@@ -309,13 +309,15 @@
 
     <section class="bloque app-shell compact-form estadisticas-historico" data-modulo="estadisticas-historico">
       <h2>Estadísticas → Histórico</h2>
-      <p>Datos importados desde CSV/Excel, agrupados por Año → Mes → Día y valuados en ARS / USD histórico.</p>
+      <p>Estructura principal Año → Mes, con resumen anual, gráficos mensuales y comparación interanual.</p>
       <div class="filters estadisticas-filtros">
-        <label>Desde <input id="hist-desde" type="date" /></label>
-        <label>Hasta <input id="hist-hasta" type="date" /></label>
         <button id="btn-hist-refrescar" type="button">Actualizar histórico</button>
+        <button id="btn-hist-completar-usd" type="button">Completar USD con dólar BNA</button>
       </div>
       <div id="hist-resumen" class="estadisticas-resumen">Sin datos cargados.</div>
+      <div id="hist-resumen-anual" class="estadisticas-resumen-anual lista">Sin resumen anual.</div>
+      <div id="hist-comparacion" class="estadisticas-comparacion lista">Sin comparación interanual.</div>
+      <div id="hist-graficos" class="estadisticas-graficos lista">Sin gráficos.</div>
       <div id="hist-arbol" class="estadisticas-arbol lista">Sin lectura aún.</div>
     </section>
 

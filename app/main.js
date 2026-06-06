@@ -684,14 +684,33 @@ function moneyNullable(value, moneda = '$') {
   return Number.isFinite(parsed) ? `${moneda}${parsed.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
 }
 
+const HIST_MESES_NOMBRES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const HIST_COMPARACIONES_INTERANUALES = [
+  { mes: 3, actual: 2026, anterior: 2025 },
+  { mes: 4, actual: 2026, anterior: 2025 },
+  { mes: 5, actual: 2026, anterior: 2025 }
+];
+
 function buildHistoricoQuery() {
-  const params = new URLSearchParams();
-  const desde = $('#hist-desde')?.value;
-  const hasta = $('#hist-hasta')?.value;
-  if (desde) params.set('desde', desde);
-  if (hasta) params.set('hasta', hasta);
-  const qs = params.toString();
-  return qs ? `?${qs}` : '';
+  return '';
+}
+
+function historicoMesLabel(mes) {
+  return HIST_MESES_NOMBRES[Number(mes) - 1] || `Mes ${mes}`;
+}
+
+function historicoKeyMes(anio, mes) {
+  return `${anio}-${String(mes).padStart(2, '0')}`;
+}
+
+function historicoValor(item, field) {
+  const parsed = Number(item?.[field]);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function historicoVariacion(actual, anterior) {
+  if (!Number.isFinite(anterior) || anterior === 0) return null;
+  return ((actual - anterior) / Math.abs(anterior)) * 100;
 }
 
 function historicoMetricasHtml(item, incluirDolar = false) {
@@ -699,35 +718,126 @@ function historicoMetricasHtml(item, incluirDolar = false) {
     <div class="estadisticas-metricas">
       <span>Ventas ARS <strong>${moneyNullable(item.ventasArs)}</strong></span>
       <span>Ventas USD <strong>${moneyNullable(item.ventasUsd, 'USD ')}</strong></span>
-      <span>Compras ARS <strong>${moneyNullable(item.comprasArs)}</strong></span>
       <span>Compras USD <strong>${moneyNullable(item.comprasUsd, 'USD ')}</strong></span>
-      <span>Margen ARS <strong>${moneyNullable(item.margenBrutoArs)}</strong></span>
       <span>Margen USD <strong>${moneyNullable(item.margenBrutoUsd, 'USD ')}</strong></span>
-      <span>Facturado ARS <strong>${moneyNullable(item.facturadoArs)}</strong></span>
-      <span>Facturado USD <strong>${moneyNullable(item.facturadoUsd, 'USD ')}</strong></span>
-      <span>Sin respaldo ARS <strong>${moneyNullable(item.sinRespaldoArs)}</strong></span>
-      <span>Transferencias ARS <strong>${moneyNullable(item.recTransferenciaArs)}</strong></span>
-      ${incluirDolar ? `<span>Dólar BNA venta <strong>${moneyNullable(item.dolarBnaVenta || item.dolarBnaVentaPromedio)}</strong></span>` : ''}
+      <span>Compras ARS <strong>${moneyNullable(item.comprasArs)}</strong></span>
+      <span>Margen ARS <strong>${moneyNullable(item.margenBrutoArs)}</strong></span>
+      ${incluirDolar ? `<span>Dólar BNA promedio <strong>${moneyNullable(item.dolarBnaVentaPromedio)}</strong></span>` : ''}
     </div>
   `;
 }
 
-function renderEstadisticasHistorico(diario, mensual, anual) {
+function renderResumenAnualHistorico(anios) {
+  const cont = $('#hist-resumen-anual');
+  if (!cont) return;
+  cont.innerHTML = `
+    <h3>Resumen anual</h3>
+    <div class="hist-resumen-anual-grid">
+      ${anios.map((anio) => `
+        <article class="hist-anual-card">
+          <h4>${anio.anio}</h4>
+          <div>Ventas ARS <strong>${moneyNullable(anio.ventasArs)}</strong></div>
+          <div>Ventas USD <strong>${moneyNullable(anio.ventasUsd, 'USD ')}</strong></div>
+          <div>Margen USD <strong>${moneyNullable(anio.margenBrutoUsd, 'USD ')}</strong></div>
+        </article>
+      `).join('') || '<div class="item">Sin años importados.</div>'}
+    </div>
+  `;
+}
+
+function renderComparacionInteranualHistorico(mesesPorKey) {
+  const cont = $('#hist-comparacion');
+  if (!cont) return;
+  const filas = HIST_COMPARACIONES_INTERANUALES.map(({ mes, actual, anterior }) => {
+    const actualItem = mesesPorKey.get(historicoKeyMes(actual, mes));
+    const anteriorItem = mesesPorKey.get(historicoKeyMes(anterior, mes));
+    const ventasActual = historicoValor(actualItem, 'ventasUsd');
+    const ventasAnterior = historicoValor(anteriorItem, 'ventasUsd');
+    const margenActual = historicoValor(actualItem, 'margenBrutoUsd');
+    const margenAnterior = historicoValor(anteriorItem, 'margenBrutoUsd');
+    const variacionVentas = historicoVariacion(ventasActual, ventasAnterior);
+    const variacionMargen = historicoVariacion(margenActual, margenAnterior);
+    return `
+      <tr>
+        <td>${historicoMesLabel(mes)} ${actual} vs ${historicoMesLabel(mes)} ${anterior}</td>
+        <td>${moneyNullable(ventasActual, 'USD ')}</td>
+        <td>${moneyNullable(ventasAnterior, 'USD ')}</td>
+        <td class="${variacionVentas == null ? '' : variacionVentas >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionVentas == null ? '-' : `${variacionVentas.toFixed(1)}%`}</td>
+        <td>${moneyNullable(margenActual, 'USD ')}</td>
+        <td>${moneyNullable(margenAnterior, 'USD ')}</td>
+        <td class="${variacionMargen == null ? '' : variacionMargen >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionMargen == null ? '-' : `${variacionMargen.toFixed(1)}%`}</td>
+      </tr>
+    `;
+  }).join('');
+  cont.innerHTML = `
+    <h3>Comparación interanual</h3>
+    <div class="hist-table-scroll">
+      <table class="hist-comparacion-tabla">
+        <thead><tr><th>Período</th><th>Ventas actual</th><th>Ventas anterior</th><th>Δ ventas</th><th>Margen actual</th><th>Margen anterior</th><th>Δ margen</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderGraficoMensualHistorico(titulo, meses, field, moneda = '$') {
+  const max = Math.max(...meses.map((m) => Math.abs(historicoValor(m, field))), 0);
+  const alturaMax = 160;
+  return `
+    <article class="hist-chart-card">
+      <h4>${titulo}</h4>
+      <div class="hist-chart" role="img" aria-label="${htmlSafe(titulo)}">
+        ${meses.map((mes) => {
+          const value = historicoValor(mes, field);
+          const height = max > 0 ? Math.max(6, Math.round((Math.abs(value) / max) * alturaMax)) : 6;
+          return `
+            <div class="hist-bar-wrap" title="${historicoKeyMes(mes.anio, mes.mes)} · ${moneyNullable(value, moneda)}">
+              <div class="hist-bar ${value < 0 ? 'hist-bar-neg' : ''}" style="height:${height}px"></div>
+              <span>${String(mes.mes).padStart(2, '0')}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </article>
+  `;
+}
+
+function renderGraficosMensualesHistorico(meses) {
+  const cont = $('#hist-graficos');
+  if (!cont) return;
+  const ordenados = [...meses].sort((a, b) => a.key.localeCompare(b.key));
+  cont.innerHTML = `
+    <h3>Gráficos mensuales</h3>
+    <div class="hist-chart-grid">
+      ${renderGraficoMensualHistorico('Ventas ARS por mes', ordenados, 'ventasArs')}
+      ${renderGraficoMensualHistorico('Ventas USD por mes', ordenados, 'ventasUsd', 'USD ')}
+      ${renderGraficoMensualHistorico('Margen USD por mes', ordenados, 'margenBrutoUsd', 'USD ')}
+      ${renderGraficoMensualHistorico('Compras USD por mes', ordenados, 'comprasUsd', 'USD ')}
+    </div>
+  `;
+}
+
+function renderEstadisticasHistorico(mensual, anual) {
   const resumen = $('#hist-resumen');
   const arbol = $('#hist-arbol');
   if (!arbol) return;
-  const dias = diario?.data || [];
   const meses = mensual?.data || [];
   const anios = anual?.data || [];
   if (resumen) {
     resumen.innerHTML = `
       <div class="estadistica-resumen-card"><strong>${anios.length}</strong><span>Años</span></div>
       <div class="estadistica-resumen-card"><strong>${meses.length}</strong><span>Meses</span></div>
-      <div class="estadistica-resumen-card"><strong>${dias.length}</strong><span>Días importados</span></div>
+      <div class="estadistica-resumen-card"><strong>${anios.reduce((acc, a) => acc + Number(a.cantidadDias || 0), 0)}</strong><span>Días importados</span></div>
     `;
   }
-  if (!dias.length) {
-    arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas para el rango seleccionado.</div>';
+
+  const mesesPorKey = new Map(meses.map((m) => [m.key || historicoKeyMes(m.anio, m.mes), m]));
+  renderResumenAnualHistorico(anios);
+  renderComparacionInteranualHistorico(mesesPorKey);
+  renderGraficosMensualesHistorico(meses);
+
+  if (!meses.length) {
+    arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas.</div>';
     return;
   }
 
@@ -737,32 +847,20 @@ function renderEstadisticasHistorico(diario, mensual, anual) {
     if (!mesesPorAnio.has(key)) mesesPorAnio.set(key, []);
     mesesPorAnio.get(key).push(m);
   });
-  const diasPorMes = new Map();
-  dias.forEach((d) => {
-    const key = d.fecha.slice(0, 7);
-    if (!diasPorMes.has(key)) diasPorMes.set(key, []);
-    diasPorMes.get(key).push(d);
-  });
 
-  arbol.innerHTML = anios.map((anio) => `
-    <details class="hist-nivel hist-anio" open>
-      <summary><strong>${anio.anio}</strong> · ${anio.cantidadDias} días ${historicoMetricasHtml(anio)}</summary>
-      ${(mesesPorAnio.get(String(anio.anio)) || []).map((mes) => {
-        const mesKey = `${mes.anio}-${String(mes.mes).padStart(2, '0')}`;
-        return `
+  arbol.innerHTML = `
+    <h3>Estructura Año → Mes</h3>
+    ${anios.map((anio) => `
+      <details class="hist-nivel hist-anio" open>
+        <summary><strong>${anio.anio}</strong> · ${anio.cantidadDias} días ${historicoMetricasHtml(anio)}</summary>
+        ${(mesesPorAnio.get(String(anio.anio)) || []).map((mes) => `
           <details class="hist-nivel hist-mes" open>
-            <summary><strong>${mesKey}</strong> · ${mes.cantidadDias} días ${historicoMetricasHtml(mes, true)}</summary>
-            ${(diasPorMes.get(mesKey) || []).map((dia) => `
-              <div class="hist-dia item">
-                <div><strong>${htmlSafe(dia.fecha)}</strong>${dia.etiquetaOriginal ? ` · ${htmlSafe(dia.etiquetaOriginal)}` : ''}</div>
-                ${historicoMetricasHtml(dia, true)}
-              </div>
-            `).join('') || '<div class="item">Sin días para este mes.</div>'}
+            <summary><strong>${historicoMesLabel(mes.mes)} ${mes.anio}</strong> · ${mes.cantidadDias} días ${historicoMetricasHtml(mes, true)}</summary>
           </details>
-        `;
-      }).join('') || '<div class="item">Sin meses para este año.</div>'}
-    </details>
-  `).join('');
+        `).join('') || '<div class="item">Sin meses para este año.</div>'}
+      </details>
+    `).join('')}
+  `;
 }
 
 async function loadEstadisticasHistorico() {
@@ -770,15 +868,28 @@ async function loadEstadisticasHistorico() {
   if (arbol) arbol.innerHTML = '<div class="item">Cargando histórico...</div>';
   try {
     const query = buildHistoricoQuery();
-    const [diario, mensual, anual] = await Promise.all([
-      api(`/api/estadisticas/historico/diario${query}`),
+    const [mensual, anual] = await Promise.all([
       api(`/api/estadisticas/historico/mensual${query}`),
       api(`/api/estadisticas/historico/anual${query}`)
     ]);
-    renderEstadisticasHistorico(diario, mensual, anual);
+    renderEstadisticasHistorico(mensual, anual);
   } catch (error) {
     if (arbol) arbol.innerHTML = `<div class="item">Error al cargar histórico: ${htmlSafe(error.message || error)}</div>`;
     setMsg(`Error al cargar histórico: ${error.message || error}`, 'warning');
+  }
+}
+
+async function completarUsdHistoricoBna() {
+  const btn = $('#btn-hist-completar-usd');
+  if (btn) btn.disabled = true;
+  try {
+    const resultado = await api('/api/estadisticas/historico/completar-usd-bna', { method: 'POST' });
+    setMsg(`Histórico USD BNA: ${resultado.actualizados || 0} registros actualizados, ${resultado.sinCotizacion || 0} sin cotización`, 'success');
+    await loadEstadisticasHistorico();
+  } catch (error) {
+    setMsg(`Error al completar USD histórico: ${error.message || error}`, 'warning');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1798,6 +1909,7 @@ document.querySelectorAll('[data-select-business]').forEach((btn) => {
   btn.addEventListener('click', () => seleccionarBusiness(btn.dataset.selectBusiness));
 });
 $('#btn-hist-refrescar')?.addEventListener('click', loadEstadisticasHistorico);
+$('#btn-hist-completar-usd')?.addEventListener('click', completarUsdHistoricoBna);
 $('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
 const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
