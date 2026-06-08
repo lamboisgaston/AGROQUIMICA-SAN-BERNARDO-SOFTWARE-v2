@@ -37,20 +37,12 @@ function escapeHtml(value) {
 
 const CAMPOS_ESTADISTICA_HISTORICA = [
   'ventasArs',
-  'recTransferenciaArs',
-  'sinRespaldoArs',
-  'facContadoArs',
-  'facBContadoArs',
-  'fcCuentaCorrienteArs',
-  'ffArs',
-  'facturadoArs',
-  'comprasArs',
   'ventasUsd',
-  'comprasUsd',
-  'facturadoUsd',
-  'margenBrutoArs',
-  'margenBrutoUsd'
+  'margenEstimadoArs',
+  'margenEstimadoUsd'
 ];
+
+const MARGEN_ESTIMADO_HISTORICO = 0.30;
 
 function fechaUtcDesdeYmd(value) {
   const raw = String(value || '').trim();
@@ -101,22 +93,19 @@ function usdDesdeArsHistorico(valueArs, dolarBnaVenta) {
 }
 
 function valorHistoricoCalculado(row, field) {
+  if (field === 'margenEstimadoArs') {
+    const ventas = valorHistoricoCalculado(row, 'ventasArs');
+    return ventas != null ? ventas * MARGEN_ESTIMADO_HISTORICO : null;
+  }
+  if (field === 'margenEstimadoUsd') {
+    const ventasUsd = valorHistoricoCalculado(row, 'ventasUsd');
+    return ventasUsd != null ? ventasUsd * MARGEN_ESTIMADO_HISTORICO : null;
+  }
+  if (field === 'ventasUsd') {
+    return usdDesdeArsHistorico(row.ventasArs, row.cotizacionDolarBnaVenta);
+  }
   const directo = numeroHistorico(row[field]);
-  if (directo != null) return directo;
-  if (field === 'margenBrutoArs') {
-    const ventas = numeroHistorico(row.ventasArs);
-    const compras = numeroHistorico(row.comprasArs);
-    return ventas != null && compras != null ? ventas - compras : null;
-  }
-  const dolarHistorico = row.dolarBnaVenta ?? row.cotizacionDolarBnaVenta;
-  if (field === 'ventasUsd') return usdDesdeArsHistorico(row.ventasArs, dolarHistorico);
-  if (field === 'comprasUsd') return usdDesdeArsHistorico(row.comprasArs, dolarHistorico);
-  if (field === 'facturadoUsd') return usdDesdeArsHistorico(row.facturadoArs, dolarHistorico);
-  if (field === 'margenBrutoUsd') {
-    const margenArs = valorHistoricoCalculado(row, 'margenBrutoArs');
-    return usdDesdeArsHistorico(margenArs, dolarHistorico);
-  }
-  return null;
+  return directo != null ? directo : null;
 }
 
 function crearAcumuladorHistorico(key, extra = {}) {
@@ -125,20 +114,11 @@ function crearAcumuladorHistorico(key, extra = {}) {
     ...extra,
     cantidadDias: 0,
     ventasArs: 0,
-    recTransferenciaArs: 0,
-    sinRespaldoArs: 0,
-    facContadoArs: 0,
-    facBContadoArs: 0,
-    fcCuentaCorrienteArs: 0,
-    ffArs: 0,
-    facturadoArs: 0,
-    comprasArs: 0,
     ventasUsd: 0,
-    comprasUsd: 0,
-    facturadoUsd: 0,
-    margenBrutoArs: 0,
-    margenBrutoUsd: 0,
-    dolarBnaVentaPromedio: null
+    margenEstimadoArs: 0,
+    margenEstimadoUsd: 0,
+    dolarBnaVentaPromedio: null,
+    usdPendienteCantidad: 0
   };
 }
 
@@ -147,11 +127,13 @@ function agregarHistorico(acc, row) {
   CAMPOS_ESTADISTICA_HISTORICA.forEach((field) => {
     acc[field] = sumarNumero(acc[field], valorHistoricoCalculado(row, field));
   });
-  const dolar = Number(row.dolarBnaVenta ?? row.cotizacionDolarBnaVenta);
+  const dolar = Number(row.cotizacionDolarBnaVenta);
   if (Number.isFinite(dolar) && dolar > 0) {
     acc._dolarSuma = sumarNumero(acc._dolarSuma || 0, dolar);
     acc._dolarCantidad = (acc._dolarCantidad || 0) + 1;
     acc.dolarBnaVentaPromedio = acc._dolarSuma / acc._dolarCantidad;
+  } else if (numeroHistorico(row.ventasArs) != null) {
+    acc.usdPendienteCantidad += 1;
   }
 }
 
@@ -165,21 +147,12 @@ function formatearEstadisticaDiaria(row) {
     id: row.id,
     fecha: ymdFromDate(row.fecha),
     etiquetaOriginal: row.etiquetaOriginal,
-    dolarBnaVenta: row.dolarBnaVenta ?? row.cotizacionDolarBnaVenta ?? null,
+    dolarBnaVenta: row.cotizacionDolarBnaVenta ?? null,
     ventasArs: valorHistoricoCalculado(row, 'ventasArs'),
     ventasUsd: valorHistoricoCalculado(row, 'ventasUsd'),
-    comprasArs: valorHistoricoCalculado(row, 'comprasArs'),
-    comprasUsd: valorHistoricoCalculado(row, 'comprasUsd'),
-    margenBrutoArs: valorHistoricoCalculado(row, 'margenBrutoArs'),
-    margenBrutoUsd: valorHistoricoCalculado(row, 'margenBrutoUsd'),
-    facturadoArs: valorHistoricoCalculado(row, 'facturadoArs'),
-    facturadoUsd: valorHistoricoCalculado(row, 'facturadoUsd'),
-    sinRespaldoArs: valorHistoricoCalculado(row, 'sinRespaldoArs'),
-    recTransferenciaArs: valorHistoricoCalculado(row, 'recTransferenciaArs'),
-    facContadoArs: valorHistoricoCalculado(row, 'facContadoArs'),
-    facBContadoArs: valorHistoricoCalculado(row, 'facBContadoArs'),
-    fcCuentaCorrienteArs: valorHistoricoCalculado(row, 'fcCuentaCorrienteArs'),
-    ffArs: valorHistoricoCalculado(row, 'ffArs')
+    margenEstimadoArs: valorHistoricoCalculado(row, 'margenEstimadoArs'),
+    margenEstimadoUsd: valorHistoricoCalculado(row, 'margenEstimadoUsd'),
+    usdPendiente: valorHistoricoCalculado(row, 'ventasUsd') == null && numeroHistorico(row.ventasArs) != null
   };
 }
 
@@ -214,18 +187,11 @@ function aplicarCotizacionesHistorico(rows = [], cotizaciones = new Map()) {
 
 
 function completarUsdConDolarHistorico(row, dolarBnaVenta) {
-  const dolar = Number(dolarBnaVenta ?? row.dolarBnaVenta);
+  const dolar = Number(dolarBnaVenta);
   if (!Number.isFinite(dolar) || dolar <= 0) return null;
   const data = { dolarBnaVenta: dolar };
-  if (row.ventasUsd == null && Number.isFinite(Number(row.ventasArs))) data.ventasUsd = Number(row.ventasArs) / dolar;
-  if (row.comprasUsd == null && Number.isFinite(Number(row.comprasArs))) data.comprasUsd = Number(row.comprasArs) / dolar;
-  if (row.facturadoUsd == null && Number.isFinite(Number(row.facturadoArs))) data.facturadoUsd = Number(row.facturadoArs) / dolar;
-  const margenArs = row.margenBrutoArs == null && Number.isFinite(Number(row.ventasArs)) && Number.isFinite(Number(row.comprasArs))
-    ? Number(row.ventasArs) - Number(row.comprasArs)
-    : Number(row.margenBrutoArs);
-  if (row.margenBrutoArs == null && Number.isFinite(margenArs)) data.margenBrutoArs = margenArs;
-  if (row.margenBrutoUsd == null && Number.isFinite(margenArs)) data.margenBrutoUsd = margenArs / dolar;
-  return Object.keys(data).length > 1 || row.dolarBnaVenta == null ? data : null;
+  if (Number.isFinite(Number(row.ventasArs))) data.ventasUsd = Number(row.ventasArs) / dolar;
+  return data;
 }
 
 async function buscarCotizacionBnaPorFecha(fecha) {
@@ -584,7 +550,7 @@ app.post('/api/estadisticas/historico/completar-usd-bna', asyncHandler(async (_r
   const resultado = { revisados: rows.length, actualizados: 0, sinCotizacion: 0 };
 
   for (const row of rows) {
-    const cotizacionBna = row.dolarBnaVenta ?? await buscarCotizacionBnaPorFecha(row.fecha);
+    const cotizacionBna = await buscarCotizacionBnaPorFecha(row.fecha);
     if (!cotizacionBna) {
       resultado.sinCotizacion += 1;
       continue;

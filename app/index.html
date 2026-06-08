@@ -309,7 +309,7 @@
 
     <section class="bloque app-shell compact-form estadisticas-historico" data-modulo="estadisticas-historico">
       <h2>Estadísticas Históricas</h2>
-      <p>Panel gerencial sin rango manual: tablas de resumen, gráficos mensuales, comparación interanual y navegación Año → Mes → Día.</p>
+      <p>Panel gerencial simplificado: ventas mensuales, USD Banco Nación y margen estimado del 30%.</p>
       <div class="filters hist-toolbar">
         <label>
           Año
@@ -322,13 +322,7 @@
             <option value="2026" selected>2026</option>
           </select>
         </label>
-        <label>
-          Moneda
-          <select id="hist-moneda-selector" aria-label="Seleccionar moneda histórica">
-            <option value="ARS" selected>Ver en Pesos</option>
-            <option value="USD">Ver en USD</option>
-          </select>
-        </label>
+        <button id="btn-hist-recalcular-usd" type="button">Recalcular USD histórico</button>
       </div>
       <div id="hist-resumen" class="estadisticas-resumen">Sin datos cargados.</div>
       <div id="hist-resumen-anual" class="estadisticas-resumen-anual lista">Sin resumen anual.</div>
