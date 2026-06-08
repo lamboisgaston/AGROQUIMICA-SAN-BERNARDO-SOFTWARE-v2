@@ -686,12 +686,25 @@ function moneyNullable(value, moneda = '$') {
 
 const HIST_MESES_NOMBRES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const HIST_ANIOS_RESUMEN_ANUAL = [2021, 2022, 2023, 2024, 2025, 2026];
+const HIST_RANGO_DESDE = { anio: 2021, mes: 7 };
+const HIST_RANGO_HASTA = { anio: 2026, mes: 6 };
 let histAnioSeleccionado = 2026;
+let histVistaSeleccionada = 'todos';
 
 function historicoAnioSeleccionado() {
   const anio = Number($('#hist-anio-selector')?.value || histAnioSeleccionado);
   return HIST_ANIOS_RESUMEN_ANUAL.includes(anio) ? anio : 2026;
 }
+function historicoVistaSeleccionada() {
+  const vista = $('#hist-vista-selector')?.value || histVistaSeleccionada;
+  return vista === 'anio' ? 'anio' : 'todos';
+}
+
+function historicoActualizarSelectorAnio() {
+  const label = $('#hist-anio-label');
+  if (label) label.hidden = historicoVistaSeleccionada() !== 'anio';
+}
+
 
 function historicoMesLabel(mes) {
   return HIST_MESES_NOMBRES[Number(mes) - 1] || `Mes ${mes}`;
@@ -700,6 +713,31 @@ function historicoMesLabel(mes) {
 function historicoKeyMes(anio, mes) {
   return `${anio}-${String(mes).padStart(2, '0')}`;
 }
+
+function historicoMesEnRango(anio, mes) {
+  const valor = Number(anio) * 100 + Number(mes);
+  const desde = HIST_RANGO_DESDE.anio * 100 + HIST_RANGO_DESDE.mes;
+  const hasta = HIST_RANGO_HASTA.anio * 100 + HIST_RANGO_HASTA.mes;
+  return valor >= desde && valor <= hasta;
+}
+
+function historicoRangoMeses(vista = historicoVistaSeleccionada(), anioSeleccionado = historicoAnioSeleccionado()) {
+  const meses = [];
+  const desdeAnio = vista === 'anio' ? anioSeleccionado : HIST_RANGO_DESDE.anio;
+  const hastaAnio = vista === 'anio' ? anioSeleccionado : HIST_RANGO_HASTA.anio;
+  for (let anio = desdeAnio; anio <= hastaAnio; anio += 1) {
+    for (let mes = 1; mes <= 12; mes += 1) {
+      if (historicoMesEnRango(anio, mes)) meses.push(historicoMesVacio(anio, mes));
+    }
+  }
+  return meses;
+}
+
+function historicoCompletarMeses(meses = [], vista = historicoVistaSeleccionada(), anioSeleccionado = historicoAnioSeleccionado()) {
+  const porKey = new Map((meses || []).map((mes) => [mes.key || historicoKeyMes(mes.anio, mes.mes), mes]));
+  return historicoRangoMeses(vista, anioSeleccionado).map((mesBase) => porKey.get(mesBase.key) || mesBase);
+}
+
 
 function historicoMonedaSeleccionada() {
   return $('#hist-moneda-selector')?.value === 'USD' ? 'USD' : 'ARS';
@@ -876,71 +914,154 @@ function ordenarMesesHistorico(meses = []) {
 }
 
 
-function renderGraficoMensualHistorico(titulo, meses, field, moneda = '$') {
-  const max = Math.max(...meses.map((m) => Math.abs(historicoValor(m, field))), 0);
-  const alturaMax = 160;
-  const mostrarAnio = meses.length > 12;
+function historicoEscalaLineal(valores = [], minForzado = 0) {
+  const numeros = valores.map(Number).filter(Number.isFinite);
+  const max = Math.max(...numeros, minForzado, 0);
+  const min = Math.min(...numeros, minForzado, 0);
+  const rango = max - min || 1;
+  return { min, max, rango };
+}
+
+function historicoFormatoCompacto(value, moneda = '$') {
+  const numero = Number(value);
+  if (!Number.isFinite(numero)) return '-';
+  const abs = Math.abs(numero);
+  const prefijo = moneda;
+  if (abs >= 1_000_000_000) return `${prefijo}${(numero / 1_000_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}B`;
+  if (abs >= 1_000_000) return `${prefijo}${(numero / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}M`;
+  if (abs >= 1_000) return `${prefijo}${(numero / 1_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}K`;
+  return `${prefijo}${numero.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+}
+
+function historicoPolyline(points, field, escala, width, height, pad) {
+  const count = Math.max(points.length - 1, 1);
+  return points.map((item, index) => {
+    const x = pad.left + (index / count) * (width - pad.left - pad.right);
+    const y = pad.top + ((escala.max - historicoValor(item, field)) / escala.rango) * (height - pad.top - pad.bottom);
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(' ');
+}
+
+function historicoTicksY(escala, moneda, lado, width, height, pad) {
+  const x = lado === 'right' ? width - pad.right + 10 : pad.left - 10;
+  const anchor = lado === 'right' ? 'start' : 'end';
+  return [0, 0.5, 1].map((ratio) => {
+    const valor = escala.max - escala.rango * ratio;
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    return `<text class="hist-svg-tick" x="${x}" y="${y + 4}" text-anchor="${anchor}">${htmlSafe(historicoFormatoCompacto(valor, moneda))}</text>`;
+  }).join('');
+}
+
+function historicoTicksX(meses, width, height, pad) {
+  const count = Math.max(meses.length - 1, 1);
+  const cada = meses.length > 24 ? 6 : meses.length > 12 ? 3 : 1;
+  return meses.map((mes, index) => {
+    const esPrimeroOUltimo = index === 0 || index === meses.length - 1;
+    if (!esPrimeroOUltimo && index % cada !== 0) return '';
+    const x = pad.left + (index / count) * (width - pad.left - pad.right);
+    const etiqueta = mes.key || historicoKeyMes(mes.anio, mes.mes);
+    return `<text class="hist-svg-tick hist-svg-x" x="${x}" y="${height - 12}" text-anchor="middle">${htmlSafe(etiqueta)}</text>`;
+  }).join('');
+}
+
+function renderGraficoVentasXYHistorico(meses) {
+  const width = 980;
+  const height = 360;
+  const pad = { top: 30, right: 96, bottom: 54, left: 96 };
+  const escalaArs = historicoEscalaLineal(meses.map((m) => historicoValor(m, 'ventasArs')));
+  const escalaUsd = historicoEscalaLineal(meses.map((m) => historicoValor(m, 'ventasUsd')));
+  const polyArs = historicoPolyline(meses, 'ventasArs', escalaArs, width, height, pad);
+  const polyUsd = historicoPolyline(meses, 'ventasUsd', escalaUsd, width, height, pad);
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    return `<line class="hist-svg-grid" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"></line>`;
+  }).join('');
   return `
-    <article class="hist-chart-card">
-      <h4>${titulo}</h4>
-      <div class="hist-chart" role="img" aria-label="${htmlSafe(titulo)}">
-        ${meses.map((mes) => {
-          const value = historicoValor(mes, field);
-          const height = max > 0 ? Math.max(6, Math.round((Math.abs(value) / max) * alturaMax)) : 6;
-          const etiquetaBase = mes.mes ? String(mes.mes).padStart(2, '0') : String(mes.anio ?? mes.key ?? '');
-          const etiqueta = mostrarAnio && mes.mes ? `${String(mes.anio).slice(2)}-${etiquetaBase}` : etiquetaBase;
-          const tituloPunto = mes.mes ? historicoKeyMes(mes.anio, mes.mes) : String(mes.anio ?? mes.key ?? '');
-          return `
-            <div class="hist-bar-wrap" title="${tituloPunto} · ${moneyNullable(value, moneda)}">
-              <div class="hist-bar ${value < 0 ? 'hist-bar-neg' : ''}" style="height:${height}px"></div>
-              <span>${etiqueta}</span>
-            </div>
-          `;
-        }).join('')}
+    <article class="hist-chart-card hist-chart-card-wide hist-xy-card">
+      <div class="hist-chart-title-row">
+        <h3>Evolución mensual de ventas ARS y USD</h3>
+        <div class="hist-legend">
+          <span><i class="hist-legend-ars"></i>Ventas ARS</span>
+          <span><i class="hist-legend-usd"></i>Ventas USD Históricas</span>
+        </div>
+      </div>
+      <p class="hist-section-helper">Eje X cronológico por mes. Eje Y izquierdo: Ventas ARS. Eje Y derecho: Ventas USD históricas.</p>
+      <div class="hist-svg-scroll">
+        <svg class="hist-xy-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolución mensual de ventas ARS y USD históricas">
+          ${grid}
+          <line class="hist-svg-axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}"></line>
+          <line class="hist-svg-axis" x1="${width - pad.right}" y1="${pad.top}" x2="${width - pad.right}" y2="${height - pad.bottom}"></line>
+          <line class="hist-svg-axis" x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}"></line>
+          ${historicoTicksY(escalaArs, '$', 'left', width, height, pad)}
+          ${historicoTicksY(escalaUsd, 'USD ', 'right', width, height, pad)}
+          ${historicoTicksX(meses, width, height, pad)}
+          <text class="hist-svg-axis-label" x="${pad.left}" y="18" text-anchor="middle">Ventas ARS</text>
+          <text class="hist-svg-axis-label" x="${width - pad.right}" y="18" text-anchor="middle">Ventas USD</text>
+          <polyline class="hist-xy-line hist-xy-line-ars" points="${polyArs}"></polyline>
+          <polyline class="hist-xy-line hist-xy-line-usd" points="${polyUsd}"></polyline>
+          ${meses.map((mes, index) => {
+            const count = Math.max(meses.length - 1, 1);
+            const x = pad.left + (index / count) * (width - pad.left - pad.right);
+            const yArs = pad.top + ((escalaArs.max - historicoValor(mes, 'ventasArs')) / escalaArs.rango) * (height - pad.top - pad.bottom);
+            const yUsd = pad.top + ((escalaUsd.max - historicoValor(mes, 'ventasUsd')) / escalaUsd.rango) * (height - pad.top - pad.bottom);
+            const key = mes.key || historicoKeyMes(mes.anio, mes.mes);
+            return `
+              <circle class="hist-xy-dot hist-xy-dot-ars" cx="${x.toFixed(2)}" cy="${yArs.toFixed(2)}" r="3"><title>${htmlSafe(key)} · Ventas ARS ${moneyNullable(historicoValor(mes, 'ventasArs'))}</title></circle>
+              <circle class="hist-xy-dot hist-xy-dot-usd" cx="${x.toFixed(2)}" cy="${yUsd.toFixed(2)}" r="3"><title>${htmlSafe(key)} · Ventas USD ${historicoUsdTexto(mes, 'ventasUsd')}</title></circle>
+            `;
+          }).join('')}
+        </svg>
       </div>
     </article>
   `;
 }
 
-function renderGraficoAnualUsdHistorico(anios = []) {
-  const ordenados = normalizarResumenAnualHistorico(anios).sort((a, b) => Number(a.anio) - Number(b.anio));
-  const max = Math.max(...ordenados.map((anio) => Math.abs(historicoValor(anio, 'ventasUsd'))), 0);
-  const alturaMax = 170;
+function renderGraficoMargenXYHistorico(meses) {
+  const width = 980;
+  const height = 300;
+  const pad = { top: 28, right: 44, bottom: 54, left: 96 };
+  const escala = historicoEscalaLineal(meses.map((m) => historicoValor(m, 'margenEstimadoUsd')));
+  const poly = historicoPolyline(meses, 'margenEstimadoUsd', escala, width, height, pad);
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const y = pad.top + ratio * (height - pad.top - pad.bottom);
+    return `<line class="hist-svg-grid" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"></line>`;
+  }).join('');
   return `
-    <article class="hist-chart-card hist-chart-card-wide">
-      <h4>Comparativo anual en USD</h4>
-      <p class="hist-section-helper">Ventas USD históricas por año y variación contra el año anterior.</p>
-      <div class="hist-chart hist-chart-anual" role="img" aria-label="Comparativo anual de ventas USD históricas">
-        ${ordenados.map((anio, index) => {
-          const value = historicoValor(anio, 'ventasUsd');
-          const anterior = index > 0 ? historicoValor(ordenados[index - 1], 'ventasUsd') : null;
-          const height = max > 0 ? Math.max(6, Math.round((Math.abs(value) / max) * alturaMax)) : 6;
-          return `
-            <div class="hist-bar-wrap hist-bar-wrap-anual" title="${anio.anio} · ${moneyNullable(value, 'USD ')}">
-              <strong>${moneyNullable(value, 'USD ')}</strong>
-              <div class="hist-bar ${value < 0 ? 'hist-bar-neg' : ''}" style="height:${height}px"></div>
-              <span>${anio.anio}</span>
-              ${historicoVariacionHtml(value, anterior)}
-            </div>
-          `;
-        }).join('')}
+    <article class="hist-chart-card hist-chart-card-wide hist-xy-card">
+      <h3>Margen estimado 30% en USD por mes</h3>
+      <p class="hist-section-helper">Eje X cronológico por mes. Eje Y: Margen 30% USD.</p>
+      <div class="hist-svg-scroll">
+        <svg class="hist-xy-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Margen estimado 30% en USD por mes">
+          ${grid}
+          <line class="hist-svg-axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}"></line>
+          <line class="hist-svg-axis" x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}"></line>
+          ${historicoTicksY(escala, 'USD ', 'left', width, height, pad)}
+          ${historicoTicksX(meses, width, height, pad)}
+          <polyline class="hist-xy-line hist-xy-line-margin" points="${poly}"></polyline>
+          ${meses.map((mes, index) => {
+            const count = Math.max(meses.length - 1, 1);
+            const x = pad.left + (index / count) * (width - pad.left - pad.right);
+            const y = pad.top + ((escala.max - historicoValor(mes, 'margenEstimadoUsd')) / escala.rango) * (height - pad.top - pad.bottom);
+            const key = mes.key || historicoKeyMes(mes.anio, mes.mes);
+            return `<circle class="hist-xy-dot hist-xy-dot-margin" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3"><title>${htmlSafe(key)} · Margen 30% USD ${historicoUsdTexto(mes, 'margenEstimadoUsd')}</title></circle>`;
+          }).join('')}
+        </svg>
       </div>
     </article>
   `;
 }
 
-function renderGraficosMensualesHistorico(meses, anioSeleccionado, anios = []) {
+function renderGraficosMensualesHistorico(meses, anioSeleccionado) {
   const cont = $('#hist-graficos');
   if (!cont) return;
-  const mesesOrdenados = ordenarMesesHistorico(meses || []);
-  const porMes = new Map(mesesOrdenados.filter((m) => Number(m.anio) === Number(anioSeleccionado)).map((m) => [Number(m.mes), m]));
-  const ordenadosAnio = Array.from({ length: 12 }, (_, idx) => porMes.get(idx + 1) || historicoMesVacio(anioSeleccionado, idx + 1));
+  const vista = historicoVistaSeleccionada();
+  const mesesParaGrafico = historicoCompletarMeses(ordenarMesesHistorico(meses || []), vista, anioSeleccionado);
+  const tituloRango = vista === 'anio' ? `Año ${anioSeleccionado}` : '2021-07 a 2026-06';
   cont.innerHTML = `
-    <h3>Gráficos USD</h3>
-    <p class="hist-section-helper">Eje X por años/meses y eje Y por ventas USD históricas calculadas con dólar vendedor Banco Nación.</p>
-    <div class="hist-chart-grid">
-      ${renderGraficoAnualUsdHistorico(anios)}
-      ${renderGraficoMensualHistorico(`Gráfico mensual USD ${anioSeleccionado}`, ordenadosAnio, 'ventasUsd', 'USD ')}
+    <h3>Gráficos XY · ${tituloRango}</h3>
+    <div class="hist-chart-grid hist-xy-grid">
+      ${renderGraficoVentasXYHistorico(mesesParaGrafico)}
+      ${renderGraficoMargenXYHistorico(mesesParaGrafico)}
     </div>
   `;
 }
@@ -952,22 +1073,28 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
   const meses = mensual?.data || [];
   const anios = anual?.data || [];
   const dias = diario?.data || [];
+  const anioSeleccionado = historicoAnioSeleccionado();
+  const vista = historicoVistaSeleccionada();
+  historicoActualizarSelectorAnio();
+  const mesesFiltrados = historicoCompletarMeses(ordenarMesesHistorico(meses || []), vista, anioSeleccionado);
   if (resumen) {
-    const pendientes = meses.reduce((total, mes) => total + Number(mes.usdPendienteCantidad || 0), 0);
+    const subtitulo = vista === 'anio' ? `Año ${anioSeleccionado}` : '2021-07 a 2026-06';
+    const totalVentasArs = mesesFiltrados.reduce((total, mes) => total + historicoValor(mes, 'ventasArs'), 0);
+    const totalVentasUsd = mesesFiltrados.reduce((total, mes) => total + historicoValor(mes, 'ventasUsd'), 0);
+    const totalMargenArs = mesesFiltrados.reduce((total, mes) => total + historicoValor(mes, 'margenEstimadoArs'), 0);
+    const totalMargenUsd = mesesFiltrados.reduce((total, mes) => total + historicoValor(mes, 'margenEstimadoUsd'), 0);
     resumen.innerHTML = `
-      <div class="estadistica-resumen-card"><strong>${HIST_ANIOS_RESUMEN_ANUAL.length}</strong><span>Años</span></div>
-      <div class="estadistica-resumen-card"><strong>${meses.length}</strong><span>Meses</span></div>
-      <div class="estadistica-resumen-card"><strong>${dias.length}</strong><span>Días importados</span></div>
-      <div class="estadistica-resumen-card"><strong>${pendientes}</strong><span>Días USD pendientes</span></div>
-      <div class="estadistica-resumen-card"><strong>${moneyNullable(anios.reduce((total, anio) => total + historicoValor(anio, 'ventasUsd'), 0), 'USD ')}</strong><span>Ventas USD históricas</span></div>
+      <div class="estadistica-resumen-card"><strong>${moneyNullable(totalVentasArs)}</strong><span>Ventas ARS total · ${subtitulo}</span></div>
+      <div class="estadistica-resumen-card"><strong>${moneyNullable(totalVentasUsd, 'USD ')}</strong><span>Ventas USD total · ${subtitulo}</span></div>
+      <div class="estadistica-resumen-card"><strong>${moneyNullable(totalMargenArs)}</strong><span>Margen 30% ARS · ${subtitulo}</span></div>
+      <div class="estadistica-resumen-card"><strong>${moneyNullable(totalMargenUsd, 'USD ')}</strong><span>Margen 30% USD · ${subtitulo}</span></div>
     `;
   }
 
-  const anioSeleccionado = historicoAnioSeleccionado();
   renderResumenAnualHistorico(anios);
   renderTablaMensualHistorico(meses, anioSeleccionado);
   renderTablaDiariaHistorico(dias);
-  renderGraficosMensualesHistorico(meses, anioSeleccionado, anios);
+  renderGraficosMensualesHistorico(meses, anioSeleccionado);
   if (!meses.length && !dias.length) {
     arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas.</div>';
     return;
@@ -2056,11 +2183,15 @@ document.querySelectorAll('[data-select-role]').forEach((btn) => {
 document.querySelectorAll('[data-select-business]').forEach((btn) => {
   btn.addEventListener('click', () => seleccionarBusiness(btn.dataset.selectBusiness));
 });
+$('#hist-vista-selector')?.addEventListener('change', (event) => {
+  histVistaSeleccionada = event.target.value === 'anio' ? 'anio' : 'todos';
+  historicoActualizarSelectorAnio();
+  loadEstadisticasHistorico();
+});
 $('#hist-anio-selector')?.addEventListener('change', (event) => {
   histAnioSeleccionado = Number(event.target.value) || 2026;
   loadEstadisticasHistorico();
 });
-$('#hist-moneda-selector')?.addEventListener('change', loadEstadisticasHistorico);
 $('#btn-hist-recalcular-usd')?.addEventListener('click', recalcularUsdHistorico);
 $('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
