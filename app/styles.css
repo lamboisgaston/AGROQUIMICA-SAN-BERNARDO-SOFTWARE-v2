@@ -428,6 +428,11 @@ details[open] { display: grid; gap: 5px; }
   padding-top: 6px;
   color: #475569;
 }
+.hist-section-helper {
+  margin: -4px 0 2px;
+  color: #64748b;
+  font-size: 13px;
+}
 .hist-table-scroll {
   overflow-x: auto;
 }
