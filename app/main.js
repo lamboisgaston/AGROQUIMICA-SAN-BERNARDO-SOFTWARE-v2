@@ -685,6 +685,7 @@ function moneyNullable(value, moneda = '$') {
 }
 
 const HIST_MESES_NOMBRES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const HIST_ANIOS_RESUMEN_ANUAL = [2021, 2022, 2023, 2024, 2025, 2026];
 const HIST_COMPARACIONES_INTERANUALES = [
   { mes: 3, actual: 2026, anterior: 2025 },
   { mes: 4, actual: 2026, anterior: 2025 },
@@ -718,29 +719,49 @@ function historicoMetricasHtml(item, incluirDolar = false) {
     <div class="estadisticas-metricas">
       <span>Ventas ARS <strong>${moneyNullable(item.ventasArs)}</strong></span>
       <span>Ventas USD <strong>${moneyNullable(item.ventasUsd, 'USD ')}</strong></span>
-      <span>Compras USD <strong>${moneyNullable(item.comprasUsd, 'USD ')}</strong></span>
-      <span>Margen USD <strong>${moneyNullable(item.margenBrutoUsd, 'USD ')}</strong></span>
       <span>Compras ARS <strong>${moneyNullable(item.comprasArs)}</strong></span>
+      <span>Compras USD <strong>${moneyNullable(item.comprasUsd, 'USD ')}</strong></span>
       <span>Margen ARS <strong>${moneyNullable(item.margenBrutoArs)}</strong></span>
+      <span>Margen USD <strong>${moneyNullable(item.margenBrutoUsd, 'USD ')}</strong></span>
       ${incluirDolar ? `<span>Dólar BNA promedio <strong>${moneyNullable(item.dolarBnaVentaPromedio)}</strong></span>` : ''}
     </div>
   `;
 }
 
+function normalizarResumenAnualHistorico(anios) {
+  const porAnio = new Map((anios || []).map((anio) => [Number(anio.anio), anio]));
+  return HIST_ANIOS_RESUMEN_ANUAL.map((anio) => porAnio.get(anio) || crearHistoricoVacioAnual(anio));
+}
+
+function crearHistoricoVacioAnual(anio) {
+  return {
+    key: String(anio),
+    anio,
+    cantidadDias: 0,
+    ventasArs: 0,
+    ventasUsd: 0,
+    comprasArs: 0,
+    comprasUsd: 0,
+    margenBrutoArs: 0,
+    margenBrutoUsd: 0
+  };
+}
+
 function renderResumenAnualHistorico(anios) {
   const cont = $('#hist-resumen-anual');
   if (!cont) return;
+  const resumenAnios = normalizarResumenAnualHistorico(anios);
   cont.innerHTML = `
-    <h3>Resumen anual</h3>
+    <h3>Resumen anual 2021 → 2026</h3>
     <div class="hist-resumen-anual-grid">
-      ${anios.map((anio) => `
+      ${resumenAnios.map((anio) => `
         <article class="hist-anual-card">
           <h4>${anio.anio}</h4>
           <div>Ventas ARS <strong>${moneyNullable(anio.ventasArs)}</strong></div>
           <div>Ventas USD <strong>${moneyNullable(anio.ventasUsd, 'USD ')}</strong></div>
           <div>Margen USD <strong>${moneyNullable(anio.margenBrutoUsd, 'USD ')}</strong></div>
         </article>
-      `).join('') || '<div class="item">Sin años importados.</div>'}
+      `).join('')}
     </div>
   `;
 }
@@ -751,21 +772,27 @@ function renderComparacionInteranualHistorico(mesesPorKey) {
   const filas = HIST_COMPARACIONES_INTERANUALES.map(({ mes, actual, anterior }) => {
     const actualItem = mesesPorKey.get(historicoKeyMes(actual, mes));
     const anteriorItem = mesesPorKey.get(historicoKeyMes(anterior, mes));
-    const ventasActual = historicoValor(actualItem, 'ventasUsd');
-    const ventasAnterior = historicoValor(anteriorItem, 'ventasUsd');
-    const margenActual = historicoValor(actualItem, 'margenBrutoUsd');
-    const margenAnterior = historicoValor(anteriorItem, 'margenBrutoUsd');
-    const variacionVentas = historicoVariacion(ventasActual, ventasAnterior);
-    const variacionMargen = historicoVariacion(margenActual, margenAnterior);
+    const ventasArsActual = historicoValor(actualItem, 'ventasArs');
+    const ventasArsAnterior = historicoValor(anteriorItem, 'ventasArs');
+    const ventasUsdActual = historicoValor(actualItem, 'ventasUsd');
+    const ventasUsdAnterior = historicoValor(anteriorItem, 'ventasUsd');
+    const margenUsdActual = historicoValor(actualItem, 'margenBrutoUsd');
+    const margenUsdAnterior = historicoValor(anteriorItem, 'margenBrutoUsd');
+    const variacionVentasArs = historicoVariacion(ventasArsActual, ventasArsAnterior);
+    const variacionVentasUsd = historicoVariacion(ventasUsdActual, ventasUsdAnterior);
+    const variacionMargenUsd = historicoVariacion(margenUsdActual, margenUsdAnterior);
     return `
       <tr>
         <td>${historicoMesLabel(mes)} ${actual} vs ${historicoMesLabel(mes)} ${anterior}</td>
-        <td>${moneyNullable(ventasActual, 'USD ')}</td>
-        <td>${moneyNullable(ventasAnterior, 'USD ')}</td>
-        <td class="${variacionVentas == null ? '' : variacionVentas >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionVentas == null ? '-' : `${variacionVentas.toFixed(1)}%`}</td>
-        <td>${moneyNullable(margenActual, 'USD ')}</td>
-        <td>${moneyNullable(margenAnterior, 'USD ')}</td>
-        <td class="${variacionMargen == null ? '' : variacionMargen >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionMargen == null ? '-' : `${variacionMargen.toFixed(1)}%`}</td>
+        <td>${moneyNullable(ventasArsActual)}</td>
+        <td>${moneyNullable(ventasArsAnterior)}</td>
+        <td class="${variacionVentasArs == null ? '' : variacionVentasArs >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionVentasArs == null ? '-' : `${variacionVentasArs.toFixed(1)}%`}</td>
+        <td>${moneyNullable(ventasUsdActual, 'USD ')}</td>
+        <td>${moneyNullable(ventasUsdAnterior, 'USD ')}</td>
+        <td class="${variacionVentasUsd == null ? '' : variacionVentasUsd >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionVentasUsd == null ? '-' : `${variacionVentasUsd.toFixed(1)}%`}</td>
+        <td>${moneyNullable(margenUsdActual, 'USD ')}</td>
+        <td>${moneyNullable(margenUsdAnterior, 'USD ')}</td>
+        <td class="${variacionMargenUsd == null ? '' : variacionMargenUsd >= 0 ? 'hist-var-pos' : 'hist-var-neg'}">${variacionMargenUsd == null ? '-' : `${variacionMargenUsd.toFixed(1)}%`}</td>
       </tr>
     `;
   }).join('');
@@ -773,7 +800,7 @@ function renderComparacionInteranualHistorico(mesesPorKey) {
     <h3>Comparación interanual</h3>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla">
-        <thead><tr><th>Período</th><th>Ventas actual</th><th>Ventas anterior</th><th>Δ ventas</th><th>Margen actual</th><th>Margen anterior</th><th>Δ margen</th></tr></thead>
+        <thead><tr><th>Período</th><th>Ventas ARS actual</th><th>Ventas ARS anterior</th><th>Δ ventas ARS</th><th>Ventas USD actual</th><th>Ventas USD anterior</th><th>Δ ventas USD</th><th>Margen USD actual</th><th>Margen USD anterior</th><th>Δ margen USD</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -812,7 +839,6 @@ function renderGraficosMensualesHistorico(meses) {
       ${renderGraficoMensualHistorico('Ventas ARS por mes', ordenados, 'ventasArs')}
       ${renderGraficoMensualHistorico('Ventas USD por mes', ordenados, 'ventasUsd', 'USD ')}
       ${renderGraficoMensualHistorico('Margen USD por mes', ordenados, 'margenBrutoUsd', 'USD ')}
-      ${renderGraficoMensualHistorico('Compras USD por mes', ordenados, 'comprasUsd', 'USD ')}
     </div>
   `;
 }
@@ -1456,10 +1482,13 @@ function renderUsuarioActivo() {
 
 function applyRoleModules() {
   const allowed = new Set(ROLE_MODULES[activeRole] || []);
-  const allowedBusiness = new Set(BUSINESS_MODULES[activeBusiness] || []);
+  const businessModules = BUSINESS_MODULES[activeBusiness];
+  const allowedBusiness = new Set(businessModules || HOME_MODULES_BASE);
   document.querySelectorAll('[data-module-card]').forEach((card) => {
     const modulo = card.dataset.moduleCard;
-    card.classList.toggle('hidden', !allowed.has(modulo) || !allowedBusiness.has(modulo));
+    const cardBusiness = card.dataset.businessCard;
+    const visibleByBusiness = businessModules ? allowedBusiness.has(modulo) && (!cardBusiness || cardBusiness === activeBusiness) : allowedBusiness.has(modulo);
+    card.classList.toggle('hidden', !allowed.has(modulo) || !visibleByBusiness);
   });
 }
 
