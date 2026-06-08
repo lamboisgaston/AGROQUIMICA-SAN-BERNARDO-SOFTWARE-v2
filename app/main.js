@@ -748,8 +748,8 @@ function historicoMetricasHtml(item) {
   return `
     <div class="estadisticas-metricas">
       <span>Ventas ARS <strong>${moneyNullable(historicoValor(item, 'ventasArs'))}</strong></span>
-      <span>Ventas USD BNA <strong>${historicoUsdTexto(item, 'ventasUsd')}</strong></span>
-      <span>Margen estimado 30% <strong>${moneyNullable(historicoValor(item, 'margenEstimadoArs'))}</strong></span>
+      <span>Ventas USD Históricas <strong>${historicoUsdTexto(item, 'ventasUsd')}</strong></span>
+      <span>Margen Estimado 30% <strong>${moneyNullable(historicoValor(item, 'margenEstimadoArs'))}</strong></span>
     </div>
   `;
 }
@@ -800,10 +800,10 @@ function renderResumenAnualHistorico(anios) {
   `).join('');
   cont.innerHTML = `
     <h3>Resumen anual gerencial</h3>
-    <p class="hist-section-helper">Basado solo en ventas. El margen es estimado al 30%; compras, facturación, sin respaldo y transferencias no se usan en esta vista.</p>
+    <p class="hist-section-helper">Basado solo en ventas. El Margen Estimado 30% se calcula como Ventas ARS × 0.30; compras, facturación, sin respaldo y transferencias no se usan en esta vista.</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-anual">
-        <thead><tr><th>Año</th><th>Ventas ARS</th><th>Ventas USD BNA</th><th>Margen estimado 30%</th></tr></thead>
+        <thead><tr><th>Año</th><th>Ventas ARS</th><th>Ventas USD Históricas</th><th>Margen Estimado 30%</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -830,16 +830,39 @@ function renderTablaMensualHistorico(meses, anioSeleccionado) {
   }).join('');
   cont.innerHTML = `
     <h3>Tabla mensual ${anioSeleccionado}</h3>
-    <p class="hist-section-helper">Solo ventas ARS, ventas USD históricas con dólar vendedor Banco Nación de cada fecha y margen estimado (Ventas ARS × 30%).</p>
+    <p class="hist-section-helper">Solo ventas ARS, ventas USD históricas con dólar vendedor Banco Nación de cada fecha y Margen Estimado 30% (Ventas ARS × 0.30).</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-mensual">
-        <thead><tr><th>Año</th><th>Mes</th><th>Ventas ARS</th><th>Ventas USD BNA</th><th>Margen estimado 30%</th></tr></thead>
+        <thead><tr><th>Año</th><th>Mes</th><th>Ventas ARS</th><th>Ventas USD Históricas</th><th>Margen Estimado 30%</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
   `;
 }
 
+
+function renderTablaDiariaHistorico(dias) {
+  const cont = $('#hist-tabla-diaria');
+  if (!cont) return;
+  const filas = (dias || []).map((dia) => `
+    <tr>
+      <td><strong>${htmlSafe(dia.fecha || '-')}</strong></td>
+      <td>${moneyNullable(historicoValor(dia, 'ventasArs'))}</td>
+      <td>${historicoUsdTexto(dia, 'ventasUsd')}</td>
+      <td>${moneyNullable(historicoValor(dia, 'margenEstimadoArs'))}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4">Sin detalle diario importado.</td></tr>';
+  cont.innerHTML = `
+    <h3>Resumen diario</h3>
+    <p class="hist-section-helper">Detalle diario con Ventas ARS, Ventas USD Históricas calculadas como Ventas ARS / dólar vendedor Banco Nación de la fecha y Margen Estimado 30% (Ventas ARS × 0.30).</p>
+    <div class="hist-table-scroll">
+      <table class="hist-comparacion-tabla hist-tabla-diaria-detalle">
+        <thead><tr><th>Día</th><th>Ventas ARS</th><th>Ventas USD Históricas</th><th>Margen Estimado 30%</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+}
 
 function ordenarMesesHistorico(meses = []) {
   return [...meses].sort((a, b) => (a.key || historicoKeyMes(a.anio, a.mes)).localeCompare(b.key || historicoKeyMes(b.anio, b.mes)));
@@ -878,11 +901,11 @@ function renderGraficosMensualesHistorico(meses, anioSeleccionado) {
   const ordenadosAnio = Array.from({ length: 12 }, (_, idx) => porMes.get(idx + 1) || historicoMesVacio(anioSeleccionado, idx + 1));
   cont.innerHTML = `
     <h3>Gráficos gerenciales por mes ${anioSeleccionado}</h3>
-    <p class="hist-section-helper">Evolución mensual: ARS, USD BNA histórico y margen estimado sobre ventas ARS.</p>
+    <p class="hist-section-helper">Evolución mensual: Ventas ARS, Ventas USD Históricas y Margen Estimado 30% (Ventas ARS × 0.30).</p>
     <div class="hist-chart-grid">
       ${renderGraficoMensualHistorico('Ventas ARS por mes', ordenadosAnio, 'ventasArs', '$')}
-      ${renderGraficoMensualHistorico('Ventas USD por mes', ordenadosAnio, 'ventasUsd', 'USD ')}
-      ${renderGraficoMensualHistorico('Margen estimado por mes', ordenadosAnio, 'margenEstimadoArs', '$')}
+      ${renderGraficoMensualHistorico('Ventas USD Históricas por mes', ordenadosAnio, 'ventasUsd', 'USD ')}
+      ${renderGraficoMensualHistorico('Margen Estimado 30% por mes', ordenadosAnio, 'margenEstimadoArs', '$')}
     </div>
   `;
 }
@@ -907,6 +930,7 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
   const anioSeleccionado = historicoAnioSeleccionado();
   renderResumenAnualHistorico(anios);
   renderTablaMensualHistorico(meses, anioSeleccionado);
+  renderTablaDiariaHistorico(dias);
   renderGraficosMensualesHistorico(meses, anioSeleccionado);
   if (!meses.length && !dias.length) {
     arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas.</div>';
