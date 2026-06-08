@@ -744,14 +744,12 @@ function historicoVariacionHtml(actual, anterior) {
   return `<span class="${cls}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>`;
 }
 
-function historicoMetricasHtml(item, incluirDolar = false) {
+function historicoMetricasHtml(item) {
   return `
     <div class="estadisticas-metricas">
       <span>Ventas ARS <strong>${moneyNullable(historicoValor(item, 'ventasArs'))}</strong></span>
-      <span>Ventas USD <strong>${historicoUsdTexto(item, 'ventasUsd')}</strong></span>
-      <span>Margen estimado ARS 30% <strong>${moneyNullable(historicoValor(item, 'margenEstimadoArs'))}</strong></span>
-      <span>Margen estimado USD 30% <strong>${historicoUsdTexto(item, 'margenEstimadoUsd')}</strong></span>
-      ${incluirDolar ? `<span>Dólar BNA promedio <strong>${historicoDolarTexto(item)}</strong></span>` : ''}
+      <span>Ventas USD BNA <strong>${historicoUsdTexto(item, 'ventasUsd')}</strong></span>
+      <span>Margen estimado 30% <strong>${moneyNullable(historicoValor(item, 'margenEstimadoArs'))}</strong></span>
     </div>
   `;
 }
@@ -798,7 +796,6 @@ function renderResumenAnualHistorico(anios) {
       <td>${moneyNullable(historicoValor(anio, 'ventasArs'))}</td>
       <td>${historicoUsdTexto(anio, 'ventasUsd')}</td>
       <td>${moneyNullable(historicoValor(anio, 'margenEstimadoArs'))}</td>
-      <td>${historicoUsdTexto(anio, 'margenEstimadoUsd')}</td>
     </tr>
   `).join('');
   cont.innerHTML = `
@@ -806,7 +803,7 @@ function renderResumenAnualHistorico(anios) {
     <p class="hist-section-helper">Basado solo en ventas. El margen es estimado al 30%; compras, facturación, sin respaldo y transferencias no se usan en esta vista.</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-anual">
-        <thead><tr><th>Año</th><th>Ventas ARS</th><th>Ventas USD</th><th>Margen estimado ARS 30%</th><th>Margen estimado USD 30%</th></tr></thead>
+        <thead><tr><th>Año</th><th>Ventas ARS</th><th>Ventas USD BNA</th><th>Margen estimado 30%</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -826,95 +823,28 @@ function renderTablaMensualHistorico(meses, anioSeleccionado) {
         <td><strong>${anioSeleccionado}</strong></td>
         <td><strong>${historicoMesLabel(numeroMes)}</strong><br><small>${key}</small></td>
         <td>${moneyNullable(historicoValor(mes, 'ventasArs'))}</td>
-        <td>${historicoDolarTexto(mes)}</td>
         <td>${historicoUsdTexto(mes, 'ventasUsd')}</td>
         <td>${moneyNullable(historicoValor(mes, 'margenEstimadoArs'))}</td>
-        <td>${historicoUsdTexto(mes, 'margenEstimadoUsd')}</td>
       </tr>
     `;
   }).join('');
   cont.innerHTML = `
-    <h3>Ventas mensuales e indexación BNA ${anioSeleccionado}</h3>
-    <p class="hist-section-helper">Si falta una cotización diaria de Banco Nación, USD queda pendiente y puede recalcularse luego.</p>
+    <h3>Tabla mensual ${anioSeleccionado}</h3>
+    <p class="hist-section-helper">Solo ventas ARS, ventas USD históricas con dólar vendedor Banco Nación de cada fecha y margen estimado (Ventas ARS × 30%).</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-mensual">
-        <thead><tr><th>Año</th><th>Mes</th><th>Ventas ARS</th><th>Dólar BNA promedio del mes</th><th>Ventas USD</th><th>Margen estimado ARS 30%</th><th>Margen estimado USD 30%</th></tr></thead>
+        <thead><tr><th>Año</th><th>Mes</th><th>Ventas ARS</th><th>Ventas USD BNA</th><th>Margen estimado 30%</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
   `;
 }
 
-function renderFilaComparacionHistorico(etiqueta, actual, anterior, cfg) {
-  return `
-    <tr>
-      <td><strong>${htmlSafe(etiqueta)}</strong></td>
-      <td>${moneyNullable(historicoValor(actual, cfg.ventas), cfg.prefijo)}</td>
-      <td>${moneyNullable(historicoValor(anterior, cfg.ventas), cfg.prefijo)}</td>
-      <td>${historicoVariacionHtml(historicoValor(actual, cfg.ventas), historicoValor(anterior, cfg.ventas))}</td>
-      <td>${moneyNullable(historicoValor(actual, cfg.compras), cfg.prefijo)}</td>
-      <td>${moneyNullable(historicoValor(anterior, cfg.compras), cfg.prefijo)}</td>
-      <td>${historicoVariacionHtml(historicoValor(actual, cfg.compras), historicoValor(anterior, cfg.compras))}</td>
-      <td>${moneyNullable(historicoValor(actual, cfg.margen), cfg.prefijo)}</td>
-      <td>${moneyNullable(historicoValor(anterior, cfg.margen), cfg.prefijo)}</td>
-      <td>${historicoVariacionHtml(historicoValor(actual, cfg.margen), historicoValor(anterior, cfg.margen))}</td>
-    </tr>
-  `;
-}
 
 function ordenarMesesHistorico(meses = []) {
   return [...meses].sort((a, b) => (a.key || historicoKeyMes(a.anio, a.mes)).localeCompare(b.key || historicoKeyMes(b.anio, b.mes)));
 }
 
-function historicoMesAnterior(anio, mes) {
-  return Number(mes) === 1
-    ? { anio: Number(anio) - 1, mes: 12 }
-    : { anio: Number(anio), mes: Number(mes) - 1 };
-}
-
-function historicoUltimoMesConDatos(meses = []) {
-  const conDatos = ordenarMesesHistorico(meses).filter((m) => Number(m.cantidadDias || 0) > 0);
-  return conDatos.length ? conDatos[conDatos.length - 1] : null;
-}
-
-function renderComparacionHistorico(meses, anios) {
-  const cont = $('#hist-comparacion');
-  if (!cont) return;
-  const cfg = historicoConfigMoneda();
-  const mesesPorKey = new Map((meses || []).map((m) => [m.key || historicoKeyMes(m.anio, m.mes), m]));
-  const aniosPorNumero = new Map(normalizarResumenAnualHistorico(anios).map((a) => [Number(a.anio), a]));
-  const ultimoMes = historicoUltimoMesConDatos(meses);
-  const mesActualData = ultimoMes || historicoMesVacio(new Date().getFullYear(), new Date().getMonth() + 1);
-  const mesAnterior = historicoMesAnterior(mesActualData.anio, mesActualData.mes);
-  const mesKeyActual = mesActualData.key || historicoKeyMes(mesActualData.anio, mesActualData.mes);
-  const mesKeyAnterior = historicoKeyMes(mesAnterior.anio, mesAnterior.mes);
-  const mesAnteriorData = mesesPorKey.get(mesKeyAnterior) || historicoMesVacio(mesAnterior.anio, mesAnterior.mes);
-  const aniosConDatos = normalizarResumenAnualHistorico(anios).filter((a) => Number(a.cantidadDias || 0) > 0);
-  const anioActual = aniosConDatos.length ? Math.max(...aniosConDatos.map((a) => Number(a.anio))) : new Date().getFullYear();
-  const anioActualData = aniosPorNumero.get(anioActual) || crearHistoricoVacioAnual(anioActual);
-  const anioAnteriorData = aniosPorNumero.get(anioActual - 1) || crearHistoricoVacioAnual(anioActual - 1);
-
-  cont.innerHTML = `
-    <h3>Crecimiento histórico</h3>
-    <p class="hist-section-helper">Mide crecimiento mes contra mes y año contra año con el último período histórico disponible.</p>
-    <div class="hist-table-scroll">
-      <table class="hist-comparacion-tabla">
-        <thead>
-          <tr>
-            <th>Crecimiento</th>
-            <th>Ventas actual</th><th>Ventas anterior</th><th>Δ Ventas</th>
-            <th>Compras actual</th><th>Compras anterior</th><th>Δ Compras</th>
-            <th>Margen actual</th><th>Margen anterior</th><th>Δ Margen</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${renderFilaComparacionHistorico(`Mes contra mes: ${mesKeyActual} vs ${mesKeyAnterior}`, mesActualData, mesAnteriorData, cfg)}
-          ${renderFilaComparacionHistorico(`Año contra año: ${anioActual} vs ${anioActual - 1}`, anioActualData, anioAnteriorData, cfg)}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
 
 function renderGraficoMensualHistorico(titulo, meses, field, moneda = '$') {
   const max = Math.max(...meses.map((m) => Math.abs(historicoValor(m, field))), 0);
@@ -948,11 +878,11 @@ function renderGraficosMensualesHistorico(meses, anioSeleccionado) {
   const ordenadosAnio = Array.from({ length: 12 }, (_, idx) => porMes.get(idx + 1) || historicoMesVacio(anioSeleccionado, idx + 1));
   cont.innerHTML = `
     <h3>Gráficos gerenciales por mes ${anioSeleccionado}</h3>
-    <p class="hist-section-helper">Solo ventas mensuales e indexación a dólar BNA.</p>
+    <p class="hist-section-helper">Evolución mensual: ARS, USD BNA histórico y margen estimado sobre ventas ARS.</p>
     <div class="hist-chart-grid">
       ${renderGraficoMensualHistorico('Ventas ARS por mes', ordenadosAnio, 'ventasArs', '$')}
       ${renderGraficoMensualHistorico('Ventas USD por mes', ordenadosAnio, 'ventasUsd', 'USD ')}
-      ${renderGraficoMensualHistorico('Margen estimado USD por mes', ordenadosAnio, 'margenEstimadoUsd', 'USD ')}
+      ${renderGraficoMensualHistorico('Margen estimado por mes', ordenadosAnio, 'margenEstimadoArs', '$')}
     </div>
   `;
 }
@@ -967,7 +897,7 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
   if (resumen) {
     const pendientes = meses.reduce((total, mes) => total + Number(mes.usdPendienteCantidad || 0), 0);
     resumen.innerHTML = `
-      <div class="estadistica-resumen-card"><strong>${anios.length}</strong><span>Años</span></div>
+      <div class="estadistica-resumen-card"><strong>${HIST_ANIOS_RESUMEN_ANUAL.length}</strong><span>Años</span></div>
       <div class="estadistica-resumen-card"><strong>${meses.length}</strong><span>Meses</span></div>
       <div class="estadistica-resumen-card"><strong>${dias.length}</strong><span>Días importados</span></div>
       <div class="estadistica-resumen-card"><strong>${pendientes}</strong><span>Días USD pendientes</span></div>
@@ -978,9 +908,6 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
   renderResumenAnualHistorico(anios);
   renderTablaMensualHistorico(meses, anioSeleccionado);
   renderGraficosMensualesHistorico(meses, anioSeleccionado);
-  const comparacion = $('#hist-comparacion');
-  if (comparacion) comparacion.innerHTML = '<div class="item">Comparación avanzada oculta: esta pantalla se concentra en ventas y margen estimado 30%.</div>';
-
   if (!meses.length && !dias.length) {
     arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas.</div>';
     return;
@@ -1010,11 +937,11 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
           const diasMes = diasPorMes.get(historicoKeyMes(mes.anio, mes.mes)) || [];
           return `
             <details class="hist-nivel hist-mes" ${Number(anio.anio) === Number(anioSeleccionado) ? 'open' : ''}>
-              <summary><strong>${historicoMesLabel(mes.mes)} ${mes.anio}</strong> · ${mes.cantidadDias} días ${historicoMetricasHtml(mes, true)}</summary>
+              <summary><strong>${historicoMesLabel(mes.mes)} ${mes.anio}</strong> · ${mes.cantidadDias} días ${historicoMetricasHtml(mes)}</summary>
               ${diasMes.map((dia) => `
                 <div class="hist-nivel hist-dia">
                   <strong>${htmlSafe(dia.fecha)}</strong>
-                  ${historicoMetricasHtml(dia, true)}
+                  ${historicoMetricasHtml(dia)}
                 </div>
               `).join('') || '<div class="item">Sin detalle diario para este mes.</div>'}
             </details>

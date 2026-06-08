@@ -180,7 +180,7 @@ async function cargarCotizacionesHistorico(rows = []) {
 function aplicarCotizacionesHistorico(rows = [], cotizaciones = new Map()) {
   return rows.map((row) => ({
     ...row,
-    cotizacionDolarBnaVenta: cotizaciones.get(ymdFromDate(row.fecha)) ?? null
+    cotizacionDolarBnaVenta: cotizaciones.get(ymdFromDate(row.fecha)) ?? row.dolarBnaVenta ?? null
   }));
 }
 
