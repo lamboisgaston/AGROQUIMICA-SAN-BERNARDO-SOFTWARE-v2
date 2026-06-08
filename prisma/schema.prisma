@@ -503,6 +503,7 @@ model EstadisticaHistorica {
   comprasArs               Float?
   dolarBnaVenta            Float?
   ventasUsd                Float?
+  margenEstimadoUsd        Float?
   comprasUsd               Float?
   facturadoUsd             Float?
   margenBrutoArs           Float?
