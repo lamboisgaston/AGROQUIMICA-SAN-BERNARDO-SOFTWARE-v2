@@ -4,6 +4,15 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 const FUENTE = 'BNA';
+const MARGEN_ESTIMADO_HISTORICO = 0.30;
+const COTIZACIONES_DOLAR_BNA_ESTIMADAS_POR_ANIO = {
+  2021: 95,
+  2022: 145,
+  2023: 365,
+  2024: 950,
+  2025: 1180,
+  2026: 1450
+};
 const MESES_SLUG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 function getArgValue(name) {
@@ -32,6 +41,13 @@ function fechaUtcDesdeYmd(value) {
   const date = new Date(Date.UTC(year, month - 1, day));
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
   return date;
+}
+
+function cotizacionDolarBnaEstimadaPorFecha(fecha) {
+  const date = new Date(fecha);
+  const anio = date.getUTCFullYear();
+  const cotizacion = COTIZACIONES_DOLAR_BNA_ESTIMADAS_POR_ANIO[anio];
+  return Number.isFinite(cotizacion) && cotizacion > 0 ? cotizacion : null;
 }
 
 function parseNumeroArgentino(value) {
@@ -153,6 +169,7 @@ async function main() {
     cotizacionesExistentes: 0,
     cotizacionesCsv: 0,
     cotizacionesAutomaticas: 0,
+    cotizacionesEstimadas: 0,
     cotizacionesCreadasOActualizadas: 0,
     estadisticasActualizadas: 0,
     sinCotizacion: 0,
@@ -179,6 +196,11 @@ async function main() {
   }
 
   for (const fecha of fechasHistorico) {
+    const dolarEstimado = cotizacionDolarBnaEstimadaPorFecha(fecha);
+    if (!cotizaciones.has(fecha) && dolarEstimado) {
+      cotizaciones.set(fecha, dolarEstimado);
+      resultado.cotizacionesEstimadas += 1;
+    }
     const dolar = cotizaciones.get(fecha);
     if (!dolar) {
       resultado.sinCotizacion += 1;
@@ -201,7 +223,10 @@ async function main() {
     if (!dolar) continue;
     const ventasUsd = completarUsd(row, dolar);
     const data = { dolarBnaVenta: dolar };
-    if (ventasUsd != null) data.ventasUsd = ventasUsd;
+    if (ventasUsd != null) {
+      data.ventasUsd = ventasUsd;
+      data.margenEstimadoUsd = ventasUsd * MARGEN_ESTIMADO_HISTORICO;
+    }
     if (!dryRun) await prisma.estadisticaHistorica.update({ where: { id: row.id }, data });
     resultado.estadisticasActualizadas += 1;
   }

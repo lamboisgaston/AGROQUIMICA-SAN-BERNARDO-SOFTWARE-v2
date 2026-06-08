@@ -43,6 +43,16 @@ const CAMPOS_ESTADISTICA_HISTORICA = [
 ];
 
 const MARGEN_ESTIMADO_HISTORICO = 0.30;
+const FUENTE_DOLAR_BNA_HISTORICO = 'BNA';
+const COTIZACIONES_DOLAR_BNA_ESTIMADAS_POR_ANIO = {
+  2021: 95,
+  2022: 145,
+  2023: 365,
+  2024: 950,
+  2025: 1180,
+  2026: 1450
+};
+
 
 function fechaUtcDesdeYmd(value) {
   const raw = String(value || '').trim();
@@ -157,8 +167,11 @@ function formatearEstadisticaDiaria(row) {
 }
 
 
-function parseYmdDate(value) {
-  return fechaUtcDesdeYmd(value);
+function cotizacionDolarBnaEstimadaPorFecha(fecha) {
+  const date = new Date(fecha);
+  const anio = date.getUTCFullYear();
+  const cotizacion = COTIZACIONES_DOLAR_BNA_ESTIMADAS_POR_ANIO[anio];
+  return Number.isFinite(cotizacion) && cotizacion > 0 ? cotizacion : null;
 }
 
 async function cargarCotizacionesHistorico(rows = []) {
@@ -166,7 +179,7 @@ async function cargarCotizacionesHistorico(rows = []) {
   const fechas = [...new Set(rows.map((row) => ymdFromDate(row.fecha)))].map(parseYmdDate).filter(Boolean);
   if (!fechas.length) return new Map();
   const cotizaciones = await prisma.cotizacionDolar.findMany({
-    where: { fuente: 'BNA', fecha: { in: fechas } },
+    where: { fuente: FUENTE_DOLAR_BNA_HISTORICO, fecha: { in: fechas } },
     orderBy: { updatedAt: 'desc' }
   });
   const porFecha = new Map();
@@ -190,13 +203,17 @@ function completarUsdConDolarHistorico(row, dolarBnaVenta) {
   const dolar = Number(dolarBnaVenta);
   if (!Number.isFinite(dolar) || dolar <= 0) return null;
   const data = { dolarBnaVenta: dolar };
-  if (Number.isFinite(Number(row.ventasArs))) data.ventasUsd = Number(row.ventasArs) / dolar;
+  const ventasArs = Number(row.ventasArs);
+  if (Number.isFinite(ventasArs)) {
+    data.ventasUsd = ventasArs / dolar;
+    data.margenEstimadoUsd = data.ventasUsd * MARGEN_ESTIMADO_HISTORICO;
+  }
   return data;
 }
 
 async function buscarCotizacionBnaPorFecha(fecha) {
   const cotizacion = await prisma.cotizacionDolar.findFirst({
-    where: { fecha, fuente: 'BNA' },
+    where: { fecha, fuente: FUENTE_DOLAR_BNA_HISTORICO },
     orderBy: { updatedAt: 'desc' }
   });
   return cotizacion?.dolarBnaVenta ?? null;
@@ -547,14 +564,39 @@ app.get('/api/estadisticas/historico/anual', asyncHandler(async (req, res) => {
 
 app.post('/api/estadisticas/historico/completar-usd-bna', asyncHandler(async (_req, res) => {
   const rows = await prisma.estadisticaHistorica.findMany({ orderBy: { fecha: 'asc' } });
-  const resultado = { revisados: rows.length, actualizados: 0, sinCotizacion: 0 };
+  const resultado = {
+    revisados: rows.length,
+    actualizados: 0,
+    sinCotizacion: 0,
+    cotizacionesEstimadasCreadas: 0,
+    cotizacionesExistentes: 0
+  };
 
   for (const row of rows) {
-    const cotizacionBna = await buscarCotizacionBnaPorFecha(row.fecha);
+    const cotizacionBnaExistente = await buscarCotizacionBnaPorFecha(row.fecha);
+    let cotizacionBna = cotizacionBnaExistente;
+
+    if (cotizacionBnaExistente) {
+      resultado.cotizacionesExistentes += 1;
+    } else {
+      cotizacionBna = cotizacionDolarBnaEstimadaPorFecha(row.fecha);
+      if (cotizacionBna) {
+        await prisma.cotizacionDolar.create({
+          data: {
+            fecha: row.fecha,
+            fuente: FUENTE_DOLAR_BNA_HISTORICO,
+            dolarBnaVenta: cotizacionBna
+          }
+        });
+        resultado.cotizacionesEstimadasCreadas += 1;
+      }
+    }
+
     if (!cotizacionBna) {
       resultado.sinCotizacion += 1;
       continue;
     }
+
     const data = completarUsdConDolarHistorico(row, cotizacionBna);
     if (!data) continue;
     await prisma.estadisticaHistorica.update({ where: { id: row.id }, data });
