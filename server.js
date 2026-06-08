@@ -104,12 +104,13 @@ function valorHistoricoCalculado(row, field) {
     const compras = numeroHistorico(row.comprasArs);
     return ventas != null && compras != null ? ventas - compras : null;
   }
-  if (field === 'ventasUsd') return usdDesdeArsHistorico(row.ventasArs, row.dolarBnaVenta);
-  if (field === 'comprasUsd') return usdDesdeArsHistorico(row.comprasArs, row.dolarBnaVenta);
-  if (field === 'facturadoUsd') return usdDesdeArsHistorico(row.facturadoArs, row.dolarBnaVenta);
+  const dolarHistorico = row.dolarBnaVenta ?? row.cotizacionDolarBnaVenta;
+  if (field === 'ventasUsd') return usdDesdeArsHistorico(row.ventasArs, dolarHistorico);
+  if (field === 'comprasUsd') return usdDesdeArsHistorico(row.comprasArs, dolarHistorico);
+  if (field === 'facturadoUsd') return usdDesdeArsHistorico(row.facturadoArs, dolarHistorico);
   if (field === 'margenBrutoUsd') {
     const margenArs = valorHistoricoCalculado(row, 'margenBrutoArs');
-    return usdDesdeArsHistorico(margenArs, row.dolarBnaVenta);
+    return usdDesdeArsHistorico(margenArs, dolarHistorico);
   }
   return null;
 }
@@ -142,7 +143,7 @@ function agregarHistorico(acc, row) {
   CAMPOS_ESTADISTICA_HISTORICA.forEach((field) => {
     acc[field] = sumarNumero(acc[field], valorHistoricoCalculado(row, field));
   });
-  const dolar = Number(row.dolarBnaVenta);
+  const dolar = Number(row.dolarBnaVenta ?? row.cotizacionDolarBnaVenta);
   if (Number.isFinite(dolar) && dolar > 0) {
     acc._dolarSuma = sumarNumero(acc._dolarSuma || 0, dolar);
     acc._dolarCantidad = (acc._dolarCantidad || 0) + 1;
@@ -160,22 +161,45 @@ function formatearEstadisticaDiaria(row) {
     id: row.id,
     fecha: ymdFromDate(row.fecha),
     etiquetaOriginal: row.etiquetaOriginal,
-    dolarBnaVenta: row.dolarBnaVenta,
-    ventasArs: row.ventasArs,
-    ventasUsd: row.ventasUsd,
-    comprasArs: row.comprasArs,
-    comprasUsd: row.comprasUsd,
-    margenBrutoArs: row.margenBrutoArs,
-    margenBrutoUsd: row.margenBrutoUsd,
-    facturadoArs: row.facturadoArs,
-    facturadoUsd: row.facturadoUsd,
-    sinRespaldoArs: row.sinRespaldoArs,
-    recTransferenciaArs: row.recTransferenciaArs,
-    facContadoArs: row.facContadoArs,
-    facBContadoArs: row.facBContadoArs,
-    fcCuentaCorrienteArs: row.fcCuentaCorrienteArs,
-    ffArs: row.ffArs
+    dolarBnaVenta: row.dolarBnaVenta ?? row.cotizacionDolarBnaVenta ?? null,
+    ventasArs: valorHistoricoCalculado(row, 'ventasArs'),
+    ventasUsd: valorHistoricoCalculado(row, 'ventasUsd'),
+    comprasArs: valorHistoricoCalculado(row, 'comprasArs'),
+    comprasUsd: valorHistoricoCalculado(row, 'comprasUsd'),
+    margenBrutoArs: valorHistoricoCalculado(row, 'margenBrutoArs'),
+    margenBrutoUsd: valorHistoricoCalculado(row, 'margenBrutoUsd'),
+    facturadoArs: valorHistoricoCalculado(row, 'facturadoArs'),
+    facturadoUsd: valorHistoricoCalculado(row, 'facturadoUsd'),
+    sinRespaldoArs: valorHistoricoCalculado(row, 'sinRespaldoArs'),
+    recTransferenciaArs: valorHistoricoCalculado(row, 'recTransferenciaArs'),
+    facContadoArs: valorHistoricoCalculado(row, 'facContadoArs'),
+    facBContadoArs: valorHistoricoCalculado(row, 'facBContadoArs'),
+    fcCuentaCorrienteArs: valorHistoricoCalculado(row, 'fcCuentaCorrienteArs'),
+    ffArs: valorHistoricoCalculado(row, 'ffArs')
   };
+}
+
+async function cargarCotizacionesHistorico(rows = []) {
+  if (!rows.length || !prisma.cotizacionDolar) return new Map();
+  const fechas = [...new Set(rows.map((row) => ymdFromDate(row.fecha)))].map(parseYmdDate).filter(Boolean);
+  if (!fechas.length) return new Map();
+  const cotizaciones = await prisma.cotizacionDolar.findMany({
+    where: { fuente: 'BNA', fecha: { in: fechas } },
+    orderBy: { updatedAt: 'desc' }
+  });
+  const porFecha = new Map();
+  cotizaciones.forEach((cotizacion) => {
+    const key = ymdFromDate(cotizacion.fecha);
+    if (!porFecha.has(key)) porFecha.set(key, cotizacion.dolarBnaVenta);
+  });
+  return porFecha;
+}
+
+function aplicarCotizacionesHistorico(rows = [], cotizaciones = new Map()) {
+  return rows.map((row) => ({
+    ...row,
+    cotizacionDolarBnaVenta: cotizaciones.get(ymdFromDate(row.fecha)) ?? null
+  }));
 }
 
 
@@ -498,7 +522,9 @@ app.get('/api/estadisticas/historico/diario', asyncHandler(async (req, res) => {
     where: construirWhereHistorico(req.query),
     orderBy: { fecha: 'desc' }
   });
-  res.json({ agrupacion: 'diario', total: rows.length, data: rows.map(formatearEstadisticaDiaria) });
+  const cotizaciones = await cargarCotizacionesHistorico(rows);
+  const rowsConCotizacion = aplicarCotizacionesHistorico(rows, cotizaciones);
+  res.json({ agrupacion: 'diario', total: rowsConCotizacion.length, data: rowsConCotizacion.map(formatearEstadisticaDiaria) });
 }));
 
 app.get('/api/estadisticas/historico/mensual', asyncHandler(async (req, res) => {
@@ -506,8 +532,10 @@ app.get('/api/estadisticas/historico/mensual', asyncHandler(async (req, res) => 
     where: construirWhereHistorico(req.query),
     orderBy: { fecha: 'asc' }
   });
+  const cotizaciones = await cargarCotizacionesHistorico(rows);
+  const rowsConCotizacion = aplicarCotizacionesHistorico(rows, cotizaciones);
   const byMonth = new Map();
-  rows.forEach((row) => {
+  rowsConCotizacion.forEach((row) => {
     const fecha = ymdFromDate(row.fecha);
     const [year, month] = fecha.split('-');
     const key = `${year}-${month}`;
@@ -526,8 +554,10 @@ app.get('/api/estadisticas/historico/anual', asyncHandler(async (req, res) => {
     where: construirWhereHistorico(req.query),
     orderBy: { fecha: 'asc' }
   });
+  const cotizaciones = await cargarCotizacionesHistorico(rows);
+  const rowsConCotizacion = aplicarCotizacionesHistorico(rows, cotizaciones);
   const byYear = new Map();
-  rows.forEach((row) => {
+  rowsConCotizacion.forEach((row) => {
     const fecha = ymdFromDate(row.fecha);
     const year = fecha.slice(0, 4);
     if (!byYear.has(year)) byYear.set(year, crearAcumuladorHistorico(year, { anio: Number(year) }));

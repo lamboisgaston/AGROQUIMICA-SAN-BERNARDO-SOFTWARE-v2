@@ -457,6 +457,7 @@ details[open] { display: grid; gap: 5px; }
 }
 .hist-var-pos { color: #15803d; font-weight: 700; }
 .hist-var-neg { color: #b91c1c; font-weight: 700; }
+.hist-var-neutral { color: #64748b; font-weight: 700; }
 .hist-chart {
   min-height: 210px;
   display: flex;

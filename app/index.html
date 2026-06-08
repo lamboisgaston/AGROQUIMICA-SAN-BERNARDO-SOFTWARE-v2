@@ -308,8 +308,8 @@
     </section>
 
     <section class="bloque app-shell compact-form estadisticas-historico" data-modulo="estadisticas-historico">
-      <h2>Estadísticas → Histórico</h2>
-      <p>Navegación Año → Mes sin filtros Desde/Hasta, con resumen anual, gráficos mensuales y comparación interanual automática.</p>
+      <h2>Estadísticas Históricas</h2>
+      <p>Navegación Año → Mes → Día, comparativas por año y por mes, gráficos mensuales y variaciones porcentuales automáticas.</p>
       <div class="filters hist-toolbar">
         <label>
           Año
@@ -322,14 +322,19 @@
             <option value="2026" selected>2026</option>
           </select>
         </label>
-        <button id="btn-hist-refrescar" type="button">Actualizar histórico</button>
-        <button id="btn-hist-completar-usd" type="button">Completar USD con dólar BNA</button>
+        <label>
+          Moneda
+          <select id="hist-moneda-selector" aria-label="Seleccionar moneda histórica">
+            <option value="ARS" selected>Ver en Pesos</option>
+            <option value="USD">Ver en USD</option>
+          </select>
+        </label>
       </div>
       <div id="hist-resumen" class="estadisticas-resumen">Sin datos cargados.</div>
-      <div id="hist-tabla-mensual" class="estadisticas-tabla-mensual lista">Sin resumen mensual.</div>
+      <div id="hist-resumen-anual" class="estadisticas-resumen-anual lista">Sin comparación anual.</div>
+      <div id="hist-tabla-mensual" class="estadisticas-tabla-mensual lista">Sin comparación mensual.</div>
       <div id="hist-graficos" class="estadisticas-graficos lista">Sin gráficos.</div>
-      <div id="hist-comparacion" class="estadisticas-comparacion lista">Sin comparación interanual.</div>
-      <div id="hist-resumen-anual" class="estadisticas-resumen-anual lista">Sin resumen anual.</div>
+      <div id="hist-comparacion" class="estadisticas-comparacion lista">Sin variaciones porcentuales.</div>
       <div id="hist-arbol" class="estadisticas-arbol lista">Sin lectura aún.</div>
     </section>
 
