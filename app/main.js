@@ -712,14 +712,24 @@ function historicoConfigMoneda(moneda = historicoMonedaSeleccionada()) {
     label: esUsd ? 'USD' : 'ARS',
     prefijo: esUsd ? 'USD ' : '$',
     ventas: esUsd ? 'ventasUsd' : 'ventasArs',
-    compras: esUsd ? 'comprasUsd' : 'comprasArs',
-    margen: esUsd ? 'margenBrutoUsd' : 'margenBrutoArs'
+    margen: esUsd ? 'margenEstimadoUsd' : 'margenEstimadoArs'
   };
 }
 
 function historicoValor(item, field) {
   const parsed = Number(item?.[field]);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function historicoUsdTexto(item, field) {
+  return Number(item?.usdPendienteCantidad || 0) > 0 || item?.usdPendiente ? 'Pendiente' : moneyNullable(historicoValor(item, field), 'USD ');
+}
+
+function historicoDolarTexto(item) {
+  if (item?.usdPendiente) return 'Pendiente';
+  return Number(item?.usdPendienteCantidad || 0) > 0 && item?.dolarBnaVentaPromedio == null
+    ? 'Pendiente'
+    : moneyNullable(item?.dolarBnaVentaPromedio ?? item?.dolarBnaVenta);
 }
 
 function historicoVariacion(actual, anterior) {
@@ -735,13 +745,13 @@ function historicoVariacionHtml(actual, anterior) {
 }
 
 function historicoMetricasHtml(item, incluirDolar = false) {
-  const cfg = historicoConfigMoneda();
   return `
     <div class="estadisticas-metricas">
-      <span>Ventas ${cfg.label} <strong>${moneyNullable(historicoValor(item, cfg.ventas), cfg.prefijo)}</strong></span>
-      <span>Compras ${cfg.label} <strong>${moneyNullable(historicoValor(item, cfg.compras), cfg.prefijo)}</strong></span>
-      <span>Margen ${cfg.label} <strong>${moneyNullable(historicoValor(item, cfg.margen), cfg.prefijo)}</strong></span>
-      ${incluirDolar ? `<span>Dólar BNA promedio <strong>${moneyNullable(item.dolarBnaVentaPromedio)}</strong></span>` : ''}
+      <span>Ventas ARS <strong>${moneyNullable(historicoValor(item, 'ventasArs'))}</strong></span>
+      <span>Ventas USD <strong>${historicoUsdTexto(item, 'ventasUsd')}</strong></span>
+      <span>Margen estimado ARS 30% <strong>${moneyNullable(historicoValor(item, 'margenEstimadoArs'))}</strong></span>
+      <span>Margen estimado USD 30% <strong>${historicoUsdTexto(item, 'margenEstimadoUsd')}</strong></span>
+      ${incluirDolar ? `<span>Dólar BNA promedio <strong>${historicoDolarTexto(item)}</strong></span>` : ''}
     </div>
   `;
 }
@@ -758,10 +768,9 @@ function crearHistoricoVacioAnual(anio) {
     cantidadDias: 0,
     ventasArs: 0,
     ventasUsd: 0,
-    comprasArs: 0,
-    comprasUsd: 0,
-    margenBrutoArs: 0,
-    margenBrutoUsd: 0
+    margenEstimadoArs: 0,
+    margenEstimadoUsd: 0,
+    usdPendienteCantidad: 0
   };
 }
 
@@ -773,32 +782,31 @@ function historicoMesVacio(anio, mes) {
     cantidadDias: 0,
     ventasArs: 0,
     ventasUsd: 0,
-    comprasArs: 0,
-    comprasUsd: 0,
-    margenBrutoArs: 0,
-    margenBrutoUsd: 0
+    margenEstimadoArs: 0,
+    margenEstimadoUsd: 0,
+    usdPendienteCantidad: 0
   };
 }
 
 function renderResumenAnualHistorico(anios) {
   const cont = $('#hist-resumen-anual');
   if (!cont) return;
-  const cfg = historicoConfigMoneda();
   const resumenAnios = normalizarResumenAnualHistorico(anios);
   const filas = resumenAnios.map((anio) => `
     <tr>
       <td><strong>${anio.anio}</strong></td>
-      <td>${moneyNullable(historicoValor(anio, cfg.ventas), cfg.prefijo)}</td>
-      <td>${moneyNullable(historicoValor(anio, cfg.compras), cfg.prefijo)}</td>
-      <td>${moneyNullable(historicoValor(anio, cfg.margen), cfg.prefijo)}</td>
+      <td>${moneyNullable(historicoValor(anio, 'ventasArs'))}</td>
+      <td>${historicoUsdTexto(anio, 'ventasUsd')}</td>
+      <td>${moneyNullable(historicoValor(anio, 'margenEstimadoArs'))}</td>
+      <td>${historicoUsdTexto(anio, 'margenEstimadoUsd')}</td>
     </tr>
   `).join('');
   cont.innerHTML = `
-    <h3>Tabla resumen por año</h3>
-    <p class="hist-section-helper">Vista gerencial consolidada: Año | Ventas | Compras | Margen.</p>
+    <h3>Resumen anual gerencial</h3>
+    <p class="hist-section-helper">Basado solo en ventas. El margen es estimado al 30%; compras, facturación, sin respaldo y transferencias no se usan en esta vista.</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-anual">
-        <thead><tr><th>Año</th><th>Ventas ${cfg.label}</th><th>Compras ${cfg.label}</th><th>Margen ${cfg.label}</th></tr></thead>
+        <thead><tr><th>Año</th><th>Ventas ARS</th><th>Ventas USD</th><th>Margen estimado ARS 30%</th><th>Margen estimado USD 30%</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -808,7 +816,6 @@ function renderResumenAnualHistorico(anios) {
 function renderTablaMensualHistorico(meses, anioSeleccionado) {
   const cont = $('#hist-tabla-mensual');
   if (!cont) return;
-  const cfg = historicoConfigMoneda();
   const mesesPorKey = new Map((meses || []).map((m) => [m.key || historicoKeyMes(m.anio, m.mes), m]));
   const filas = Array.from({ length: 12 }, (_, idx) => {
     const numeroMes = idx + 1;
@@ -816,19 +823,22 @@ function renderTablaMensualHistorico(meses, anioSeleccionado) {
     const mes = mesesPorKey.get(key) || historicoMesVacio(anioSeleccionado, numeroMes);
     return `
       <tr>
+        <td><strong>${anioSeleccionado}</strong></td>
         <td><strong>${historicoMesLabel(numeroMes)}</strong><br><small>${key}</small></td>
-        <td>${moneyNullable(historicoValor(mes, cfg.ventas), cfg.prefijo)}</td>
-        <td>${moneyNullable(historicoValor(mes, cfg.compras), cfg.prefijo)}</td>
-        <td>${moneyNullable(historicoValor(mes, cfg.margen), cfg.prefijo)}</td>
+        <td>${moneyNullable(historicoValor(mes, 'ventasArs'))}</td>
+        <td>${historicoDolarTexto(mes)}</td>
+        <td>${historicoUsdTexto(mes, 'ventasUsd')}</td>
+        <td>${moneyNullable(historicoValor(mes, 'margenEstimadoArs'))}</td>
+        <td>${historicoUsdTexto(mes, 'margenEstimadoUsd')}</td>
       </tr>
     `;
   }).join('');
   cont.innerHTML = `
-    <h3>Vista comparativa por mes ${anioSeleccionado}</h3>
-    <p class="hist-section-helper">Vista gerencial mensual: Mes | Ventas | Compras | Margen.</p>
+    <h3>Ventas mensuales e indexación BNA ${anioSeleccionado}</h3>
+    <p class="hist-section-helper">Si falta una cotización diaria de Banco Nación, USD queda pendiente y puede recalcularse luego.</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-mensual">
-        <thead><tr><th>Mes</th><th>Ventas ${cfg.label}</th><th>Compras ${cfg.label}</th><th>Margen ${cfg.label}</th></tr></thead>
+        <thead><tr><th>Año</th><th>Mes</th><th>Ventas ARS</th><th>Dólar BNA promedio del mes</th><th>Ventas USD</th><th>Margen estimado ARS 30%</th><th>Margen estimado USD 30%</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -933,18 +943,16 @@ function renderGraficoMensualHistorico(titulo, meses, field, moneda = '$') {
 function renderGraficosMensualesHistorico(meses, anioSeleccionado) {
   const cont = $('#hist-graficos');
   if (!cont) return;
-  const cfg = historicoConfigMoneda();
   const mesesOrdenados = ordenarMesesHistorico(meses || []);
   const porMes = new Map(mesesOrdenados.filter((m) => Number(m.anio) === Number(anioSeleccionado)).map((m) => [Number(m.mes), m]));
   const ordenadosAnio = Array.from({ length: 12 }, (_, idx) => porMes.get(idx + 1) || historicoMesVacio(anioSeleccionado, idx + 1));
   cont.innerHTML = `
-    <h3>Gráficos históricos ${cfg.label}</h3>
-    <p class="hist-section-helper">Tendencia completa importada y detalle mensual del año seleccionado.</p>
+    <h3>Gráficos gerenciales por mes ${anioSeleccionado}</h3>
+    <p class="hist-section-helper">Solo ventas mensuales e indexación a dólar BNA.</p>
     <div class="hist-chart-grid">
-      ${renderGraficoMensualHistorico(`Ventas históricas ${cfg.label}`, mesesOrdenados, cfg.ventas, cfg.prefijo)}
-      ${renderGraficoMensualHistorico(`Margen histórico ${cfg.label}`, mesesOrdenados, cfg.margen, cfg.prefijo)}
-      ${renderGraficoMensualHistorico(`Ventas ${cfg.label} por mes ${anioSeleccionado}`, ordenadosAnio, cfg.ventas, cfg.prefijo)}
-      ${renderGraficoMensualHistorico(`Margen ${cfg.label} por mes ${anioSeleccionado}`, ordenadosAnio, cfg.margen, cfg.prefijo)}
+      ${renderGraficoMensualHistorico('Ventas ARS por mes', ordenadosAnio, 'ventasArs', '$')}
+      ${renderGraficoMensualHistorico('Ventas USD por mes', ordenadosAnio, 'ventasUsd', 'USD ')}
+      ${renderGraficoMensualHistorico('Margen estimado USD por mes', ordenadosAnio, 'margenEstimadoUsd', 'USD ')}
     </div>
   `;
 }
@@ -956,13 +964,13 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
   const meses = mensual?.data || [];
   const anios = anual?.data || [];
   const dias = diario?.data || [];
-  const cfg = historicoConfigMoneda();
   if (resumen) {
+    const pendientes = meses.reduce((total, mes) => total + Number(mes.usdPendienteCantidad || 0), 0);
     resumen.innerHTML = `
       <div class="estadistica-resumen-card"><strong>${anios.length}</strong><span>Años</span></div>
       <div class="estadistica-resumen-card"><strong>${meses.length}</strong><span>Meses</span></div>
       <div class="estadistica-resumen-card"><strong>${dias.length}</strong><span>Días importados</span></div>
-      <div class="estadistica-resumen-card"><strong>${cfg.label}</strong><span>Vista seleccionada</span></div>
+      <div class="estadistica-resumen-card"><strong>${pendientes}</strong><span>Días USD pendientes</span></div>
     `;
   }
 
@@ -970,7 +978,8 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
   renderResumenAnualHistorico(anios);
   renderTablaMensualHistorico(meses, anioSeleccionado);
   renderGraficosMensualesHistorico(meses, anioSeleccionado);
-  renderComparacionHistorico(meses, anios);
+  const comparacion = $('#hist-comparacion');
+  if (comparacion) comparacion.innerHTML = '<div class="item">Comparación avanzada oculta: esta pantalla se concentra en ventas y margen estimado 30%.</div>';
 
   if (!meses.length && !dias.length) {
     arbol.innerHTML = '<div class="item">No hay estadísticas históricas importadas.</div>';
@@ -1014,6 +1023,20 @@ function renderEstadisticasHistorico(mensual, anual, diario) {
       </details>
     `).join('')}
   `;
+}
+
+async function recalcularUsdHistorico() {
+  const btn = $('#btn-hist-recalcular-usd');
+  if (btn) btn.disabled = true;
+  try {
+    const resultado = await api('/api/estadisticas/historico/completar-usd-bna', { method: 'POST' });
+    setMsg(`USD histórico recalculado: ${resultado.actualizados || 0} actualizados, ${resultado.sinCotizacion || 0} sin cotización BNA.`, 'success');
+    await loadEstadisticasHistorico();
+  } catch (error) {
+    setMsg(`Error al recalcular USD histórico: ${error.message || error}`, 'warning');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function loadEstadisticasHistorico() {
@@ -2051,6 +2074,7 @@ $('#hist-anio-selector')?.addEventListener('change', (event) => {
   loadEstadisticasHistorico();
 });
 $('#hist-moneda-selector')?.addEventListener('change', loadEstadisticasHistorico);
+$('#btn-hist-recalcular-usd')?.addEventListener('click', recalcularUsdHistorico);
 $('#btn-cambiar-usuario')?.addEventListener('click', cambiarUsuario);
 $('#btn-volver-inicio')?.addEventListener('click', volverInicio);
 const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);

@@ -13,7 +13,7 @@ async function main() {
   const resultado = { revisados: rows.length, actualizados: 0, sinCotizacion: 0 };
 
   for (const row of rows) {
-    const cotizacion = row.dolarBnaVenta ?? (await prisma.cotizacionDolar.findFirst({
+    const cotizacion = (await prisma.cotizacionDolar.findFirst({
       where: { fecha: row.fecha, fuente: 'BNA' },
       orderBy: { updatedAt: 'desc' }
     }))?.dolarBnaVenta;
@@ -23,20 +23,11 @@ async function main() {
       continue;
     }
 
-    const margenBrutoArs = row.margenBrutoArs ?? (
-      Number.isFinite(Number(row.ventasArs)) && Number.isFinite(Number(row.comprasArs))
-        ? Number(row.ventasArs) - Number(row.comprasArs)
-        : null
-    );
     const data = { dolarBnaVenta: cotizacion };
-    if (row.ventasUsd == null) data.ventasUsd = usdDesdeArs(row.ventasArs, cotizacion);
-    if (row.comprasUsd == null) data.comprasUsd = usdDesdeArs(row.comprasArs, cotizacion);
-    if (row.facturadoUsd == null) data.facturadoUsd = usdDesdeArs(row.facturadoArs, cotizacion);
-    if (row.margenBrutoArs == null && margenBrutoArs != null) data.margenBrutoArs = margenBrutoArs;
-    if (row.margenBrutoUsd == null) data.margenBrutoUsd = usdDesdeArs(margenBrutoArs, cotizacion);
+    if (Number.isFinite(Number(row.ventasArs))) data.ventasUsd = usdDesdeArs(row.ventasArs, cotizacion);
 
     Object.keys(data).forEach((key) => { if (data[key] == null) delete data[key]; });
-    if (Object.keys(data).length <= (row.dolarBnaVenta == null ? 0 : 1)) continue;
+    if (!Object.keys(data).length) continue;
     await prisma.estadisticaHistorica.update({ where: { id: row.id }, data });
     resultado.actualizados += 1;
   }
