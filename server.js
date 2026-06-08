@@ -183,6 +183,11 @@ function formatearEstadisticaDiaria(row) {
   };
 }
 
+
+function parseYmdDate(value) {
+  return fechaUtcDesdeYmd(value);
+}
+
 async function cargarCotizacionesHistorico(rows = []) {
   if (!rows.length || !prisma.cotizacionDolar) return new Map();
   const fechas = [...new Set(rows.map((row) => ymdFromDate(row.fecha)))].map(parseYmdDate).filter(Boolean);
