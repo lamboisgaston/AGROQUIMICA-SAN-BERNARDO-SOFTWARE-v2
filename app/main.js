@@ -685,6 +685,7 @@ function moneyNullable(value, moneda = '$') {
 }
 
 const HIST_MESES_NOMBRES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const HIST_MESES_ABREV = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const HIST_ANIOS_RESUMEN_ANUAL = [2021, 2022, 2023, 2024, 2025, 2026];
 const HIST_RANGO_DESDE = { anio: 2021, mes: 7 };
 const HIST_RANGO_HASTA = { anio: 2026, mes: 6 };
@@ -933,135 +934,127 @@ function historicoFormatoCompacto(value, moneda = '$') {
   return `${prefijo}${numero.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
 }
 
-function historicoPolyline(points, field, escala, width, height, pad) {
-  const count = Math.max(points.length - 1, 1);
-  return points.map((item, index) => {
-    const x = pad.left + (index / count) * (width - pad.left - pad.right);
-    const y = pad.top + ((escala.max - historicoValor(item, field)) / escala.rango) * (height - pad.top - pad.bottom);
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(' ');
+function historicoPuntoXY(index, valor, escala, width, height, pad) {
+  const count = 11;
+  const numero = Number(valor);
+  const valorSeguro = Number.isFinite(numero) ? numero : 0;
+  const x = pad.left + (index / count) * (width - pad.left - pad.right);
+  const y = pad.top + ((escala.max - valorSeguro) / escala.rango) * (height - pad.top - pad.bottom);
+  return { x, y };
 }
 
-function historicoTicksY(escala, moneda, lado, width, height, pad) {
-  const x = lado === 'right' ? width - pad.right + 10 : pad.left - 10;
-  const anchor = lado === 'right' ? 'start' : 'end';
-  return [0, 0.5, 1].map((ratio) => {
+function historicoTicksY(escala, moneda, width, height, pad) {
+  return [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
     const valor = escala.max - escala.rango * ratio;
     const y = pad.top + ratio * (height - pad.top - pad.bottom);
-    return `<text class="hist-svg-tick" x="${x}" y="${y + 4}" text-anchor="${anchor}">${htmlSafe(historicoFormatoCompacto(valor, moneda))}</text>`;
+    return `<text class="hist-svg-tick" x="${pad.left - 10}" y="${y + 4}" text-anchor="end">${htmlSafe(historicoFormatoCompacto(valor, moneda))}</text>`;
   }).join('');
 }
 
-function historicoTicksX(meses, width, height, pad) {
-  const count = Math.max(meses.length - 1, 1);
-  const cada = meses.length > 24 ? 6 : meses.length > 12 ? 3 : 1;
-  return meses.map((mes, index) => {
-    const esPrimeroOUltimo = index === 0 || index === meses.length - 1;
-    if (!esPrimeroOUltimo && index % cada !== 0) return '';
-    const x = pad.left + (index / count) * (width - pad.left - pad.right);
-    const etiqueta = mes.key || historicoKeyMes(mes.anio, mes.mes);
-    return `<text class="hist-svg-tick hist-svg-x" x="${x}" y="${height - 12}" text-anchor="middle">${htmlSafe(etiqueta)}</text>`;
+function historicoTicksXComparativo(width, height, pad) {
+  return HIST_MESES_ABREV.map((mes, index) => {
+    const { x } = historicoPuntoXY(index, 0, { max: 1, rango: 1 }, width, height, pad);
+    return `<text class="hist-svg-tick hist-svg-x" x="${x.toFixed(2)}" y="${height - 14}" text-anchor="middle">${htmlSafe(mes)}</text>`;
   }).join('');
 }
 
-function renderGraficoVentasXYHistorico(meses) {
+function historicoMesesComparativos(meses = []) {
+  const porKey = new Map((meses || []).map((mes) => [historicoKeyMes(mes.anio, mes.mes), mes]));
+  return HIST_ANIOS_RESUMEN_ANUAL.map((anio) => ({
+    anio,
+    meses: Array.from({ length: 12 }, (_, index) => {
+      const mes = index + 1;
+      return porKey.get(historicoKeyMes(anio, mes)) || historicoMesVacio(anio, mes);
+    })
+  }));
+}
+
+const HIST_SERIE_COLORES = {
+  2021: '#16a34a',
+  2022: '#2563eb',
+  2023: '#f97316',
+  2024: '#9333ea',
+  2025: '#dc2626',
+  2026: '#0891b2'
+};
+
+function historicoTooltipComparativo(item, field, labelValor, esUsd) {
+  const valor = esUsd ? historicoUsdTexto(item, field) : moneyNullable(historicoValor(item, field));
+  return `Año: ${item.anio}\nMes: ${historicoMesLabel(item.mes)}\n${labelValor}: ${valor}`;
+}
+
+function renderGraficoComparativoVentasHistorico(meses, config) {
   const width = 980;
-  const height = 360;
-  const pad = { top: 30, right: 96, bottom: 54, left: 96 };
-  const escalaArs = historicoEscalaLineal(meses.map((m) => historicoValor(m, 'ventasArs')));
-  const escalaUsd = historicoEscalaLineal(meses.map((m) => historicoValor(m, 'ventasUsd')));
-  const polyArs = historicoPolyline(meses, 'ventasArs', escalaArs, width, height, pad);
-  const polyUsd = historicoPolyline(meses, 'ventasUsd', escalaUsd, width, height, pad);
+  const height = 380;
+  const pad = { top: 34, right: 24, bottom: 58, left: 92 };
+  const series = historicoMesesComparativos(meses);
+  const valores = series.flatMap((serie) => serie.meses.map((mes) => historicoValor(mes, config.field)));
+  const escala = historicoEscalaLineal(valores);
   const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
     const y = pad.top + ratio * (height - pad.top - pad.bottom);
     return `<line class="hist-svg-grid" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"></line>`;
   }).join('');
+  const leyenda = series.map((serie) => `
+    <span><i style="background:${HIST_SERIE_COLORES[serie.anio]}"></i>${serie.anio}</span>
+  `).join('');
+  const lineas = series.map((serie) => {
+    const points = serie.meses.map((mes, index) => {
+      const { x, y } = historicoPuntoXY(index, historicoValor(mes, config.field), escala, width, height, pad);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+    return `<polyline class="hist-xy-line" style="stroke:${HIST_SERIE_COLORES[serie.anio]}" points="${points}"></polyline>`;
+  }).join('');
+  const puntos = series.map((serie) => serie.meses.map((mes, index) => {
+    const { x, y } = historicoPuntoXY(index, historicoValor(mes, config.field), escala, width, height, pad);
+    return `<circle class="hist-xy-dot" style="fill:${HIST_SERIE_COLORES[serie.anio]}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.5"><title>${htmlSafe(historicoTooltipComparativo(mes, config.field, config.tooltipLabel, config.esUsd))}</title></circle>`;
+  }).join('')).join('');
+
   return `
     <article class="hist-chart-card hist-chart-card-wide hist-xy-card">
       <div class="hist-chart-title-row">
-        <h3>Evolución mensual de ventas ARS y USD</h3>
-        <div class="hist-legend">
-          <span><i class="hist-legend-ars"></i>Ventas ARS</span>
-          <span><i class="hist-legend-usd"></i>Ventas USD Históricas</span>
-        </div>
+        <h3>${htmlSafe(config.titulo)}</h3>
+        <div class="hist-legend hist-legend-years">${leyenda}</div>
       </div>
-      <p class="hist-section-helper">Eje X cronológico por mes. Eje Y izquierdo: Ventas ARS. Eje Y derecho: Ventas USD históricas.</p>
+      <p class="hist-section-helper">Eje X: meses de enero a diciembre. Eje Y: ${htmlSafe(config.ejeY)}. Cada línea representa un año.</p>
       <div class="hist-svg-scroll">
-        <svg class="hist-xy-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolución mensual de ventas ARS y USD históricas">
+        <svg class="hist-xy-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${htmlSafe(config.titulo)}">
           ${grid}
           <line class="hist-svg-axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}"></line>
-          <line class="hist-svg-axis" x1="${width - pad.right}" y1="${pad.top}" x2="${width - pad.right}" y2="${height - pad.bottom}"></line>
           <line class="hist-svg-axis" x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}"></line>
-          ${historicoTicksY(escalaArs, '$', 'left', width, height, pad)}
-          ${historicoTicksY(escalaUsd, 'USD ', 'right', width, height, pad)}
-          ${historicoTicksX(meses, width, height, pad)}
-          <text class="hist-svg-axis-label" x="${pad.left}" y="18" text-anchor="middle">Ventas ARS</text>
-          <text class="hist-svg-axis-label" x="${width - pad.right}" y="18" text-anchor="middle">Ventas USD</text>
-          <polyline class="hist-xy-line hist-xy-line-ars" points="${polyArs}"></polyline>
-          <polyline class="hist-xy-line hist-xy-line-usd" points="${polyUsd}"></polyline>
-          ${meses.map((mes, index) => {
-            const count = Math.max(meses.length - 1, 1);
-            const x = pad.left + (index / count) * (width - pad.left - pad.right);
-            const yArs = pad.top + ((escalaArs.max - historicoValor(mes, 'ventasArs')) / escalaArs.rango) * (height - pad.top - pad.bottom);
-            const yUsd = pad.top + ((escalaUsd.max - historicoValor(mes, 'ventasUsd')) / escalaUsd.rango) * (height - pad.top - pad.bottom);
-            const key = mes.key || historicoKeyMes(mes.anio, mes.mes);
-            return `
-              <circle class="hist-xy-dot hist-xy-dot-ars" cx="${x.toFixed(2)}" cy="${yArs.toFixed(2)}" r="3"><title>${htmlSafe(key)} · Ventas ARS ${moneyNullable(historicoValor(mes, 'ventasArs'))}</title></circle>
-              <circle class="hist-xy-dot hist-xy-dot-usd" cx="${x.toFixed(2)}" cy="${yUsd.toFixed(2)}" r="3"><title>${htmlSafe(key)} · Ventas USD ${historicoUsdTexto(mes, 'ventasUsd')}</title></circle>
-            `;
-          }).join('')}
+          ${historicoTicksY(escala, config.prefijo, width, height, pad)}
+          ${historicoTicksXComparativo(width, height, pad)}
+          <text class="hist-svg-axis-label" x="${pad.left}" y="18" text-anchor="middle">${htmlSafe(config.ejeY)}</text>
+          ${lineas}
+          ${puntos}
         </svg>
       </div>
     </article>
   `;
 }
 
-function renderGraficoMargenXYHistorico(meses) {
-  const width = 980;
-  const height = 300;
-  const pad = { top: 28, right: 44, bottom: 54, left: 96 };
-  const escala = historicoEscalaLineal(meses.map((m) => historicoValor(m, 'margenEstimadoUsd')));
-  const poly = historicoPolyline(meses, 'margenEstimadoUsd', escala, width, height, pad);
-  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-    const y = pad.top + ratio * (height - pad.top - pad.bottom);
-    return `<line class="hist-svg-grid" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"></line>`;
-  }).join('');
-  return `
-    <article class="hist-chart-card hist-chart-card-wide hist-xy-card">
-      <h3>Margen estimado 30% en USD por mes</h3>
-      <p class="hist-section-helper">Eje X cronológico por mes. Eje Y: Margen 30% USD.</p>
-      <div class="hist-svg-scroll">
-        <svg class="hist-xy-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Margen estimado 30% en USD por mes">
-          ${grid}
-          <line class="hist-svg-axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}"></line>
-          <line class="hist-svg-axis" x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}"></line>
-          ${historicoTicksY(escala, 'USD ', 'left', width, height, pad)}
-          ${historicoTicksX(meses, width, height, pad)}
-          <polyline class="hist-xy-line hist-xy-line-margin" points="${poly}"></polyline>
-          ${meses.map((mes, index) => {
-            const count = Math.max(meses.length - 1, 1);
-            const x = pad.left + (index / count) * (width - pad.left - pad.right);
-            const y = pad.top + ((escala.max - historicoValor(mes, 'margenEstimadoUsd')) / escala.rango) * (height - pad.top - pad.bottom);
-            const key = mes.key || historicoKeyMes(mes.anio, mes.mes);
-            return `<circle class="hist-xy-dot hist-xy-dot-margin" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3"><title>${htmlSafe(key)} · Margen 30% USD ${historicoUsdTexto(mes, 'margenEstimadoUsd')}</title></circle>`;
-          }).join('')}
-        </svg>
-      </div>
-    </article>
-  `;
-}
-
-function renderGraficosMensualesHistorico(meses, anioSeleccionado) {
+function renderGraficosMensualesHistorico(meses) {
   const cont = $('#hist-graficos');
   if (!cont) return;
-  const vista = historicoVistaSeleccionada();
-  const mesesParaGrafico = historicoCompletarMeses(ordenarMesesHistorico(meses || []), vista, anioSeleccionado);
-  const tituloRango = vista === 'anio' ? `Año ${anioSeleccionado}` : '2021-07 a 2026-06';
+  const mesesParaGrafico = ordenarMesesHistorico(meses || []);
   cont.innerHTML = `
-    <h3>Gráficos XY · ${tituloRango}</h3>
+    <h3>Gráficos principales</h3>
     <div class="hist-chart-grid hist-xy-grid">
-      ${renderGraficoVentasXYHistorico(mesesParaGrafico)}
-      ${renderGraficoMargenXYHistorico(mesesParaGrafico)}
+      ${renderGraficoComparativoVentasHistorico(mesesParaGrafico, {
+        titulo: 'Ventas mensuales comparadas por año - ARS',
+        ejeY: 'Ventas ARS',
+        tooltipLabel: 'Ventas ARS',
+        field: 'ventasArs',
+        prefijo: '$',
+        esUsd: false
+      })}
+      ${renderGraficoComparativoVentasHistorico(mesesParaGrafico, {
+        titulo: 'Ventas mensuales comparadas por año - USD histórico',
+        ejeY: 'Ventas USD históricas',
+        tooltipLabel: 'Ventas USD',
+        field: 'ventasUsd',
+        prefijo: 'USD ',
+        esUsd: true
+      })}
     </div>
   `;
 }
