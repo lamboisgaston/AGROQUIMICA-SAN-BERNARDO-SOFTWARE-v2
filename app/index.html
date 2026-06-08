@@ -312,6 +312,13 @@
       <p>Panel gerencial simplificado: Ventas ARS, Ventas USD Históricas y Margen Estimado 30%.</p>
       <div class="filters hist-toolbar">
         <label>
+          Vista
+          <select id="hist-vista-selector" aria-label="Seleccionar vista histórica">
+            <option value="todos" selected>Ver todos los años</option>
+            <option value="anio">Ver solo un año</option>
+          </select>
+        </label>
+        <label id="hist-anio-label" class="hist-anio-label" hidden>
           Año
           <select id="hist-anio-selector" aria-label="Seleccionar año histórico">
             <option value="2021">2021</option>
@@ -325,11 +332,14 @@
         <button id="btn-hist-recalcular-usd" type="button">Completar dólar BNA y USD</button>
       </div>
       <div id="hist-resumen" class="estadisticas-resumen">Sin datos cargados.</div>
-      <div id="hist-resumen-anual" class="estadisticas-resumen-anual lista">Sin resumen anual.</div>
-      <div id="hist-tabla-mensual" class="estadisticas-tabla-mensual lista">Sin resumen mensual.</div>
-      <div id="hist-tabla-diaria" class="estadisticas-tabla-diaria lista">Sin resumen diario.</div>
       <div id="hist-graficos" class="estadisticas-graficos lista">Sin gráficos.</div>
-      <div id="hist-arbol" class="estadisticas-arbol lista">Sin lectura aún.</div>
+      <details class="hist-detalle-secundario">
+        <summary>Ver tablas y navegación Año → Mes → Día</summary>
+        <div id="hist-resumen-anual" class="estadisticas-resumen-anual lista">Sin resumen anual.</div>
+        <div id="hist-tabla-mensual" class="estadisticas-tabla-mensual lista">Sin resumen mensual.</div>
+        <div id="hist-tabla-diaria" class="estadisticas-tabla-diaria lista">Sin resumen diario.</div>
+        <div id="hist-arbol" class="estadisticas-arbol lista">Sin lectura aún.</div>
+      </details>
     </section>
 
     <section class="bloque app-shell compact-form" data-modulo="reportes">

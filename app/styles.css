@@ -507,3 +507,108 @@ details[open] { display: grid; gap: 5px; }
 .hist-bar-neg {
   background: linear-gradient(180deg, #f87171, #b91c1c);
 }
+
+.hist-anio-label[hidden] {
+  display: none;
+}
+.hist-detalle-secundario {
+  margin-top: 14px;
+  border: 1px solid #d1dbe8;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+.hist-detalle-secundario > summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #14532d;
+}
+.hist-xy-grid {
+  grid-template-columns: 1fr;
+}
+.hist-xy-card {
+  overflow: hidden;
+}
+.hist-chart-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hist-chart-title-row h3,
+.hist-xy-card h3 {
+  margin: 0;
+  color: #14532d;
+}
+.hist-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+.hist-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.hist-legend i {
+  width: 20px;
+  height: 4px;
+  display: inline-block;
+  border-radius: 999px;
+}
+.hist-legend-ars { background: #16a34a; }
+.hist-legend-usd { background: #2563eb; }
+.hist-svg-scroll {
+  overflow-x: auto;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+}
+.hist-xy-svg {
+  display: block;
+  min-width: 920px;
+  width: 100%;
+  height: auto;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border-radius: 10px;
+}
+.hist-svg-grid {
+  stroke: #e2e8f0;
+  stroke-width: 1;
+}
+.hist-svg-axis {
+  stroke: #64748b;
+  stroke-width: 1.5;
+}
+.hist-svg-tick {
+  fill: #475569;
+  font-size: 11px;
+  font-weight: 700;
+}
+.hist-svg-x {
+  font-size: 10px;
+}
+.hist-svg-axis-label {
+  fill: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+.hist-xy-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hist-xy-line-ars { stroke: #16a34a; }
+.hist-xy-line-usd { stroke: #2563eb; }
+.hist-xy-line-margin { stroke: #9333ea; }
+.hist-xy-dot {
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+.hist-xy-dot-ars { fill: #16a34a; }
+.hist-xy-dot-usd { fill: #2563eb; }
+.hist-xy-dot-margin { fill: #9333ea; }
