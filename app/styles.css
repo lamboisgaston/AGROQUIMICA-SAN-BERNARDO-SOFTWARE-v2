@@ -560,17 +560,24 @@ details[open] { display: grid; gap: 5px; }
   display: inline-block;
   border-radius: 999px;
 }
+.hist-legend-years {
+  justify-content: flex-end;
+}
+.hist-legend-years i {
+  height: 5px;
+}
 .hist-legend-ars { background: #16a34a; }
 .hist-legend-usd { background: #2563eb; }
 .hist-svg-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;
   border-top: 1px solid #e2e8f0;
   padding-top: 8px;
+  width: 100%;
 }
 .hist-xy-svg {
   display: block;
-  min-width: 920px;
   width: 100%;
+  max-width: 100%;
   height: auto;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   border-radius: 10px;
@@ -589,7 +596,7 @@ details[open] { display: grid; gap: 5px; }
   font-weight: 700;
 }
 .hist-svg-x {
-  font-size: 10px;
+  font-size: 11px;
 }
 .hist-svg-axis-label {
   fill: #334155;
