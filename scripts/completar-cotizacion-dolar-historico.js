@@ -11,7 +11,7 @@ const COTIZACIONES_DOLAR_BNA_ESTIMADAS_POR_ANIO = {
   2023: 365,
   2024: 950,
   2025: 1180,
-  2026: 1450
+  2026: 1200
 };
 const MESES_SLUG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 

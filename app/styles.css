@@ -415,6 +415,23 @@ details[open] { display: grid; gap: 5px; }
   display: grid;
   gap: 8px;
 }
+
+.hist-chart-card-wide {
+  grid-column: 1 / -1;
+}
+.hist-chart-anual {
+  justify-content: space-around;
+  gap: 12px;
+}
+.hist-bar-wrap-anual {
+  min-width: 110px;
+}
+.hist-bar-wrap-anual strong {
+  color: #0f172a;
+  font-size: 12px;
+  text-align: center;
+}
+
 .hist-anual-card h4,
 .hist-chart-card h4 {
   margin: 0;

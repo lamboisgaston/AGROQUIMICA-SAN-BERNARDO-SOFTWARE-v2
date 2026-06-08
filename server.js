@@ -50,7 +50,7 @@ const COTIZACIONES_DOLAR_BNA_ESTIMADAS_POR_ANIO = {
   2023: 365,
   2024: 950,
   2025: 1180,
-  2026: 1450
+  2026: 1200
 };
 
 
@@ -72,6 +72,11 @@ function ymdFromDate(date) {
 
 function parseYmdDate(value) {
   return fechaUtcDesdeYmd(value);
+}
+
+function cotizacionHistoricaValida(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function construirWhereHistorico(query = {}) {
@@ -193,7 +198,7 @@ async function cargarCotizacionesHistorico(rows = []) {
 function aplicarCotizacionesHistorico(rows = [], cotizaciones = new Map()) {
   return rows.map((row) => ({
     ...row,
-    cotizacionDolarBnaVenta: cotizaciones.get(ymdFromDate(row.fecha)) ?? row.dolarBnaVenta ?? null
+    cotizacionDolarBnaVenta: cotizacionHistoricaValida(cotizaciones.get(ymdFromDate(row.fecha))) ?? cotizacionHistoricaValida(row.dolarBnaVenta) ?? null
   }));
 }
 
@@ -211,12 +216,22 @@ function completarUsdConDolarHistorico(row, dolarBnaVenta) {
   return data;
 }
 
-async function buscarCotizacionBnaPorFecha(fecha) {
-  const cotizacion = await prisma.cotizacionDolar.findFirst({
-    where: { fecha, fuente: FUENTE_DOLAR_BNA_HISTORICO },
+async function cargarMapaCotizacionesBnaHistorico(rows = []) {
+  if (!rows.length || !prisma.cotizacionDolar) return new Map();
+  const fechas = [...new Set(rows.map((row) => ymdFromDate(row.fecha)))].map(parseYmdDate).filter(Boolean);
+  if (!fechas.length) return new Map();
+  const cotizaciones = await prisma.cotizacionDolar.findMany({
+    where: { fuente: FUENTE_DOLAR_BNA_HISTORICO, fecha: { in: fechas } },
     orderBy: { updatedAt: 'desc' }
   });
-  return cotizacion?.dolarBnaVenta ?? null;
+  const porFecha = new Map();
+  cotizaciones.forEach((cotizacion) => {
+    const dolar = cotizacionHistoricaValida(cotizacion.dolarBnaVenta);
+    if (!dolar) return;
+    const key = ymdFromDate(cotizacion.fecha);
+    if (!porFecha.has(key)) porFecha.set(key, dolar);
+  });
+  return porFecha;
 }
 
 function normalizarTelefono(valor) {
@@ -564,6 +579,7 @@ app.get('/api/estadisticas/historico/anual', asyncHandler(async (req, res) => {
 
 app.post('/api/estadisticas/historico/completar-usd-bna', asyncHandler(async (_req, res) => {
   const rows = await prisma.estadisticaHistorica.findMany({ orderBy: { fecha: 'asc' } });
+  const cotizaciones = await cargarMapaCotizacionesBnaHistorico(rows);
   const resultado = {
     revisados: rows.length,
     actualizados: 0,
@@ -572,25 +588,34 @@ app.post('/api/estadisticas/historico/completar-usd-bna', asyncHandler(async (_r
     cotizacionesExistentes: 0
   };
 
-  for (const row of rows) {
-    const cotizacionBnaExistente = await buscarCotizacionBnaPorFecha(row.fecha);
-    let cotizacionBna = cotizacionBnaExistente;
-
-    if (cotizacionBnaExistente) {
+  const fechasHistoricas = [...new Set(rows.map((row) => ymdFromDate(row.fecha)))];
+  for (const fecha of fechasHistoricas) {
+    const cotizacionExistente = cotizacionHistoricaValida(cotizaciones.get(fecha));
+    if (cotizacionExistente) {
       resultado.cotizacionesExistentes += 1;
-    } else {
-      cotizacionBna = cotizacionDolarBnaEstimadaPorFecha(row.fecha);
-      if (cotizacionBna) {
-        await prisma.cotizacionDolar.create({
-          data: {
-            fecha: row.fecha,
-            fuente: FUENTE_DOLAR_BNA_HISTORICO,
-            dolarBnaVenta: cotizacionBna
-          }
-        });
-        resultado.cotizacionesEstimadasCreadas += 1;
-      }
+      continue;
     }
+
+    const fechaDate = parseYmdDate(fecha);
+    const cotizacionEstimada = cotizacionDolarBnaEstimadaPorFecha(fechaDate);
+    if (!fechaDate || !cotizacionEstimada) continue;
+
+    await prisma.cotizacionDolar.upsert({
+      where: { fecha_fuente: { fecha: fechaDate, fuente: FUENTE_DOLAR_BNA_HISTORICO } },
+      update: { dolarBnaVenta: cotizacionEstimada },
+      create: {
+        fecha: fechaDate,
+        fuente: FUENTE_DOLAR_BNA_HISTORICO,
+        dolarBnaVenta: cotizacionEstimada
+      }
+    });
+    cotizaciones.set(fecha, cotizacionEstimada);
+    resultado.cotizacionesEstimadasCreadas += 1;
+  }
+
+  for (const row of rows) {
+    const fecha = ymdFromDate(row.fecha);
+    const cotizacionBna = cotizacionHistoricaValida(cotizaciones.get(fecha)) || cotizacionDolarBnaEstimadaPorFecha(row.fecha);
 
     if (!cotizacionBna) {
       resultado.sinCotizacion += 1;
