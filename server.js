@@ -68,6 +68,10 @@ function ymdFromDate(date) {
   return new Date(date).toISOString().slice(0, 10);
 }
 
+function parseYmdDate(value) {
+  return fechaUtcDesdeYmd(value);
+}
+
 function construirWhereHistorico(query = {}) {
   const where = {};
   const anio = Number(query.anio);
