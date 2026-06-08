@@ -70,16 +70,12 @@ function ymdFromDate(date) {
 
 function construirWhereHistorico(query = {}) {
   const where = {};
-  const gte = fechaUtcDesdeYmd(query.desde);
-  const lte = fechaUtcDesdeYmd(query.hasta);
-  if (gte || lte) {
-    where.fecha = {};
-    if (gte) where.fecha.gte = gte;
-    if (lte) {
-      const fin = new Date(lte);
-      fin.setUTCDate(fin.getUTCDate() + 1);
-      where.fecha.lt = fin;
-    }
+  const anio = Number(query.anio);
+  if (Number.isInteger(anio) && anio >= 2021 && anio <= 2026) {
+    where.fecha = {
+      gte: new Date(Date.UTC(anio, 0, 1)),
+      lt: new Date(Date.UTC(anio + 1, 0, 1))
+    };
   }
   return where;
 }
@@ -87,6 +83,35 @@ function construirWhereHistorico(query = {}) {
 function sumarNumero(actual, value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? actual + parsed : actual;
+}
+
+function numeroHistorico(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function usdDesdeArsHistorico(valueArs, dolarBnaVenta) {
+  const ars = numeroHistorico(valueArs);
+  const dolar = numeroHistorico(dolarBnaVenta);
+  return ars != null && dolar != null && dolar > 0 ? ars / dolar : null;
+}
+
+function valorHistoricoCalculado(row, field) {
+  const directo = numeroHistorico(row[field]);
+  if (directo != null) return directo;
+  if (field === 'margenBrutoArs') {
+    const ventas = numeroHistorico(row.ventasArs);
+    const compras = numeroHistorico(row.comprasArs);
+    return ventas != null && compras != null ? ventas - compras : null;
+  }
+  if (field === 'ventasUsd') return usdDesdeArsHistorico(row.ventasArs, row.dolarBnaVenta);
+  if (field === 'comprasUsd') return usdDesdeArsHistorico(row.comprasArs, row.dolarBnaVenta);
+  if (field === 'facturadoUsd') return usdDesdeArsHistorico(row.facturadoArs, row.dolarBnaVenta);
+  if (field === 'margenBrutoUsd') {
+    const margenArs = valorHistoricoCalculado(row, 'margenBrutoArs');
+    return usdDesdeArsHistorico(margenArs, row.dolarBnaVenta);
+  }
+  return null;
 }
 
 function crearAcumuladorHistorico(key, extra = {}) {
@@ -115,7 +140,7 @@ function crearAcumuladorHistorico(key, extra = {}) {
 function agregarHistorico(acc, row) {
   acc.cantidadDias += 1;
   CAMPOS_ESTADISTICA_HISTORICA.forEach((field) => {
-    acc[field] = sumarNumero(acc[field], row[field]);
+    acc[field] = sumarNumero(acc[field], valorHistoricoCalculado(row, field));
   });
   const dolar = Number(row.dolarBnaVenta);
   if (Number.isFinite(dolar) && dolar > 0) {
