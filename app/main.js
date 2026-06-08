@@ -816,7 +816,7 @@ function renderTablaMensualHistorico(meses, anioSeleccionado) {
     const mes = mesesPorKey.get(key) || historicoMesVacio(anioSeleccionado, numeroMes);
     return `
       <tr>
-        <td><strong>${key}</strong><br><small>${historicoMesLabel(numeroMes)}</small></td>
+        <td><strong>${historicoMesLabel(numeroMes)}</strong><br><small>${key}</small></td>
         <td>${moneyNullable(historicoValor(mes, cfg.ventas), cfg.prefijo)}</td>
         <td>${moneyNullable(historicoValor(mes, cfg.compras), cfg.prefijo)}</td>
         <td>${moneyNullable(historicoValor(mes, cfg.margen), cfg.prefijo)}</td>
@@ -824,27 +824,15 @@ function renderTablaMensualHistorico(meses, anioSeleccionado) {
     `;
   }).join('');
   cont.innerHTML = `
-    <h3>Tabla resumen por mes ${anioSeleccionado}</h3>
-    <p class="hist-section-helper">Vista gerencial mensual: Año-Mes | Ventas | Compras | Margen.</p>
+    <h3>Vista comparativa por mes ${anioSeleccionado}</h3>
+    <p class="hist-section-helper">Vista gerencial mensual: Mes | Ventas | Compras | Margen.</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla hist-tabla-mensual">
-        <thead><tr><th>Año-Mes</th><th>Ventas ${cfg.label}</th><th>Compras ${cfg.label}</th><th>Margen ${cfg.label}</th></tr></thead>
+        <thead><tr><th>Mes</th><th>Ventas ${cfg.label}</th><th>Compras ${cfg.label}</th><th>Margen ${cfg.label}</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
   `;
-}
-
-function historicoPeriodoActual(meses = [], anios = []) {
-  const hoy = new Date();
-  const anioCalendario = hoy.getFullYear();
-  const mesCalendario = hoy.getMonth() + 1;
-  const existeMesCalendario = (meses || []).some((m) => Number(m.anio) === anioCalendario && Number(m.mes) === mesCalendario);
-  const aniosDisponibles = (anios || []).map((a) => Number(a.anio)).filter(Number.isFinite);
-  const anioActual = existeMesCalendario ? anioCalendario : (aniosDisponibles.length ? Math.max(...aniosDisponibles) : anioCalendario);
-  const mesesDelAnio = (meses || []).filter((m) => Number(m.anio) === anioActual && Number(m.cantidadDias || 0) > 0).map((m) => Number(m.mes)).filter(Number.isFinite);
-  const mesActual = existeMesCalendario ? mesCalendario : (mesesDelAnio.length ? Math.max(...mesesDelAnio) : mesCalendario);
-  return { anioActual, mesActual };
 }
 
 function renderFilaComparacionHistorico(etiqueta, actual, anterior, cfg) {
@@ -864,36 +852,54 @@ function renderFilaComparacionHistorico(etiqueta, actual, anterior, cfg) {
   `;
 }
 
+function ordenarMesesHistorico(meses = []) {
+  return [...meses].sort((a, b) => (a.key || historicoKeyMes(a.anio, a.mes)).localeCompare(b.key || historicoKeyMes(b.anio, b.mes)));
+}
+
+function historicoMesAnterior(anio, mes) {
+  return Number(mes) === 1
+    ? { anio: Number(anio) - 1, mes: 12 }
+    : { anio: Number(anio), mes: Number(mes) - 1 };
+}
+
+function historicoUltimoMesConDatos(meses = []) {
+  const conDatos = ordenarMesesHistorico(meses).filter((m) => Number(m.cantidadDias || 0) > 0);
+  return conDatos.length ? conDatos[conDatos.length - 1] : null;
+}
+
 function renderComparacionHistorico(meses, anios) {
   const cont = $('#hist-comparacion');
   if (!cont) return;
   const cfg = historicoConfigMoneda();
-  const { anioActual, mesActual } = historicoPeriodoActual(meses, anios);
   const mesesPorKey = new Map((meses || []).map((m) => [m.key || historicoKeyMes(m.anio, m.mes), m]));
   const aniosPorNumero = new Map(normalizarResumenAnualHistorico(anios).map((a) => [Number(a.anio), a]));
-  const mesKeyActual = historicoKeyMes(anioActual, mesActual);
-  const mesKeyAnterior = historicoKeyMes(anioActual - 1, mesActual);
-  const mesActualData = mesesPorKey.get(mesKeyActual) || historicoMesVacio(anioActual, mesActual);
-  const mesAnteriorData = mesesPorKey.get(mesKeyAnterior) || historicoMesVacio(anioActual - 1, mesActual);
+  const ultimoMes = historicoUltimoMesConDatos(meses);
+  const mesActualData = ultimoMes || historicoMesVacio(new Date().getFullYear(), new Date().getMonth() + 1);
+  const mesAnterior = historicoMesAnterior(mesActualData.anio, mesActualData.mes);
+  const mesKeyActual = mesActualData.key || historicoKeyMes(mesActualData.anio, mesActualData.mes);
+  const mesKeyAnterior = historicoKeyMes(mesAnterior.anio, mesAnterior.mes);
+  const mesAnteriorData = mesesPorKey.get(mesKeyAnterior) || historicoMesVacio(mesAnterior.anio, mesAnterior.mes);
+  const aniosConDatos = normalizarResumenAnualHistorico(anios).filter((a) => Number(a.cantidadDias || 0) > 0);
+  const anioActual = aniosConDatos.length ? Math.max(...aniosConDatos.map((a) => Number(a.anio))) : new Date().getFullYear();
   const anioActualData = aniosPorNumero.get(anioActual) || crearHistoricoVacioAnual(anioActual);
   const anioAnteriorData = aniosPorNumero.get(anioActual - 1) || crearHistoricoVacioAnual(anioActual - 1);
 
   cont.innerHTML = `
-    <h3>Comparación gerencial</h3>
-    <p class="hist-section-helper">Compara el período actual disponible contra el mismo período del año anterior.</p>
+    <h3>Crecimiento histórico</h3>
+    <p class="hist-section-helper">Mide crecimiento mes contra mes y año contra año con el último período histórico disponible.</p>
     <div class="hist-table-scroll">
       <table class="hist-comparacion-tabla">
         <thead>
           <tr>
-            <th>Comparación</th>
+            <th>Crecimiento</th>
             <th>Ventas actual</th><th>Ventas anterior</th><th>Δ Ventas</th>
             <th>Compras actual</th><th>Compras anterior</th><th>Δ Compras</th>
             <th>Margen actual</th><th>Margen anterior</th><th>Δ Margen</th>
           </tr>
         </thead>
         <tbody>
-          ${renderFilaComparacionHistorico(`${mesKeyActual} vs ${mesKeyAnterior}`, mesActualData, mesAnteriorData, cfg)}
-          ${renderFilaComparacionHistorico(`${anioActual} vs ${anioActual - 1}`, anioActualData, anioAnteriorData, cfg)}
+          ${renderFilaComparacionHistorico(`Mes contra mes: ${mesKeyActual} vs ${mesKeyAnterior}`, mesActualData, mesAnteriorData, cfg)}
+          ${renderFilaComparacionHistorico(`Año contra año: ${anioActual} vs ${anioActual - 1}`, anioActualData, anioAnteriorData, cfg)}
         </tbody>
       </table>
     </div>
@@ -903,6 +909,7 @@ function renderComparacionHistorico(meses, anios) {
 function renderGraficoMensualHistorico(titulo, meses, field, moneda = '$') {
   const max = Math.max(...meses.map((m) => Math.abs(historicoValor(m, field))), 0);
   const alturaMax = 160;
+  const mostrarAnio = meses.length > 12;
   return `
     <article class="hist-chart-card">
       <h4>${titulo}</h4>
@@ -910,10 +917,11 @@ function renderGraficoMensualHistorico(titulo, meses, field, moneda = '$') {
         ${meses.map((mes) => {
           const value = historicoValor(mes, field);
           const height = max > 0 ? Math.max(6, Math.round((Math.abs(value) / max) * alturaMax)) : 6;
+          const etiqueta = mostrarAnio ? `${String(mes.anio).slice(2)}-${String(mes.mes).padStart(2, '0')}` : String(mes.mes).padStart(2, '0');
           return `
             <div class="hist-bar-wrap" title="${historicoKeyMes(mes.anio, mes.mes)} · ${moneyNullable(value, moneda)}">
               <div class="hist-bar ${value < 0 ? 'hist-bar-neg' : ''}" style="height:${height}px"></div>
-              <span>${String(mes.mes).padStart(2, '0')}</span>
+              <span>${etiqueta}</span>
             </div>
           `;
         }).join('')}
@@ -926,13 +934,17 @@ function renderGraficosMensualesHistorico(meses, anioSeleccionado) {
   const cont = $('#hist-graficos');
   if (!cont) return;
   const cfg = historicoConfigMoneda();
-  const porMes = new Map((meses || []).filter((m) => Number(m.anio) === Number(anioSeleccionado)).map((m) => [Number(m.mes), m]));
-  const ordenados = Array.from({ length: 12 }, (_, idx) => porMes.get(idx + 1) || historicoMesVacio(anioSeleccionado, idx + 1));
+  const mesesOrdenados = ordenarMesesHistorico(meses || []);
+  const porMes = new Map(mesesOrdenados.filter((m) => Number(m.anio) === Number(anioSeleccionado)).map((m) => [Number(m.mes), m]));
+  const ordenadosAnio = Array.from({ length: 12 }, (_, idx) => porMes.get(idx + 1) || historicoMesVacio(anioSeleccionado, idx + 1));
   cont.innerHTML = `
-    <h3>Gráficos ${cfg.label} por mes ${anioSeleccionado}</h3>
+    <h3>Gráficos históricos ${cfg.label}</h3>
+    <p class="hist-section-helper">Tendencia completa importada y detalle mensual del año seleccionado.</p>
     <div class="hist-chart-grid">
-      ${renderGraficoMensualHistorico(`Ventas ${cfg.label} por mes`, ordenados, cfg.ventas, cfg.prefijo)}
-      ${renderGraficoMensualHistorico(`Margen ${cfg.label} por mes`, ordenados, cfg.margen, cfg.prefijo)}
+      ${renderGraficoMensualHistorico(`Ventas históricas ${cfg.label}`, mesesOrdenados, cfg.ventas, cfg.prefijo)}
+      ${renderGraficoMensualHistorico(`Margen histórico ${cfg.label}`, mesesOrdenados, cfg.margen, cfg.prefijo)}
+      ${renderGraficoMensualHistorico(`Ventas ${cfg.label} por mes ${anioSeleccionado}`, ordenadosAnio, cfg.ventas, cfg.prefijo)}
+      ${renderGraficoMensualHistorico(`Margen ${cfg.label} por mes ${anioSeleccionado}`, ordenadosAnio, cfg.margen, cfg.prefijo)}
     </div>
   `;
 }
@@ -1583,13 +1595,9 @@ function renderUsuarioActivo() {
 
 function applyRoleModules() {
   const allowed = new Set(ROLE_MODULES[activeRole] || []);
-  const businessModules = BUSINESS_MODULES[activeBusiness];
-  const allowedBusiness = new Set(businessModules || HOME_MODULES_BASE);
   document.querySelectorAll('[data-module-card]').forEach((card) => {
     const modulo = card.dataset.moduleCard;
-    const cardBusiness = card.dataset.businessCard;
-    const visibleByBusiness = businessModules ? allowedBusiness.has(modulo) && (!cardBusiness || cardBusiness === activeBusiness) : allowedBusiness.has(modulo);
-    card.classList.toggle('hidden', !allowed.has(modulo) || !visibleByBusiness);
+    card.classList.toggle('hidden', !allowed.has(modulo));
   });
 }
 
