@@ -4732,6 +4732,14 @@ app.get('/semillasya', (req, res) => {
   res.sendFile(path.join(__dirname, 'app', 'semillasya.html'));
 });
 
+app.get(['/hubs/el-tipal', '/hub-el-tipal'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'app', 'hub-el-tipal.html'));
+});
+
+app.get('/operativo', (req, res) => {
+  res.sendFile(path.join(__dirname, 'app', 'index.html'));
+});
+
 app.use('/semillasya', express.static(path.join(__dirname, 'app')));
 
 app.post('/api/semillasya/cliente', asyncHandler(async (req, res) => {
