@@ -1938,6 +1938,40 @@ async function inicializarModuloPedidos() {
 }
 
 
+
+function renderDiagnosticoWhatsapp(data) {
+  const panel = $('#whatsapp-diagnostico-panel');
+  if (!panel) return;
+  const d = data?.diagnostico || data?.diagnosticoPrevio || {};
+  const hallazgos = Array.isArray(d.hallazgos) ? d.hallazgos : [];
+  const filas = hallazgos.map((h) => `<details class="item" open><summary><strong>${h.tabla}</strong> · ${h.columna} · ${(h.registros || []).length} registros</summary><pre>${escapeHtmlClient(JSON.stringify(h.registros || h.error || [], null, 2))}</pre></details>`).join('');
+  const resultados = Array.isArray(data?.resultados) ? `<h4>Eliminación</h4>${data.resultados.map((r) => `<div class="item"><strong>${r.tabla}</strong> · ${r.columna}: ${r.error ? `Error: ${escapeHtmlClient(r.error)}` : `${r.afectados} afectados`}</div>`).join('')}` : '';
+  panel.innerHTML = `
+    <div class="item"><strong>Teléfono ingresado:</strong> ${escapeHtmlClient(d.telefonoIngresado || '')}</div>
+    <div class="item"><strong>Teléfono normalizado:</strong> ${escapeHtmlClient(d.telefonoNormalizado || '')}</div>
+    <div class="item"><strong>Variantes comparadas:</strong> ${(d.variantesComparadas || []).map(escapeHtmlClient).join(', ') || '-'}</div>
+    <div class="item"><strong>Personas:</strong> ${(d.personasEncontradas || []).reduce((a, h) => a + ((h.registros || []).length), 0)} · <strong>Membresías:</strong> ${(d.membresias || []).reduce((a, h) => a + ((h.registros || []).length), 0)} · <strong>Adhesiones:</strong> ${(d.adhesiones || []).reduce((a, h) => a + ((h.registros || []).length), 0)} · <strong>Equipos:</strong> ${(d.equipos || []).reduce((a, h) => a + ((h.registros || []).length), 0)} · <strong>Admisiones:</strong> ${(d.admisiones || []).reduce((a, h) => a + ((h.registros || []).length), 0)}</div>
+    ${resultados}
+    <h4>Hallazgos por origen</h4>
+    ${filas || '<div class="item">Sin hallazgos.</div>'}`;
+}
+
+async function diagnosticarIdentidadWhatsapp() {
+  const telefono = $('#whatsapp-diagnostico-telefono')?.value || '';
+  const panel = $('#whatsapp-diagnostico-panel');
+  if (panel) panel.innerHTML = '<div class="item">Diagnosticando...</div>';
+  const data = await api(`/api/operativo/whatsapp/diagnostico-identidad?telefono=${encodeURIComponent(telefono)}`);
+  renderDiagnosticoWhatsapp(data);
+}
+
+async function eliminarIdentidadWhatsapp() {
+  const telefono = $('#whatsapp-diagnostico-telefono')?.value || '';
+  if (!telefono) return setMsg('Ingresá un teléfono para eliminar la identidad de prueba.', 'error');
+  if (!confirm('Esta acción elimina identidades de prueba y vínculos relacionados con el teléfono. Escribirá confirmación ELIMINAR automáticamente. ¿Continuar?')) return;
+  const data = await api('/api/operativo/whatsapp/identidad-prueba', { method: 'DELETE', body: JSON.stringify({ telefono, confirmar: 'ELIMINAR' }) });
+  renderDiagnosticoWhatsapp(data);
+}
+
 async function loadEstadoSistema() {
   const panel = $('#estado-sistema-panel');
   if (!panel) return;
@@ -3703,6 +3737,8 @@ renderPresupuestoProductos();
 })();
 
 $('#btn-estado-sistema-refrescar')?.addEventListener('click', loadEstadoSistema);
+$('#btn-whatsapp-diagnosticar')?.addEventListener('click', () => diagnosticarIdentidadWhatsapp().catch((error) => setMsg(error.message || error, 'error')));
+$('#btn-whatsapp-eliminar-identidad')?.addEventListener('click', () => eliminarIdentidadWhatsapp().catch((error) => setMsg(error.message || error, 'error')));
 
 
 if (document.getElementById('cc-pago-fecha')) { document.getElementById('cc-pago-fecha').valueAsDate = new Date(); }

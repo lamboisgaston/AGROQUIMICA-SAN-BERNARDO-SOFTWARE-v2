@@ -78,6 +78,122 @@ function escapeHtml(value) {
 function normalizarTelefono(valor) {
   return String(valor || '').replace(/\D+/g, '');
 }
+
+function variantesTelefonoArgentino(valor) {
+  const base = normalizarTelefono(valor);
+  const variantes = new Set([base]);
+  if (!base) return [];
+  const sinPrefijos = base.replace(/^00/, '').replace(/^\+/, '');
+  variantes.add(sinPrefijos);
+  const candidatos = [sinPrefijos];
+  if (sinPrefijos.startsWith('549')) candidatos.push('54' + sinPrefijos.slice(3), sinPrefijos.slice(3));
+  if (sinPrefijos.startsWith('54')) candidatos.push('549' + sinPrefijos.slice(2), sinPrefijos.slice(2));
+  candidatos.forEach((c) => {
+    if (!c) return;
+    variantes.add(c);
+    if (c.startsWith('0')) variantes.add(c.replace(/^0+/, ''));
+    if (c.length >= 10) variantes.add(c.slice(-10));
+    if (c.length >= 8) variantes.add(c.slice(-8));
+  });
+  return [...variantes].filter(Boolean).sort((a, b) => b.length - a.length);
+}
+
+function sqlIdent(nombre) {
+  return '"' + String(nombre).replaceAll('"', '""') + '"';
+}
+
+function sanitizarRegistroDiagnostico(row) {
+  const bloqueados = /(token|secret|password|api.?key|meta.*id|wamid|message.?id|id_?meta)/i;
+  return Object.fromEntries(Object.entries(row || {}).filter(([k]) => !bloqueados.test(k)));
+}
+
+async function obtenerColumnasTelefono() {
+  const rows = await prisma.$queryRawUnsafe(`
+    SELECT table_schema, table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+      AND data_type IN ('text', 'character varying', 'character')
+      AND (
+        column_name ILIKE '%telefono%' OR column_name ILIKE '%teléfono%' OR column_name ILIKE '%phone%' OR
+        column_name ILIKE '%whatsapp%' OR column_name ILIKE '%celular%' OR column_name ILIKE '%contacto%' OR
+        table_name ILIKE '%identidad%' OR table_name ILIKE '%membres%' OR table_name ILIKE '%miembro%' OR
+        table_name ILIKE '%hub%' OR table_name ILIKE '%onboarding%' OR table_name ILIKE '%admision%' OR
+        table_name ILIKE '%admisión%' OR table_name ILIKE '%jardinero%' OR table_name ILIKE '%solicitud%' OR
+        table_name ILIKE '%contacto%' OR table_name ILIKE '%cliente%'
+      )
+    ORDER BY table_schema, table_name, column_name
+  `);
+  return rows;
+}
+
+async function diagnosticarIdentidadPorTelefono(telefono) {
+  const telefonoNormalizado = normalizarTelefono(telefono);
+  const variantes = variantesTelefonoArgentino(telefono);
+  const columnas = await obtenerColumnasTelefono();
+  const hallazgos = [];
+  for (const col of columnas) {
+    const tableRef = `${sqlIdent(col.table_schema)}.${sqlIdent(col.table_name)}`;
+    const colRef = sqlIdent(col.column_name);
+    try {
+      const rows = await prisma.$queryRawUnsafe(
+        `SELECT * FROM ${tableRef} WHERE regexp_replace(COALESCE(${colRef}::text, ''), '[^0-9]', '', 'g') = ANY($1::text[]) LIMIT 50`,
+        variantes
+      );
+      if (rows.length) hallazgos.push({ tabla: `${col.table_schema}.${col.table_name}`, columna: col.column_name, registros: rows.map(sanitizarRegistroDiagnostico) });
+    } catch (error) {
+      hallazgos.push({ tabla: `${col.table_schema}.${col.table_name}`, columna: col.column_name, error: error.message });
+    }
+  }
+  const porCategoria = (pat) => hallazgos.filter((h) => pat.test(h.tabla));
+  return {
+    telefonoIngresado: telefono,
+    telefonoNormalizado,
+    variantesComparadas: variantes,
+    personasEncontradas: porCategoria(/persona|cliente|contacto/i),
+    membresias: porCategoria(/membres|miembro/i),
+    roles: porCategoria(/rol|role|membres|miembro/i),
+    hubs: porCategoria(/hub/i),
+    adhesiones: porCategoria(/adhesion|adhesión|rama/i),
+    equipos: porCategoria(/equipo/i),
+    admisiones: porCategoria(/admision|admisión/i),
+    estadosWhatsappTemporales: porCategoria(/whatsapp|onboarding|jardinero/i),
+    contactosLegacyRelacionados: porCategoria(/contacto|cliente/i),
+    hallazgos
+  };
+}
+
+async function eliminarIdentidadPorTelefono(telefono) {
+  const diagnostico = await diagnosticarIdentidadPorTelefono(telefono);
+  const variantes = diagnostico.variantesComparadas;
+  const tablasProtegidas = /(hub|rama)$/i;
+  const tablasCandidatas = diagnostico.hallazgos
+    .map((h) => ({ schema: h.tabla.split('.')[0], table: h.tabla.split('.')[1], column: h.columna }))
+    .filter((t) => !tablasProtegidas.test(t.table));
+  const resultados = [];
+  for (const t of tablasCandidatas) {
+    const tableRef = `${sqlIdent(t.schema)}.${sqlIdent(t.table)}`;
+    const colRef = sqlIdent(t.column);
+    try {
+      let result;
+      if (t.table.toLowerCase() === 'persona') {
+        result = await prisma.$executeRawUnsafe(
+          `UPDATE ${tableRef} SET eliminado = true, activo = false, "eliminadoAt" = NOW(), "motivoEliminacion" = 'Prueba WhatsApp eliminada por teléfono' WHERE regexp_replace(COALESCE(${colRef}::text, ''), '[^0-9]', '', 'g') = ANY($1::text[]) AND COALESCE(nombre, '') !~* '(noelia|juan\s+pablo|admin|administrador)'`,
+          variantes
+        );
+      } else {
+        result = await prisma.$executeRawUnsafe(
+          `DELETE FROM ${tableRef} WHERE regexp_replace(COALESCE(${colRef}::text, ''), '[^0-9]', '', 'g') = ANY($1::text[])`,
+          variantes
+        );
+      }
+      resultados.push({ tabla: `${t.schema}.${t.table}`, columna: t.column, afectados: Number(result || 0) });
+    } catch (error) {
+      resultados.push({ tabla: `${t.schema}.${t.table}`, columna: t.column, error: error.message });
+    }
+  }
+  return { diagnosticoPrevio: diagnostico, resultados };
+}
+
 function calcularPrecioSemillasYa(producto = {}, tipoCambioSistema = 1) {
   const tc = Number(tipoCambioSistema || 0);
   const ivaRate = 0.21;
@@ -4735,6 +4851,23 @@ app.get('/semillasya', (req, res) => {
 app.get(['/hubs/el-tipal', '/hub-el-tipal'], (req, res) => {
   res.sendFile(path.join(__dirname, 'app', 'hub-el-tipal.html'));
 });
+
+
+app.get('/api/operativo/whatsapp/diagnostico-identidad', asyncHandler(async (req, res) => {
+  const telefono = String(req.query.telefono || '').trim();
+  if (!telefono) return res.status(400).json({ ok: false, error: 'telefono es obligatorio' });
+  const diagnostico = await diagnosticarIdentidadPorTelefono(telefono);
+  res.json({ ok: true, diagnostico });
+}));
+
+app.delete('/api/operativo/whatsapp/identidad-prueba', asyncHandler(async (req, res) => {
+  const telefono = String(req.body?.telefono || '').trim();
+  const confirmar = String(req.body?.confirmar || '').toUpperCase();
+  if (!telefono) return res.status(400).json({ ok: false, error: 'telefono es obligatorio' });
+  if (confirmar !== 'ELIMINAR') return res.status(400).json({ ok: false, error: 'confirmar debe ser ELIMINAR' });
+  const resultado = await eliminarIdentidadPorTelefono(telefono);
+  res.json({ ok: true, ...resultado });
+}));
 
 app.get('/operativo', (req, res) => {
   res.sendFile(path.join(__dirname, 'app', 'index.html'));
