@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { PrismaClient, EstadoVenta, MedioPago, TipoMovimientoStock, EstadoPresupuesto, TipoDestinatarioPresupuesto, CondicionPagoPrevista, TurnoCaja, TipoPedido, EstadoPedido, TipoOperacionVenta, TipoReglaComercial } = require('@prisma/client');
 const PDFDocument = require('pdfkit');
 const { PROVINCIAS_ARGENTINA, LOCALIDADES_ARGENTINA, buscarLocalidades, validarUbicacion, detectarLocalidadesEnTexto, normalizar: normalizarUbicacion } = require('./data/argentina-ubicaciones');
@@ -483,13 +484,26 @@ function aplicarReglasComerciales(base, reglas = []) {
   }
   return { precioFinal: Math.max(0, precio), detalle };
 }
+// Credenciales por variables de entorno (hash bcrypt, nunca en texto plano en el código).
+// Generar un hash nuevo con: node scripts/hash-password.js "miContraseña"
 const usuarios = [
-  { usuario: 'admin', password: 'admin123', rol: 'ADMINISTRADOR_GENERAL' },
-  { usuario: 'gerente', password: 'gerente123', rol: 'GERENTE' },
-  { usuario: 'operador', password: 'operador123', rol: 'MOSTRADOR' }
+  { usuario: 'admin', passwordHash: process.env.ADMIN_PASSWORD_HASH || '', rol: 'ADMINISTRADOR_GENERAL' },
+  { usuario: 'gerente', passwordHash: process.env.GERENTE_PASSWORD_HASH || '', rol: 'GERENTE' },
+  { usuario: 'operador', passwordHash: process.env.OPERADOR_PASSWORD_HASH || '', rol: 'MOSTRADOR' }
 ];
 const registrosEliminados = [];
-const PASSWORD_ELIMINACION = '12345';
+const PASSWORD_ELIMINACION_HASH = process.env.PASSWORD_ELIMINACION_HASH || '';
+
+function advertirSiFaltanCredenciales() {
+  const faltantes = usuarios.filter(u => !u.passwordHash).map(u => u.usuario);
+  if (faltantes.length) {
+    console.warn(`[AUTH] Faltan hashes de contraseña para: ${faltantes.join(', ')}. Esos usuarios no van a poder loguearse hasta configurar las variables de entorno correspondientes.`);
+  }
+  if (!PASSWORD_ELIMINACION_HASH) {
+    console.warn('[AUTH] Falta PASSWORD_ELIMINACION_HASH. La eliminación de registros protegidos quedará bloqueada hasta configurarla.');
+  }
+}
+advertirSiFaltanCredenciales();
 
 function obtenerHostname(req) {
   const hostHeader = String(req.headers.host || '').trim().toLowerCase();
@@ -554,9 +568,9 @@ app.get('/', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { usuario, password } = req.body;
-  const encontrado = usuarios.find(u => u.usuario === usuario && u.password === password);
+  const encontrado = usuarios.find(u => u.usuario === usuario);
 
-  if (!encontrado) {
+  if (!encontrado || !encontrado.passwordHash || !bcrypt.compareSync(String(password || ''), encontrado.passwordHash)) {
     return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
   }
 
@@ -964,7 +978,8 @@ app.get('/eliminados', asyncHandler(async (_req, res) => {
 }));
 
 function validarPasswordEliminacion(password) {
-  return String(password || '') === PASSWORD_ELIMINACION;
+  if (!PASSWORD_ELIMINACION_HASH) return false;
+  return bcrypt.compareSync(String(password || ''), PASSWORD_ELIMINACION_HASH);
 }
 
 async function obtenerTipoCambioActual() {
