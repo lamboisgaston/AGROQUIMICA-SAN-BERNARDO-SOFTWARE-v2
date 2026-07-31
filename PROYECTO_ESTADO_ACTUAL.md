@@ -3,7 +3,7 @@
 ## Proyecto
 Agroquímica San Bernardo - Sistema operativo comercial.
 
-Fecha de actualización de este documento: **2026-05-09 (UTC)**.
+Fecha de actualización de este documento: **2026-05-15 (UTC)**.
 
 ---
 
